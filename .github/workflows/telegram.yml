@@ -64,6 +64,13 @@ jobs:
             *)                       SIDE="${REPO%%/*}" ;;
           esac
 
+          # у issue номер — единственный идентификатор,
+          # у PR он уже есть в заголовке вида "WEB-11: ..."
+          case "$EVENT" in
+            issues) REF="#$NUMBER " ;;
+            *)      REF="" ;;
+          esac
+
           esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
 
           # логин есть в карте — кликабельное упоминание, нет — просто текст
@@ -79,8 +86,8 @@ jobs:
             fi
           }
 
-          TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">#%s %s</a>\n%s' \
-            "$HEAD" "$SIDE" "$URL" "$NUMBER" "$(esc "$TITLE")" "$(mention "$WHO")")
+          TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s' \
+            "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$(mention "$WHO")")
 
           RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
             -d chat_id="$CHAT" \
