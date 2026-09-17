@@ -113,7 +113,7 @@ jobs:
             [ "$COUNT" -gt 10 ] && LIST=$(printf '%s\n…и ещё %s' "$LIST" "$((COUNT - 10))")
 
             BR="${BRANCH#refs/heads/}"
-            TEXT=$(printf '<b>%s</b> · %s\n<a href="https://github.com/%s/tree/%s">%s</a>\n%s\n%s' \
+            TEXT=$(printf '<b>%s</b> · %s · <a href="https://github.com/%s/tree/%s">%s</a>\n%s\n%s' \
               "$HEAD" "$SIDE" "$REPO" "$BR" "$(esc "$BR")" "$LIST" "$(mention "$WHO")")
             MARKUP=$(printf '{"inline_keyboard":[[{"text":"Открыть изменения","url":"%s"}]]}' "$COMPARE")
           else
