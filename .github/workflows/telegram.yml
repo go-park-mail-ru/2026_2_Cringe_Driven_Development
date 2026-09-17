@@ -4,7 +4,7 @@ on:
   issues:
     types: [opened, closed, reopened]
   pull_request:
-    types: [opened, ready_for_review, closed]
+    types: [opened, ready_for_review, closed, review_requested]
   pull_request_review:
     types: [submitted]
 
@@ -14,25 +14,35 @@ jobs:
     steps:
       - name: Отправить сообщение
         env:
-          TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT:   ${{ vars.TELEGRAM_CHAT_ID }}
-          TOPIC:  ${{ vars.TELEGRAM_TOPIC_ID }}
-          EVENT:  ${{ github.event_name }}
-          ACTION: ${{ github.event.action }}
-          MERGED: ${{ github.event.pull_request.merged }}
-          REVIEW: ${{ github.event.review.state }}
-          ACTOR:  ${{ github.actor }}
-          REPO:   ${{ github.repository }}
-          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
-          TITLE:  ${{ github.event.issue.title || github.event.pull_request.title }}
-          URL:    ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+          TOKEN:     ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT:      ${{ vars.TELEGRAM_CHAT_ID }}
+          TOPIC:     ${{ vars.TELEGRAM_TOPIC_ID }}
+          MAP:       ${{ vars.TELEGRAM_USER_MAP }}
+          EVENT:     ${{ github.event_name }}
+          ACTION:    ${{ github.event.action }}
+          MERGED:    ${{ github.event.pull_request.merged }}
+          REVIEW:    ${{ github.event.review.state }}
+          REVIEWER:  ${{ github.event.requested_reviewer.login }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          ACTOR:     ${{ github.actor }}
+          REPO:      ${{ github.repository }}
+          NUMBER:    ${{ github.event.issue.number || github.event.pull_request.number }}
+          TITLE:     ${{ github.event.issue.title || github.event.pull_request.title }}
+          URL:       ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
         run: |
+          WHO="$ACTOR"
+
           case "$EVENT:$ACTION" in
             issues:opened)   HEAD="🆕 Новая задача" ;;
             issues:closed)   HEAD="✅ Задача закрыта" ;;
             issues:reopened) HEAD="♻️ Задача переоткрыта" ;;
             pull_request:opened|pull_request:ready_for_review)
                              HEAD="🔀 Открыт pull request" ;;
+            pull_request:review_requested)
+              # ревью может быть запрошено у команды — тогда упоминать некого
+              [ -z "$REVIEWER" ] && exit 0
+              HEAD="👀 Запрошено ревью"
+              WHO="$REVIEWER" ;;
             pull_request:closed)
               if [ "$MERGED" = "true" ]; then
                 HEAD="🎉 Влито в main"
@@ -41,8 +51,8 @@ jobs:
               fi ;;
             pull_request_review:submitted)
               case "$REVIEW" in
-                approved)          HEAD="👍 Апрув" ;;
-                changes_requested) HEAD="✋ Запрошены правки" ;;
+                approved)          HEAD="👍 Апрув";            WHO="$PR_AUTHOR" ;;
+                changes_requested) HEAD="✋ Запрошены правки";  WHO="$PR_AUTHOR" ;;
                 *)                 exit 0 ;;
               esac ;;
             *) exit 0 ;;
@@ -56,8 +66,21 @@ jobs:
 
           esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
 
+          # логин есть в карте — кликабельное упоминание, нет — просто текст
+          mention () {
+            TGID=""
+            if [ -n "$MAP" ]; then
+              TGID=$(printf '%s' "$MAP" | jq -r --arg u "$1" '.[$u] // empty' 2>/dev/null || true)
+            fi
+            if [ -n "$TGID" ]; then
+              printf '<a href="tg://user?id=%s">%s</a>' "$TGID" "$(esc "$1")"
+            else
+              esc "$1"
+            fi
+          }
+
           TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">#%s %s</a>\n%s' \
-            "$HEAD" "$SIDE" "$URL" "$NUMBER" "$(esc "$TITLE")" "$ACTOR")
+            "$HEAD" "$SIDE" "$URL" "$NUMBER" "$(esc "$TITLE")" "$(mention "$WHO")")
 
           RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
             -d chat_id="$CHAT" \
