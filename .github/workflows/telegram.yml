@@ -112,8 +112,9 @@ jobs:
             LIST=$(printf '%s' "$COMMITS" | jq -r '.[0:10][] | "• \(.id[0:7]) \(.message | split("\n")[0])"' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             [ "$COUNT" -gt 10 ] && LIST=$(printf '%s\n…и ещё %s' "$LIST" "$((COUNT - 10))")
 
-            TEXT=$(printf '<b>%s</b> · %s\n<code>%s</code>\n%s\n%s' \
-              "$HEAD" "$SIDE" "$(esc "${BRANCH#refs/heads/}")" "$LIST" "$(mention "$WHO")")
+            BR="${BRANCH#refs/heads/}"
+            TEXT=$(printf '<b>%s</b> · %s\n<a href="https://github.com/%s/tree/%s">%s</a>\n%s\n%s' \
+              "$HEAD" "$SIDE" "$REPO" "$BR" "$(esc "$BR")" "$LIST" "$(mention "$WHO")")
             MARKUP=$(printf '{"inline_keyboard":[[{"text":"Открыть изменения","url":"%s"}]]}' "$COMPARE")
           else
             # у issue номер — единственный идентификатор,
