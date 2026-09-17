@@ -15,8 +15,8 @@ jobs:
       - name: Отправить сообщение
         env:
           TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT:   ${{ secrets.TELEGRAM_CHAT_ID }}
-          TOPIC:  ${{ secrets.TELEGRAM_TOPIC_ID }}
+          CHAT:   ${{ vars.TELEGRAM_CHAT_ID }}
+          TOPIC:  ${{ vars.TELEGRAM_TOPIC_ID }}
           EVENT:  ${{ github.event_name }}
           ACTION: ${{ github.event.action }}
           MERGED: ${{ github.event.pull_request.merged }}
