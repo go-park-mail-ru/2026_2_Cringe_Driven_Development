@@ -35,6 +35,7 @@ jobs:
           COMMITS:   ${{ toJSON(github.event.commits) }}
           COMPARE:   ${{ github.event.compare }}
           FORCED:    ${{ github.event.forced }}
+          ASSIGNEES: ${{ toJSON(github.event.issue.assignees) }}
         run: |
           WHO="$ACTOR"
           MARKUP='{"inline_keyboard":[]}'
@@ -91,7 +92,7 @@ jobs:
           case "$REPO" in
             frontend-park-mail-ru/*) SIDE="frontend" ;;
             go-park-mail-ru/*)       SIDE="backend" ;;
-            *)                       SIDE="${REPO%%/*}" ;;
+            *)                       SIDE="${REPO#*/}" ;;
           esac
 
           # логин есть в карте — кликабельное упоминание, нет — просто текст
@@ -119,13 +120,25 @@ jobs:
           else
             # у issue номер — единственный идентификатор,
             # у PR он уже есть в заголовке вида "WEB-11: ..."
-            case "$EVENT" in
-              issues) REF="#$NUMBER " ;;
-              *)      REF="" ;;
-            esac
+            if [ "$EVENT" = "issues" ]; then
+              REF="#$NUMBER "
+              LINE="автор: $(mention "$WHO")"
+              NAMES=$(printf '%s' "$ASSIGNEES" | jq -r '[.[].login] | join(" ")' 2>/dev/null || true)
+              if [ -n "$NAMES" ]; then
+                ML=""
+                for N in $NAMES; do
+                  [ -n "$ML" ] && ML="$ML, "
+                  ML="$ML$(mention "$N")"
+                done
+                LINE="$LINE · исполнитель: $ML"
+              fi
+            else
+              REF=""
+              LINE=$(mention "$WHO")
+            fi
 
             TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s' \
-              "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$(mention "$WHO")")
+              "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$LINE")
           fi
 
           RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
