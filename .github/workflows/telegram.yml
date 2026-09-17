@@ -1,6 +1,8 @@
 name: Уведомления в Telegram
 
 on:
+  push:
+    branches-ignore: [main]
   issues:
     types: [opened, closed, reopened]
   pull_request:
@@ -29,10 +31,38 @@ jobs:
           NUMBER:    ${{ github.event.issue.number || github.event.pull_request.number }}
           TITLE:     ${{ github.event.issue.title || github.event.pull_request.title }}
           URL:       ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+          BRANCH:    ${{ github.event.ref }}
+          COMMITS:   ${{ toJSON(github.event.commits) }}
+          COMPARE:   ${{ github.event.compare }}
+          FORCED:    ${{ github.event.forced }}
         run: |
           WHO="$ACTOR"
+          MARKUP='{"inline_keyboard":[]}'
+
+          esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+
+          # 1 коммит / 2 коммита / 5 коммитов
+          plural () {
+            case "$(($1 % 100))" in
+              11|12|13|14) printf 'коммитов' ;;
+              *) case "$(($1 % 10))" in
+                   1)     printf 'коммит' ;;
+                   2|3|4) printf 'коммита' ;;
+                   *)     printf 'коммитов' ;;
+                 esac ;;
+            esac
+          }
 
           case "$EVENT:$ACTION" in
+            push:)
+              COUNT=$(printf '%s' "$COMMITS" | jq 'length')
+              # создание и удаление ветки, пуш тега — событие есть, коммитов нет
+              [ "$COUNT" -eq 0 ] && exit 0
+              if [ "$FORCED" = "true" ]; then
+                HEAD="⚠️ $COUNT $(plural "$COUNT") (force-push)"
+              else
+                HEAD="⚒️ $COUNT $(plural "$COUNT")"
+              fi ;;
             issues:opened)   HEAD="🆕 Новая задача" ;;
             issues:closed)   HEAD="✅ Задача закрыта" ;;
             issues:reopened) HEAD="♻️ Задача переоткрыта" ;;
@@ -64,15 +94,6 @@ jobs:
             *)                       SIDE="${REPO%%/*}" ;;
           esac
 
-          # у issue номер — единственный идентификатор,
-          # у PR он уже есть в заголовке вида "WEB-11: ..."
-          case "$EVENT" in
-            issues) REF="#$NUMBER " ;;
-            *)      REF="" ;;
-          esac
-
-          esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
-
           # логин есть в карте — кликабельное упоминание, нет — просто текст
           mention () {
             TGID=""
@@ -86,14 +107,32 @@ jobs:
             fi
           }
 
-          TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s' \
-            "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$(mention "$WHO")")
+          if [ "$EVENT" = "push" ]; then
+            # у Telegram лимит 4096 символов — длинный пуш иначе отвалится молча
+            LIST=$(printf '%s' "$COMMITS" | jq -r '.[0:10][] | "• \(.id[0:7]) \(.message | split("\n")[0])"' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            [ "$COUNT" -gt 10 ] && LIST=$(printf '%s\n…и ещё %s' "$LIST" "$((COUNT - 10))")
+
+            TEXT=$(printf '<b>%s</b> · %s\n<code>%s</code>\n%s\n%s' \
+              "$HEAD" "$SIDE" "$(esc "${BRANCH#refs/heads/}")" "$LIST" "$(mention "$WHO")")
+            MARKUP=$(printf '{"inline_keyboard":[[{"text":"Открыть изменения","url":"%s"}]]}' "$COMPARE")
+          else
+            # у issue номер — единственный идентификатор,
+            # у PR он уже есть в заголовке вида "WEB-11: ..."
+            case "$EVENT" in
+              issues) REF="#$NUMBER " ;;
+              *)      REF="" ;;
+            esac
+
+            TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s' \
+              "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$(mention "$WHO")")
+          fi
 
           RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
             -d chat_id="$CHAT" \
             -d message_thread_id="$TOPIC" \
             -d parse_mode=HTML \
             -d disable_web_page_preview=true \
+            --data-urlencode reply_markup="$MARKUP" \
             --data-urlencode text="$TEXT")
 
           echo "$RESP"
