@@ -1,0 +1,67 @@
+name: Уведомления в Telegram
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, ready_for_review, closed]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Отправить сообщение
+        env:
+          TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          TOPIC:  ${{ secrets.TELEGRAM_TOPIC_ID }}
+          EVENT:  ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          REVIEW: ${{ github.event.review.state }}
+          ACTOR:  ${{ github.actor }}
+          REPO:   ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          TITLE:  ${{ github.event.issue.title || github.event.pull_request.title }}
+          URL:    ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+        run: |
+          case "$EVENT:$ACTION" in
+            issues:opened)   HEAD="🆕 Новая задача" ;;
+            issues:closed)   HEAD="✅ Задача закрыта" ;;
+            issues:reopened) HEAD="♻️ Задача переоткрыта" ;;
+            pull_request:opened|pull_request:ready_for_review)
+                             HEAD="🔀 Открыт pull request" ;;
+            pull_request:closed)
+              if [ "$MERGED" = "true" ]; then
+                HEAD="🎉 Влито в main"
+              else
+                HEAD="🚫 PR закрыт без мержа"
+              fi ;;
+            pull_request_review:submitted)
+              case "$REVIEW" in
+                approved)          HEAD="👍 Апрув" ;;
+                changes_requested) HEAD="✋ Запрошены правки" ;;
+                *)                 exit 0 ;;
+              esac ;;
+            *) exit 0 ;;
+          esac
+
+          case "$REPO" in
+            frontend-park-mail-ru/*) SIDE="web" ;;
+            go-park-mail-ru/*)       SIDE="api" ;;
+            *)                       SIDE="${REPO%%/*}" ;;
+          esac
+
+          esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+
+          TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">#%s %s</a>\n%s' \
+            "$HEAD" "$SIDE" "$URL" "$NUMBER" "$(esc "$TITLE")" "$ACTOR")
+
+          curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+            -d chat_id="$CHAT" \
+            -d message_thread_id="$TOPIC" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode text="$TEXT"
