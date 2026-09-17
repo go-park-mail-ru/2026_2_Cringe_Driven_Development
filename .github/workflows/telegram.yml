@@ -49,8 +49,8 @@ jobs:
           esac
 
           case "$REPO" in
-            frontend-park-mail-ru/*) SIDE="web" ;;
-            go-park-mail-ru/*)       SIDE="api" ;;
+            frontend-park-mail-ru/*) SIDE="frontend" ;;
+            go-park-mail-ru/*)       SIDE="backend" ;;
             *)                       SIDE="${REPO%%/*}" ;;
           esac
 
