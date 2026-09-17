@@ -59,9 +59,16 @@ jobs:
           TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">#%s %s</a>\n%s' \
             "$HEAD" "$SIDE" "$URL" "$NUMBER" "$(esc "$TITLE")" "$ACTOR")
 
-          curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+          RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
             -d chat_id="$CHAT" \
             -d message_thread_id="$TOPIC" \
             -d parse_mode=HTML \
             -d disable_web_page_preview=true \
-            --data-urlencode text="$TEXT"
+            --data-urlencode text="$TEXT")
+
+          echo "$RESP"
+
+          case "$RESP" in
+            *'"ok":true'*) ;;
+            *) echo "::error::Telegram отклонил сообщение"; exit 1 ;;
+          esac
