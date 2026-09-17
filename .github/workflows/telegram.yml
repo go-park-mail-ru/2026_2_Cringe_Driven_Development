@@ -35,9 +35,11 @@ jobs:
           COMMITS:   ${{ toJSON(github.event.commits) }}
           COMPARE:   ${{ github.event.compare }}
           FORCED:    ${{ github.event.forced }}
+          BODY:      ${{ github.event.issue.body }}
           ASSIGNEES: ${{ toJSON(github.event.issue.assignees) }}
         run: |
           WHO="$ACTOR"
+          EXTRA=""
           MARKUP='{"inline_keyboard":[]}'
 
           esc () { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
@@ -132,13 +134,18 @@ jobs:
                 done
                 LINE="$LINE · исполнитель: $ML"
               fi
+              # описание показываем только при создании — на закрытии это шум
+              if [ "$ACTION" = "opened" ] && [ -n "$BODY" ]; then
+                Q=$(printf '%s' "$BODY" | perl -CS -0777 -pe 's/<!--.*?-->//gs; s/\r//g; s/^#+[ \t]*//gm; s/\n{3,}/\n\n/g; s/^\s+|\s+$//g; $_ = substr($_,0,700) . "…" if length > 700; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g;')
+                [ -n "$Q" ] && EXTRA=$(printf '\n<blockquote expandable>%s</blockquote>' "$Q")
+              fi
             else
               REF=""
               LINE=$(mention "$WHO")
             fi
 
-            TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s' \
-              "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$LINE")
+            TEXT=$(printf '<b>%s</b> · %s\n<a href="%s">%s%s</a>\n%s%s' \
+              "$HEAD" "$SIDE" "$URL" "$REF" "$(esc "$TITLE")" "$LINE" "$EXTRA")
           fi
 
           RESP=$(curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
