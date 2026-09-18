@@ -28,6 +28,7 @@ func main() {
 }
 
 func run() error {
+	host := getEnv("HOST", "0.0.0.0")
 	port := getEnv("PORT", "8080")
 	writeTimeout := getEnvDuration("WRITE_TIMEOUT", 15*time.Second)
 	readTimeout := getEnvDuration("READ_TIMEOUT", 15*time.Second)
@@ -60,19 +61,20 @@ func run() error {
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		// Явно показываем линтеру и другим разработчикам, что игнорируем ошибку
 		_, _ = w.Write([]byte(`{"status": "alive"}`))
 	}).Methods(http.MethodGet)
 
+	bindAddr := fmt.Sprintf("%s:%s", host, port)
+
 	srv := &http.Server{
 		Handler:      r,
-		Addr:         ":" + port,
+		Addr:         bindAddr,
 		WriteTimeout: writeTimeout,
 		ReadTimeout:  readTimeout,
 	}
 
 	slog.Info("starting server",
-		slog.String("port", port),
+		slog.String("addr", bindAddr),
 		slog.String("write_timeout", writeTimeout.String()),
 		slog.String("read_timeout", readTimeout.String()),
 	)
