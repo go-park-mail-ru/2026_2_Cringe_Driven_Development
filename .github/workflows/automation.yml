@@ -1,0 +1,23 @@
+name: Автоматизация
+
+on:
+  push:
+    branches-ignore: [main]
+  issues:
+    types: [opened, closed, reopened, edited]
+  pull_request:
+    types: [opened, ready_for_review, closed, review_requested]
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+jobs:
+  board:
+    uses: Cringe-Driven-Development-Team/.github/.github/workflows/add-to-project.yml@main
+    secrets:
+      ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+  telegram:
+    uses: Cringe-Driven-Development-Team/.github/.github/workflows/telegram.yml@main
+    secrets:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
