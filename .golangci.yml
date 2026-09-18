@@ -1,0 +1,107 @@
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - gci
+    - godot
+
+    - stylecheck
+    - revive
+    - staticcheck
+
+    - errcheck
+    - errorlint
+
+    - gocritic
+    - nakedret
+    - govet
+
+    - prealloc
+    - perfsprint
+
+    - ireturn
+    - gochecknoglobals
+
+    - depguard
+
+linters-settings:
+  gofmt:
+    simplify: true
+
+  gci:
+    sections:
+      - standard
+      - default
+      - blank
+    skip-generated: true
+    custom-order: true
+
+  stylecheck:
+    checks: ["all", "-ST1000"]
+
+  revive:
+    rules:
+      - name: var-naming
+      - name: package-comments
+      - name: blank-imports
+      - name: dot-imports
+      - name: context-keys-type
+      - name: context-as-argument
+      - name: receiver-naming
+      - name: error-return
+      - name: error-naming
+      - name: error-strings
+      - name: indent-error-flow
+
+  gocritic:
+    enabled-checks:
+      - yodaStyleExpr
+      - ifElseChain
+      - singleCaseSwitch
+      - switchTrue
+      - appendAssign
+      - assignOp
+
+  nakedret:
+    max-func-lines: 5
+
+  govet:
+    enable:
+      - composites
+      - copylocks
+      - testinggoroutine
+      - shadow
+
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+      - context.Context
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  depguard:
+    rules:
+      main:
+        files:
+          - $all
+          - "!$test"
+        list-mode: lax
+        deny:
+          - pkg: "github.com/stretchr/testify"
+            desc: "Google Go Style: Do not use assertion libraries."
+          - pkg: "github.com/google/go-cmp/cmp"
+            desc: "Библиотека go-cmp разрешена только в файлах тестов (*_test.go)"
+
+      tests:
+        files:
+          - $test
+        list-mode: lax
+        deny:
+          - pkg: "github.com/stretchr/testify"
+            desc: "Google Go Style: Do not use assertion libraries. Use stdlib and go-cmp instead."
