@@ -21,6 +21,13 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	if err := run(); err != nil {
+		slog.Error("application stopped with error", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	port := getEnv("PORT", "8080")
 	writeTimeout := getEnvDuration("WRITE_TIMEOUT", 15*time.Second)
 	readTimeout := getEnvDuration("READ_TIMEOUT", 15*time.Second)
@@ -35,14 +42,12 @@ func main() {
 
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		slog.Error("unable to connect to database", slog.String("error", err.Error()))
-		os.Exit(1)
+		return fmt.Errorf("unable to connect to database: %w", err)
 	}
 	defer pool.Close()
 
 	if err := pool.Ping(ctx); err != nil {
-		slog.Error("database ping failed", slog.String("error", err.Error()))
-		os.Exit(1)
+		return fmt.Errorf("database ping failed: %w", err)
 	}
 	slog.Info("connected to postgres successfully")
 
@@ -55,7 +60,8 @@ func main() {
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "alive"}`))
+		// Явно показываем линтеру и другим разработчикам, что игнорируем ошибку
+		_, _ = w.Write([]byte(`{"status": "alive"}`))
 	}).Methods(http.MethodGet)
 
 	srv := &http.Server{
@@ -70,10 +76,12 @@ func main() {
 		slog.String("write_timeout", writeTimeout.String()),
 		slog.String("read_timeout", readTimeout.String()),
 	)
+
 	if err := srv.ListenAndServe(); err != nil {
-		slog.Error("server startup failed", slog.String("error", err.Error()))
-		os.Exit(1)
+		return fmt.Errorf("server startup failed: %w", err)
 	}
+
+	return nil
 }
 
 func getEnv(key, fallback string) string {
