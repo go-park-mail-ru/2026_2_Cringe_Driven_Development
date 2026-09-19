@@ -1,0 +1,106 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - errorlint
+    - gochecknoglobals
+    - gocritic
+    - godot
+    - govet
+    - ireturn
+    - nakedret
+    - perfsprint
+    - prealloc
+    - revive
+    - staticcheck
+  settings:
+    depguard:
+      rules:
+        main:
+          list-mode: lax
+          files:
+            - $all
+            - '!$test'
+          deny:
+            - pkg: github.com/stretchr/testify
+              desc: 'Google Go Style: Do not use assertion libraries.'
+            - pkg: github.com/google/go-cmp/cmp
+              desc: Библиотека go-cmp разрешена только в файлах тестов (*_test.go)
+        tests:
+          list-mode: lax
+          files:
+            - $test
+          deny:
+            - pkg: github.com/stretchr/testify
+              desc: 'Google Go Style: Do not use assertion libraries. Use stdlib and go-cmp instead.'
+    gocritic:
+      enabled-checks:
+        - yodaStyleExpr
+    govet:
+      enable:
+        - composites
+        - copylocks
+        - testinggoroutine
+        - shadow
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - context.Context
+    nakedret:
+      max-func-lines: 5
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+    revive:
+      rules:
+        - name: var-naming
+        - name: package-comments
+        - name: blank-imports
+        - name: dot-imports
+        - name: context-keys-type
+        - name: context-as-argument
+        - name: receiver-naming
+        - name: error-return
+        - name: error-naming
+        - name: error-strings
+        - name: indent-error-flow
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - blank
+      custom-order: true
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
