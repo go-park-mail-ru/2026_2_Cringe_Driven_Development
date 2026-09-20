@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vscode
+bin/
+.env
+.env.*
+*.md
+docker-compose.yml
+coverage.out
+coverage-summary.txt
