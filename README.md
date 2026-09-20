@@ -1,6 +1,52 @@
 # 2026_2_Cringe_Driven_Development
 
+[![CI](https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/actions/workflows/ci.yml)
+
 Backend-репозиторий проекта «Colab» команды «Cringe Driven Development»
+
+## CI и Docker-образ
+
+На каждом PR запускаются `lint` (golangci-lint), `test` (проверка зависимостей
+через `go mod tidy -diff`, сборка и тесты с race detector) и `docker` (сборка образа
+без публикации). Покрытие выводится в summary запуска; минимального порога нет.
+Новый push отменяет предыдущий запуск CI для той же ветки или PR.
+
+После push в `main`, если все проверки прошли, образ публикуется в
+`ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development`:
+
+- `sha-<short>` — тег конкретного коммита для выбора версии при деплое;
+- `main` — последняя успешно опубликованная сборка основной ветки.
+
+Тег `latest` не публикуется. SHA-тег может быть перезаписан повторным запуском
+для того же коммита; для строго неизменяемой ссылки используется digest образа.
+Деплой выполняется отдельно в `infra`.
+
+Для локальной работы нужны Go версии из `go.mod`, компилятор C для `-race`,
+Make и Docker с Compose. Команды:
+
+```bash
+make lint          # статический анализ
+make test          # тесты с race detector и coverage.out
+make build         # бинарник bin/server
+make docker-build  # образ colab-backend:local
+make run           # API и PostgreSQL через Docker Compose
+```
+
+При необходимости скопируйте `.env.example` в `.env` и измените локальные
+настройки. После `make run` API доступен по `http://localhost:8080/health`
+(если порт не изменён). Остановка: `docker compose down`.
+
+После первой публикации администратор должен сделать пакет публичным в GHCR,
+проверить его связь с репозиторием и включить обязательные проверки
+`lint`, `test`, `docker` для `main`. После этого образ можно скачать без входа:
+
+```bash
+docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
+```
+
+Если публикация завершается с 403, передайте ментору ссылку на запуск для
+проверки прав организации и пакета. Личные токены для обхода ограничений
+не используются; CI работает с `GITHUB_TOKEN`.
 
 ## Ссылки
 

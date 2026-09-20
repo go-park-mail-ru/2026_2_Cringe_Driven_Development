@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix
+.PHONY: lint lint-fix test build run docker-build
 
 BIN_DIR := ./bin
 LINT_BIN := $(BIN_DIR)/golangci-lint
@@ -12,3 +12,15 @@ lint: $(LINT_BIN)
 
 lint-fix: $(LINT_BIN)
 	$(LINT_BIN) run --fix ./...
+
+test:
+	go test -race -count=1 -coverprofile=coverage.out ./...
+
+build:
+	go build -o bin/server ./cmd/main
+
+run:
+	docker compose up --build
+
+docker-build:
+	docker build -f build/main.Dockerfile -t colab-backend:local .
