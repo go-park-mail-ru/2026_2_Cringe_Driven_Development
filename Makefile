@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix test build run docker-build
+.PHONY: lint lint-fix test build run docker-build generate
 
 BIN_DIR := ./bin
 LINT_BIN := $(BIN_DIR)/golangci-lint
@@ -24,3 +24,9 @@ run:
 
 docker-build:
 	docker build -f build/main.Dockerfile -t colab-backend:local .
+
+SPEC_FILE := internal/api/openapi.yaml
+
+generate:
+	go run ./internal/api/fetchspec -o $(SPEC_FILE)
+	cd internal/api && go tool oapi-codegen -config cfg.yaml openapi.yaml
