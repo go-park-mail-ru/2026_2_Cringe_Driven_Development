@@ -18,7 +18,6 @@ services:
       - ACCESS_TOKEN_TTL=${ACCESS_TOKEN_TTL:-15m}
       - REFRESH_TOKEN_TTL=${REFRESH_TOKEN_TTL:-720h}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
-
     depends_on:
       db:
         condition: service_healthy

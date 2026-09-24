@@ -7,7 +7,7 @@ CREATE TABLE users (
     updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
--- Логин уникален без учёта регистра: "Dasha" и "dasha" — один пользователь.
+-- Логин уникален без учёта регистра: "Alice" и "alice" — один пользователь.
 CREATE UNIQUE INDEX users_login_lower_key ON users (lower(login));
 
 -- +goose Down
