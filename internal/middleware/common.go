@@ -13,7 +13,6 @@ import (
 
 type requestIDKey struct{}
 
-// RequestID takes X-Request-ID from the request or generates one.
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := r.Header.Get("X-Request-ID")
@@ -27,7 +26,6 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
-// Logging logs every processed request.
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -44,7 +42,6 @@ func Logging(next http.Handler) http.Handler {
 	})
 }
 
-// Recover turns a panic into 500 in the Error format.
 func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

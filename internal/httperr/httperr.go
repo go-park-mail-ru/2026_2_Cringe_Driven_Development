@@ -1,4 +1,4 @@
-// Package httperr writes errors in the Error format of the API contract.
+// Package httperr отдаёт ошибки в формате Error из контракта.
 package httperr
 
 import (
@@ -10,17 +10,16 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
 )
 
-// ErrNotImplemented is returned by handlers that are not written yet; it becomes 501.
+// ErrNotImplemented возвращают ещё не написанные хендлеры, клиент получает 501.
 var ErrNotImplemented = errors.New("not implemented")
 
-// Write sends an Error with the given status.
 func Write(w http.ResponseWriter, status int, code api.ErrorCode, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(api.Error{Code: code, Message: message})
 }
 
-// Internal logs err and sends 500 without exposing the details.
+// Internal пишет причину в лог, а клиенту отдаёт 500 без подробностей.
 func Internal(w http.ResponseWriter, r *http.Request, err error) {
 	slog.ErrorContext(r.Context(), "internal error",
 		slog.String("path", r.URL.Path),
@@ -29,18 +28,18 @@ func Internal(w http.ResponseWriter, r *http.Request, err error) {
 	Write(w, http.StatusInternalServerError, api.Internal, "internal server error")
 }
 
-// RequestError answers requests the generated code could not parse.
+// RequestError отвечает, когда сгенерированный код не смог разобрать запрос.
 func RequestError(w http.ResponseWriter, _ *http.Request, err error) {
 	var required *api.RequiredParamError
 	if errors.As(err, &required) && required.ParamName == "refresh_token" {
-		// Without the refresh_token cookie the user is simply not logged in.
+		// Нет cookie refresh_token — значит, пользователь не вошёл.
 		Write(w, http.StatusUnauthorized, api.Unauthorized, "refresh token is missing")
 		return
 	}
 	Write(w, http.StatusBadRequest, api.ValidationError, err.Error())
 }
 
-// ResponseError answers errors returned by handlers.
+// ResponseError отвечает на ошибки, которые вернули хендлеры.
 func ResponseError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, ErrNotImplemented) {
 		Write(w, http.StatusNotImplemented, api.NotImplemented, "not implemented yet")
@@ -49,12 +48,10 @@ func ResponseError(w http.ResponseWriter, r *http.Request, err error) {
 	Internal(w, r, err)
 }
 
-// NotFound answers requests to unknown paths.
 func NotFound(w http.ResponseWriter, _ *http.Request) {
 	Write(w, http.StatusNotFound, api.NotFound, "no such endpoint")
 }
 
-// MethodNotAllowed answers requests with a method the path does not support.
 func MethodNotAllowed(w http.ResponseWriter, _ *http.Request) {
 	Write(w, http.StatusMethodNotAllowed, api.ValidationError, "method not allowed")
 }

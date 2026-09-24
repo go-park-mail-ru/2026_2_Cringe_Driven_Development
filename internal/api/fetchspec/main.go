@@ -1,9 +1,8 @@
-// Command fetchspec downloads the OpenAPI specification from Apidog.
+// Command fetchspec скачивает спецификацию OpenAPI из Apidog.
 //
-// The access token is taken from APIDOG_TOKEN and the optional sprint branch
-// from APIDOG_BRANCH_ID. Without a branch the main branch is exported.
-// Variables missing from the environment are read from the .env file,
-// so `make generate` works without exporting anything.
+// Токен берётся из APIDOG_TOKEN, sprint-ветка — из APIDOG_BRANCH_ID, без неё
+// выгружается main. Переменных нет в окружении — они читаются из .env,
+// поэтому make generate работает без export.
 package main
 
 import (
@@ -142,7 +141,7 @@ func export(ctx context.Context, token string, body exportRequest) ([]byte, erro
 	return data, nil
 }
 
-// readEnvFile reads KEY=VALUE pairs; a missing file is not an error.
+// readEnvFile читает пары KEY=VALUE. Если файла нет, это не ошибка.
 func readEnvFile(path string) (map[string]string, error) {
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {

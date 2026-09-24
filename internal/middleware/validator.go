@@ -15,11 +15,10 @@ import (
 
 var errNoUser = errors.New("authentication required")
 
-// Validator checks requests against the contract: bodies, parameters and
-// the security of each operation. prefix is the part of the path that is
-// not in the contract, such as /api/v1.
+// Validator сверяет запрос с контрактом: тело, параметры и security ручки.
+// prefix — часть пути, которой нет в контракте, например /api/v1.
 func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler {
-	// Keep validation messages short: without this they include the whole schema.
+	// Без этого в текст ошибки попадает вся схема целиком.
 	openapi3.SchemaErrorDetailsDisabled = true
 
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
@@ -32,8 +31,8 @@ func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler 
 	})
 }
 
-// requireUser is called for operations with security in the contract.
-// The user was already put into the context by Authenticate.
+// requireUser вызывается для ручек, у которых в контракте есть security.
+// Пользователя в контекст к этому моменту уже положил Authenticate.
 func requireUser(_ context.Context, input *openapi3filter.AuthenticationInput) error {
 	if _, ok := auth.UserIDFromContext(input.RequestValidationInput.Request.Context()); !ok {
 		return errNoUser

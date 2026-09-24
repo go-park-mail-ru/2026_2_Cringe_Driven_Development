@@ -14,15 +14,15 @@ import (
 
 const baseURL = "/api/v1"
 
-// Both handlers are named Handler, and a struct cannot embed two fields with
-// the same name. Aliases give the embedded fields different names.
+// Оба типа называются Handler, а встроить в структуру два поля с одним именем
+// нельзя. Псевдонимы дают встроенным полям разные имена.
 type (
 	userHandler     = user.Handler
 	notebookHandler = notebook.Handler
 )
 
-// server implements api.StrictServerInterface: each embedded handler
-// brings the methods of its part of the contract.
+// server реализует api.StrictServerInterface: каждый встроенный хендлер
+// приносит методы своей части контракта.
 type server struct {
 	*userHandler
 	*notebookHandler
@@ -40,12 +40,13 @@ func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) 
 	r.NotFoundHandler = http.HandlerFunc(httperr.NotFound)
 	r.MethodNotAllowedHandler = http.HandlerFunc(httperr.MethodNotAllowed)
 
-	// The first one is the outermost: it sees the request first.
+	// Первый в списке — внешний: запрос сначала попадает в него.
 	r.Use(middleware.RequestID, middleware.Logging, middleware.Recover)
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+		// Явно показываем линтеру и другим разработчикам, что игнорируем ошибку
 		_, _ = w.Write([]byte(`{"status": "alive"}`))
 	}).Methods(http.MethodGet)
 
@@ -56,8 +57,8 @@ func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) 
 	api.HandlerWithOptions(strict, api.GorillaServerOptions{
 		BaseURL:    baseURL,
 		BaseRouter: r,
-		// Only for the operations of the contract. Here the last one is the
-		// outermost, so Authenticate runs before Validator.
+		// Только для ручек контракта. Здесь внешний — последний в списке,
+		// поэтому Authenticate выполняется раньше Validator.
 		Middlewares: []api.MiddlewareFunc{
 			middleware.Validator(spec, baseURL),
 			middleware.Authenticate(tokens),

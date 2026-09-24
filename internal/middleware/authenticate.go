@@ -1,4 +1,4 @@
-// Package middleware contains the HTTP middleware of the API server.
+// Package middleware содержит HTTP middleware сервера.
 package middleware
 
 import (
@@ -9,14 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// TokenParser verifies an access token and returns its user.
 type TokenParser interface {
 	Parse(token string) (uuid.UUID, error)
 }
 
-// Authenticate puts the user into the context when the request carries a
-// valid access token. It never rejects a request: endpoints that require a
-// user are closed by the validator according to the contract.
+// Authenticate кладёт пользователя в контекст, если в запросе валидный токен.
+// Сам запросы не отклоняет: закрытые ручки по контракту закрывает Validator.
 func Authenticate(tokens TokenParser) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
