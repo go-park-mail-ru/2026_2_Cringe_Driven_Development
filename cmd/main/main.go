@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,6 +35,12 @@ func run() error {
 	writeTimeout := getEnvDuration("WRITE_TIMEOUT", 15*time.Second)
 	readTimeout := getEnvDuration("READ_TIMEOUT", 15*time.Second)
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		return errors.New("JWT_SECRET is not set")
+	}
+	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
+
 	dbUser := getEnv("POSTGRES_USER", "postgres")
 	dbPass := getEnv("POSTGRES_PASSWORD", "postgres")
 	dbHost := getEnv("POSTGRES_HOST", "db")
@@ -47,27 +55,25 @@ func run() error {
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
+	if err = pool.Ping(ctx); err != nil {
 		return fmt.Errorf("database ping failed: %w", err)
 	}
 	slog.Info("connected to postgres successfully")
 
-	r := mux.NewRouter()
-
-	r.Use(recoverMiddleware)
-	r.Use(requestIDMiddleware)
-	r.Use(loggingMiddleware)
-
-	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status": "alive"}`))
-	}).Methods(http.MethodGet)
+	tokens := auth.NewAccessTokens([]byte(jwtSecret), accessTTL)
+	srv := server{
+		userHandler:     user.NewHandler(),
+		notebookHandler: notebook.NewHandler(),
+	}
+	router, err := newRouter(srv, tokens)
+	if err != nil {
+		return err
+	}
 
 	bindAddr := fmt.Sprintf("%s:%s", host, port)
 
-	srv := &http.Server{
-		Handler:      r,
+	httpServer := &http.Server{
+		Handler:      router,
 		Addr:         bindAddr,
 		WriteTimeout: writeTimeout,
 		ReadTimeout:  readTimeout,
@@ -79,7 +85,7 @@ func run() error {
 		slog.String("read_timeout", readTimeout.String()),
 	)
 
-	if err := srv.ListenAndServe(); err != nil {
+	if err := httpServer.ListenAndServe(); err != nil {
 		return fmt.Errorf("server startup failed: %w", err)
 	}
 
@@ -101,45 +107,4 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 		slog.Warn("invalid duration in env, using fallback", slog.String("key", key))
 	}
 	return fallback
-}
-
-func requestIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := r.Header.Get("X-Request-ID")
-		if reqID == "" {
-			reqID = uuid.New().String()
-		}
-		w.Header().Set("X-Request-ID", reqID)
-
-		ctx := context.WithValue(r.Context(), requestIDKey, reqID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		reqID, _ := r.Context().Value(requestIDKey).(string)
-
-		next.ServeHTTP(w, r)
-
-		slog.Info("request processed",
-			slog.String("request_id", reqID),
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
-			slog.Duration("duration", time.Since(start)),
-		)
-	})
-}
-
-func recoverMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				slog.Error("panic recovered", slog.Any("err", err))
-				http.Error(w, `{"error": "Internal Server Error"}`, http.StatusInternalServerError)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
 }

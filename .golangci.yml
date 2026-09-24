@@ -51,6 +51,7 @@ linters:
         - empty
         - stdlib
         - context.Context
+        - github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api\..*ResponseObject$
     nakedret:
       max-func-lines: 5
     prealloc:
