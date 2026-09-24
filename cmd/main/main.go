@@ -42,6 +42,9 @@ func run() error {
 	}
 	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
 
+	refreshTTL := getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour)
+	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
+
 	dbUser := getEnv("POSTGRES_USER", "postgres")
 	dbPass := getEnv("POSTGRES_PASSWORD", "postgres")
 	dbHost := getEnv("POSTGRES_HOST", "db")
@@ -67,7 +70,11 @@ func run() error {
 
 	tokens := auth.NewAccessTokens([]byte(jwtSecret), accessTTL)
 	srv := server{
-		userHandler:     user.NewHandler(),
+		userHandler: user.NewHandler(
+			user.NewService(user.NewRepository(pool), tokens, refreshTTL),
+			user.CookieConfig{Path: baseURL + "/auth", Secure: cookieSecure},
+		),
+
 		notebookHandler: notebook.NewHandler(),
 	}
 	router, err := newRouter(srv, tokens)
