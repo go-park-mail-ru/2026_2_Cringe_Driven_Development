@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -59,6 +60,10 @@ func run() error {
 		return fmt.Errorf("database ping failed: %w", err)
 	}
 	slog.Info("connected to postgres successfully")
+
+	if err = migrations.Up(ctx, pool); err != nil {
+		return err
+	}
 
 	tokens := auth.NewAccessTokens([]byte(jwtSecret), accessTTL)
 	srv := server{
