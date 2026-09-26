@@ -5,6 +5,8 @@ on:
     branches-ignore: [main]
   issues:
     types: [opened, closed, reopened, edited]
+  issue_comment:
+    types: [created]
   pull_request:
     types: [opened, ready_for_review, closed, review_requested]
   pull_request_review:
