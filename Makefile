@@ -28,7 +28,7 @@ docker-build:
 SPEC_FILE := internal/api/openapi.yaml
 
 generate:
-	go run ./internal/api/fetchspec -o $(SPEC_FILE)
+	go run ./cmd/apidog -o $(SPEC_FILE)
 	cd internal/api && go tool oapi-codegen -config cfg.yaml openapi.yaml
 
 -include .env

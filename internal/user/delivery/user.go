@@ -1,5 +1,6 @@
-// Package user отвечает за регистрацию, вход, выход и профиль пользователя.
-package user
+// Package delivery содержит HTTP-ручки пользователя. Они переводят ошибки
+// usecase в ответы контракта и выставляют токены в заголовки.
+package delivery
 
 import (
 	"context"
@@ -9,33 +10,35 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 )
 
 const refreshCookie = "refresh_token"
 
-// CookieConfig — настройки cookie с refresh-токеном.
+// CookieConfig хранит настройки cookie с refresh-токеном.
 type CookieConfig struct {
-	// Path — чтобы браузер отправлял cookie только в ручки /auth.
+	// Path нужен, чтобы браузер отправлял cookie только в ручки /auth.
 	Path string
-	// Secure — только по HTTPS. Локально HTTPS нет, поэтому это настройка.
+	// Secure отправляет cookie только по HTTPS. Локально HTTPS нет, поэтому это настройка.
 	Secure bool
 }
 
 type Handler struct {
-	svc    *Service
+	uc     usecase.Usecase
 	cookie CookieConfig
 }
 
-func NewHandler(svc *Service, cookie CookieConfig) *Handler {
-	return &Handler{svc: svc, cookie: cookie}
+func NewHandler(uc usecase.Usecase, cookie CookieConfig) *Handler {
+	return &Handler{uc: uc, cookie: cookie}
 }
 
 func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
-	u, sess, err := h.svc.Register(ctx, req.Body.Login, req.Body.Password)
+	u, sess, err := h.uc.Register(ctx, req.Body.Login, req.Body.Password)
 	switch {
-	case errors.Is(err, ErrLoginTaken):
+	case errors.Is(err, usecase.ErrLoginTaken):
 		return api.RegisterUser409JSONResponse{Code: api.LoginTaken, Message: "login is already taken"}, nil
-	case errors.Is(err, ErrPasswordTooLong):
+	case errors.Is(err, usecase.ErrPasswordTooLong):
 		return api.RegisterUser400JSONResponse{Code: api.ValidationError, Message: err.Error()}, nil
 	case err != nil:
 		return nil, err
@@ -48,9 +51,9 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 }
 
 func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
-	u, sess, err := h.svc.Login(ctx, req.Body.Login, req.Body.Password)
+	u, sess, err := h.uc.Login(ctx, req.Body.Login, req.Body.Password)
 	switch {
-	case errors.Is(err, ErrInvalidCredentials):
+	case errors.Is(err, usecase.ErrInvalidCredentials):
 		return api.LoginUser401JSONResponse{Code: api.InvalidCredentials, Message: "invalid login or password"}, nil
 	case err != nil:
 		return nil, err
@@ -63,9 +66,9 @@ func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject)
 }
 
 func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
-	sess, err := h.svc.Refresh(ctx, req.Params.RefreshToken)
+	sess, err := h.uc.Refresh(ctx, req.Params.RefreshToken)
 	switch {
-	case errors.Is(err, ErrInvalidRefresh):
+	case errors.Is(err, usecase.ErrInvalidRefresh):
 		return api.RefreshToken401JSONResponse{Code: api.Unauthorized, Message: err.Error()}, nil
 	case err != nil:
 		return nil, err
@@ -77,9 +80,9 @@ func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestO
 }
 
 func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
-	err := h.svc.Logout(ctx, req.Params.RefreshToken)
+	err := h.uc.Logout(ctx, req.Params.RefreshToken)
 	switch {
-	case errors.Is(err, ErrInvalidRefresh):
+	case errors.Is(err, usecase.ErrInvalidRefresh):
 		return api.LogoutUser401JSONResponse{Code: api.Unauthorized, Message: err.Error()}, nil
 	case err != nil:
 		return nil, err
@@ -92,9 +95,9 @@ func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObjec
 func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	// Без пользователя в контексте сюда не попасть: Validator отвечает 401 раньше.
 	id, _ := auth.UserIDFromContext(ctx)
-	u, err := h.svc.CurrentUser(ctx, id)
+	u, err := h.uc.CurrentUser(ctx, id)
 	switch {
-	case errors.Is(err, ErrUserNotFound):
+	case errors.Is(err, usecase.ErrUserNotFound):
 		// Токен ещё жив, а пользователя уже удалили.
 		return api.GetCurrentUser401JSONResponse{Code: api.Unauthorized, Message: "user no longer exists"}, nil
 	case err != nil:
@@ -103,7 +106,7 @@ func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserReques
 	return api.GetCurrentUser200JSONResponse(toAPIUser(u)), nil
 }
 
-func (h *Handler) sessionHeaders(sess Session) (bearer, cookie string) {
+func (h *Handler) sessionHeaders(sess models.Session) (bearer, cookie string) {
 	maxAge := int(time.Until(sess.ExpiresAt).Seconds())
 	return "Bearer " + sess.AccessToken, h.refreshCookie(sess.RefreshToken, maxAge).String()
 }
@@ -120,6 +123,6 @@ func (h *Handler) refreshCookie(value string, maxAge int) *http.Cookie {
 	}
 }
 
-func toAPIUser(u User) api.User {
+func toAPIUser(u models.User) api.User {
 	return api.User{Id: u.ID, Login: u.Login}
 }

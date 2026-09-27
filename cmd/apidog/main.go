@@ -1,7 +1,7 @@
-// Command fetchspec скачивает спецификацию OpenAPI из Apidog.
+// Command apidog скачивает спецификацию OpenAPI из Apidog.
 //
-// Токен берётся из APIDOG_TOKEN, sprint-ветка — из APIDOG_BRANCH_ID, без неё
-// выгружается main. Переменных нет в окружении — они читаются из .env,
+// Токен берётся из APIDOG_TOKEN, sprint-ветка из APIDOG_BRANCH_ID, без неё
+// выгружается main. Переменных нет в окружении, они читаются из .env,
 // поэтому make generate работает без export.
 package main
 
@@ -51,7 +51,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*out, *envFile); err != nil {
-		fmt.Fprintln(os.Stderr, "fetchspec:", err)
+		fmt.Fprintln(os.Stderr, "apidog:", err)
 		os.Exit(1)
 	}
 }
@@ -101,7 +101,7 @@ func run(out, envFile string) error {
 		return fmt.Errorf("write %s: %w", out, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "fetchspec: exported %s to %s\n", branch, out)
+	fmt.Fprintf(os.Stderr, "apidog: exported %s to %s\n", branch, out)
 	return nil
 }
 

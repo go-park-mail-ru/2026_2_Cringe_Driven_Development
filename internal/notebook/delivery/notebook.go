@@ -1,5 +1,5 @@
-// Package notebook отвечает за блокноты пользователя.
-package notebook
+// Package delivery содержит HTTP-ручки блокнотов.
+package delivery
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/httperr"
 )
 
-// Handler — заглушки ручек блокнотов, их реализует вторая задача.
+// Handler отдаёт заглушки ручек блокнотов.
 type Handler struct{}
 
 func NewHandler() *Handler {

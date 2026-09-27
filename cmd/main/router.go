@@ -7,8 +7,8 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user"
+	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
+	userdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/delivery"
 	"github.com/gorilla/mux"
 )
 
@@ -17,8 +17,8 @@ const baseURL = "/api/v1"
 // Оба типа называются Handler, а встроить в структуру два поля с одним именем
 // нельзя. Псевдонимы дают встроенным полям разные имена.
 type (
-	userHandler     = user.Handler
-	notebookHandler = notebook.Handler
+	userHandler     = userdelivery.Handler
+	notebookHandler = notebookdelivery.Handler
 )
 
 // server реализует api.StrictServerInterface: каждый встроенный хендлер
@@ -40,7 +40,7 @@ func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) 
 	r.NotFoundHandler = http.HandlerFunc(httperr.NotFound)
 	r.MethodNotAllowedHandler = http.HandlerFunc(httperr.MethodNotAllowed)
 
-	// Первый в списке — внешний: запрос сначала попадает в него.
+	// Первый в списке внешний: запрос сначала попадает в него.
 	r.Use(middleware.RequestID, middleware.Logging, middleware.Recover)
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -57,7 +57,7 @@ func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) 
 	api.HandlerWithOptions(strict, api.GorillaServerOptions{
 		BaseURL:    baseURL,
 		BaseRouter: r,
-		// Только для ручек контракта. Здесь внешний — последний в списке,
+		// Только для ручек контракта. Здесь внешний последний в списке,
 		// поэтому Authenticate выполняется раньше Validator.
 		Middlewares: []api.MiddlewareFunc{
 			middleware.Validator(spec, baseURL),

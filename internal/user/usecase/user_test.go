@@ -1,4 +1,4 @@
-package user
+package usecase
 
 import (
 	"context"
@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
+	"github.com/google/uuid"
 )
 
 const refreshTTL = time.Hour
 
-func TestServiceRegister(t *testing.T) {
+func TestUserUsecaseRegister(t *testing.T) {
 	tests := []struct {
 		name     string
 		login    string
@@ -27,9 +28,9 @@ func TestServiceRegister(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newFakeRepo()
 			repo.addUser("bob", "password123")
-			svc := NewService(repo, fakeTokens{}, refreshTTL)
+			uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
 
-			u, sess, err := svc.Register(context.Background(), tt.login, tt.password)
+			u, sess, err := uc.Register(context.Background(), tt.login, tt.password)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Register() error = %v, want %v", err, tt.wantErr)
 			}
@@ -49,7 +50,7 @@ func TestServiceRegister(t *testing.T) {
 	}
 }
 
-func TestServiceLogin(t *testing.T) {
+func TestUserUsecaseLogin(t *testing.T) {
 	tests := []struct {
 		name     string
 		login    string
@@ -65,9 +66,9 @@ func TestServiceLogin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newFakeRepo()
 			want := repo.addUser("alice", "password123")
-			svc := NewService(repo, fakeTokens{}, refreshTTL)
+			uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
 
-			u, _, err := svc.Login(context.Background(), tt.login, tt.password)
+			u, _, err := uc.Login(context.Background(), tt.login, tt.password)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Login() error = %v, want %v", err, tt.wantErr)
 			}
@@ -78,7 +79,7 @@ func TestServiceLogin(t *testing.T) {
 	}
 }
 
-func TestServiceRefresh(t *testing.T) {
+func TestUserUsecaseRefresh(t *testing.T) {
 	tests := []struct {
 		name    string
 		token   func(issued string) string
@@ -93,15 +94,15 @@ func TestServiceRefresh(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newFakeRepo()
 			repo.addUser("alice", "password123")
-			svc := NewService(repo, fakeTokens{}, refreshTTL)
-			_, first, err := svc.Login(context.Background(), "alice", "password123")
+			uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
+			_, first, err := uc.Login(context.Background(), "alice", "password123")
 			if err != nil {
 				t.Fatal(err)
 			}
 			start := time.Now()
-			svc.now = func() time.Time { return start.Add(tt.after) }
+			uc.now = func() time.Time { return start.Add(tt.after) }
 
-			second, err := svc.Refresh(context.Background(), tt.token(first.RefreshToken))
+			second, err := uc.Refresh(context.Background(), tt.token(first.RefreshToken))
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Refresh() error = %v, want %v", err, tt.wantErr)
 			}
@@ -112,29 +113,43 @@ func TestServiceRefresh(t *testing.T) {
 				t.Error("refresh вернул тот же токен")
 			}
 			// Ротация: старым токеном второй раз обновиться нельзя.
-			if _, err := svc.Refresh(context.Background(), first.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
+			if _, err := uc.Refresh(context.Background(), first.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
 				t.Errorf("повторный Refresh() старым токеном: error = %v, want ErrInvalidRefresh", err)
 			}
 		})
 	}
 }
 
-func TestServiceLogout(t *testing.T) {
+func TestUserUsecaseLogout(t *testing.T) {
 	repo := newFakeRepo()
 	repo.addUser("alice", "password123")
-	svc := NewService(repo, fakeTokens{}, refreshTTL)
-	_, sess, err := svc.Login(context.Background(), "alice", "password123")
+	uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
+	_, sess, err := uc.Login(context.Background(), "alice", "password123")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := svc.Logout(context.Background(), sess.RefreshToken); err != nil {
+	if err := uc.Logout(context.Background(), sess.RefreshToken); err != nil {
 		t.Fatalf("Logout() error = %v", err)
 	}
-	if _, err := svc.Refresh(context.Background(), sess.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
+	if _, err := uc.Refresh(context.Background(), sess.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
 		t.Errorf("Refresh() после Logout: error = %v, want ErrInvalidRefresh", err)
 	}
-	if err := svc.Logout(context.Background(), sess.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
+	if err := uc.Logout(context.Background(), sess.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
 		t.Errorf("повторный Logout(): error = %v, want ErrInvalidRefresh", err)
+	}
+}
+
+func TestUserUsecaseCurrentUser(t *testing.T) {
+	repo := newFakeRepo()
+	want := repo.addUser("alice", "password123")
+	uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
+
+	got, err := uc.CurrentUser(context.Background(), want.ID)
+	if err != nil || got != want {
+		t.Errorf("CurrentUser() = %v, %v; want %v, nil", got, err, want)
+	}
+	if _, err := uc.CurrentUser(context.Background(), uuid.New()); !errors.Is(err, ErrUserNotFound) {
+		t.Errorf("CurrentUser() неизвестного: error = %v, want ErrUserNotFound", err)
 	}
 }

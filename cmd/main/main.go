@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user"
+	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
+	userdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/delivery"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/repository/postgres"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -67,13 +69,13 @@ func run() error {
 		return err
 	}
 
-	tokens := auth.NewAccessTokens([]byte(jwtSecret), accessTTL)
+	tokens := auth.NewAccessToken([]byte(jwtSecret), accessTTL)
+	userRepo := postgres.NewUserRepository(pool)
+	userUsecase := usecase.NewUserUsecase(userRepo, tokens, refreshTTL)
 	srv := server{
-		userHandler: user.NewHandler(
-			user.NewService(user.NewRepository(pool), tokens, refreshTTL),
-			user.CookieConfig{Path: baseURL + "/auth", Secure: cookieSecure},
-		),
-		notebookHandler: notebook.NewHandler(),
+		userHandler: userdelivery.NewHandler(userUsecase,
+			userdelivery.CookieConfig{Path: baseURL + "/auth", Secure: cookieSecure}),
+		notebookHandler: notebookdelivery.NewHandler(),
 	}
 	router, err := newRouter(srv, tokens)
 	if err != nil {

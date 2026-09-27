@@ -12,16 +12,16 @@ import (
 // ErrInvalidToken: токен испорчен, истёк или подписан другим ключом.
 var ErrInvalidToken = errors.New("invalid access token")
 
-type AccessTokens struct {
+type AccessToken struct {
 	secret []byte
 	ttl    time.Duration
 }
 
-func NewAccessTokens(secret []byte, ttl time.Duration) *AccessTokens {
-	return &AccessTokens{secret: secret, ttl: ttl}
+func NewAccessToken(secret []byte, ttl time.Duration) *AccessToken {
+	return &AccessToken{secret: secret, ttl: ttl}
 }
 
-func (t *AccessTokens) Issue(userID uuid.UUID) (string, error) {
+func (t *AccessToken) Issue(userID uuid.UUID) (string, error) {
 	claims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(t.ttl)),
@@ -33,7 +33,7 @@ func (t *AccessTokens) Issue(userID uuid.UUID) (string, error) {
 	return token, nil
 }
 
-func (t *AccessTokens) Parse(token string) (uuid.UUID, error) {
+func (t *AccessToken) Parse(token string) (uuid.UUID, error) {
 	var claims jwt.RegisteredClaims
 	_, err := jwt.ParseWithClaims(token, &claims,
 		func(*jwt.Token) (any, error) { return t.secret, nil },

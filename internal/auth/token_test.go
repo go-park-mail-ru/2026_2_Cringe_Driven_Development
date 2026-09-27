@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestAccessTokens(t *testing.T) {
+func TestAccessToken(t *testing.T) {
 	userID := uuid.New()
-	tokens := NewAccessTokens([]byte("secret"), time.Minute)
+	tokens := NewAccessToken([]byte("secret"), time.Minute)
 
 	sign := func(method jwt.SigningMethod, key any, claims jwt.RegisteredClaims) string {
 		t.Helper()
@@ -25,11 +25,11 @@ func TestAccessTokens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expired, err := NewAccessTokens([]byte("secret"), -time.Minute).Issue(userID)
+	expired, err := NewAccessToken([]byte("secret"), -time.Minute).Issue(userID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreign, err := NewAccessTokens([]byte("other secret"), time.Minute).Issue(userID)
+	foreign, err := NewAccessToken([]byte("other secret"), time.Minute).Issue(userID)
 	if err != nil {
 		t.Fatal(err)
 	}
