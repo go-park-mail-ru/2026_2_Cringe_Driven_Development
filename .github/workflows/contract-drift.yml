@@ -1,0 +1,38 @@
+name: Contract drift
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Generate from Apidog main
+        env:
+          APIDOG_TOKEN: ${{ secrets.APIDOG_TOKEN }}
+        run: make generate
+      - name: Compare with committed code
+        shell: bash
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo '### Контракт в Apidog совпадает с кодом' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo '### Контракт в Apidog ушёл вперёд кода'
+            echo 'Запустите `make generate` на свежем `main` и откройте PR с изменениями.'
+            echo '```diff'
+            git diff | head -n 500
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1

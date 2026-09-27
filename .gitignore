@@ -250,3 +250,6 @@ tmbootpicker.efi
 # Binaries
 
 bin/*
+
+# Спецификация, скачанная make generate
+internal/api/openapi.yaml
