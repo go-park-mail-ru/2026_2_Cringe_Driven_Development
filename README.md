@@ -69,20 +69,24 @@ docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
 
 ## Как работать с задачами
 
-Все задачи команды, бэковые и фронтовые, живут на одной
-[доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
+Код лежит здесь, а задачи — в
+[Cringe-Driven-Development-Team/backend](https://github.com/Cringe-Driven-Development-Team/backend)
+и на общей [доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1) вместе с фронтовыми
 
-> [!IMPORTANT]
-> Задача заводится issue в той репе, где будет код: бэковые — здесь, фронтовые —
-> в [репозитории фронтенда](https://github.com/frontend-park-mail-ru/2026_2_Cringe_Driven_Development).
-> Issue, заведённая не в той репе, не свяжется с pull request
+1. **Завести задачу.** На доске в нужной колонке `+ Add item` → ввести `#` →
+   выбрать `backend` → `Create new issue`
 
-1. **Взять задачу.** На доске выбрать карточку из `Ready`, поставить себя
+> [!WARNING]
+> Текст без `#` создаёт черновик: он живёт только на доске, из него нельзя создать ветку,
+> и pull request его не закроет
+
+2. **Взять задачу.** На доске выбрать карточку из `Ready`, поставить себя
    в `Assignees`, перевести в `In progress`
 
-2. **Создать ветку.** Открыть issue → в правой колонке кнопка
-   **`Create a branch for this issue`**. GitHub предложит имя, собранное из заголовка
-   задачи, — заменить его на `api-<номер issue>`, например `api-12`.
+3. **Создать ветку.** Открыть задачу → в правой колонке `Development` →
+   **`Create a branch`**. В `Repository destination` выбрать
+   `go-park-mail-ru/2026_2_Cringe_Driven_Development` (в поиске — `2026_2`),
+   имя ветки заменить на `api-<номер задачи>`, например `api-12`.
    Затем `Create branch` и локально:
 
    ```bash
@@ -90,7 +94,7 @@ docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
    git switch api-12
    ```
 
-3. **Закоммитить** по шаблону `<тип>: <описание>`, типы — в таблице ниже.
+4. **Закоммитить** по шаблону `<тип>: <описание>`, типы — в таблице ниже.
    Область в скобках после типа указывать необязательно:
 
    ```
@@ -99,25 +103,25 @@ docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
    refactor(auth): вынести проверку токена в middleware
    ```
 
-4. **Открыть pull request** в `main`, когда код готов к ревью.
-   Заголовок — по шаблону `API-<номер issue>: <название issue>`, например
-   `API-12: Эндпоинт регистрации`.
-   Убедиться, что в правой колонке PR в блоке `Development` указана задача —
-   если её там нет, связь потерялась
+5. **Открыть pull request** в `main`, когда код готов к ревью.
+   Заголовок — по шаблону `API-<номер задачи>: <название задачи>`, например
+   `API-12: Эндпоинт регистрации`. В описании — **обязательно** строка
 
-5. **Получить апрув** от [Александра](https://github.com/blackHATred)
+   ```
+   Closes Cringe-Driven-Development-Team/backend#12
+   ```
 
-6. **Влить в `main`** через `Merge pull request`.
-   Issue закроется сама, карточка уедет в `Done`
+   Короткое `Closes #12` сошлётся на этот репозиторий, и задача не закроется.
+   Убедиться, что в правой колонке PR в блоке `Development` указана задача
 
-> [!WARNING]
-> Не создавать ветку через `git checkout -b` и не переименовывать уже созданную.
-> В обоих случаях pull request не свяжется с задачей, она не закроется сама,
-> и доска будет врать. Имя ветки задаётся один раз — в диалоге `Create a branch`
+6. **Получить апрув** от [Александра](https://github.com/blackHATred)
+
+7. **Влить в `main`** через `Merge pull request`.
+   Задача закроется сама, карточка уедет в `Done`
 
 > [!TIP]
-> Если ветка всё же создана локально, в описание pull request нужно добавить строку
-> `Closes #<номер issue>`, иначе задача останется открытой
+> Ветку, созданную руками (`git switch -c api-12 origin/main`), с задачей свяжет
+> та же строка `Closes …` — поэтому она обязательна всегда
 
 ## Типы коммитов
 
