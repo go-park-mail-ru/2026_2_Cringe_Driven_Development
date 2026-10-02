@@ -26,3 +26,11 @@ func (h *Handler) CreateNotebook(context.Context, api.CreateNotebookRequestObjec
 func (h *Handler) GetNotebook(context.Context, api.GetNotebookRequestObject) (api.GetNotebookResponseObject, error) {
 	return nil, httperr.ErrNotImplemented
 }
+
+func (h *Handler) CreateCell(context.Context, api.CreateCellRequestObject) (api.CreateCellResponseObject, error) {
+	return nil, httperr.ErrNotImplemented
+}
+
+func (h *Handler) DeleteCell(context.Context, api.DeleteCellRequestObject) (api.DeleteCellResponseObject, error) {
+	return nil, httperr.ErrNotImplemented
+}

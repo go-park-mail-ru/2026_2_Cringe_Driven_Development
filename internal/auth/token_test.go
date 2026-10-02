@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 func TestAccessToken(t *testing.T) {
-	userID := uuid.New()
+	userID := int64(42)
 	tokens := NewAccessToken([]byte("secret"), time.Minute)
 
 	sign := func(method jwt.SigningMethod, key any, claims jwt.RegisteredClaims) string {
@@ -47,16 +46,16 @@ func TestAccessToken(t *testing.T) {
 			// Атака alg=none: токен без подписи должен отклоняться.
 			name: "без подписи",
 			token: sign(jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType,
-				jwt.RegisteredClaims{Subject: userID.String(), ExpiresAt: inAnHour}),
+				jwt.RegisteredClaims{Subject: "42", ExpiresAt: inAnHour}),
 			wantErr: true,
 		},
 		{
 			name:    "без exp",
-			token:   sign(jwt.SigningMethodHS256, []byte("secret"), jwt.RegisteredClaims{Subject: userID.String()}),
+			token:   sign(jwt.SigningMethodHS256, []byte("secret"), jwt.RegisteredClaims{Subject: "42"}),
 			wantErr: true,
 		},
 		{
-			name:    "sub не UUID",
+			name:    "sub не число",
 			token:   sign(jwt.SigningMethodHS256, []byte("secret"), jwt.RegisteredClaims{Subject: "admin", ExpiresAt: inAnHour}),
 			wantErr: true,
 		},
