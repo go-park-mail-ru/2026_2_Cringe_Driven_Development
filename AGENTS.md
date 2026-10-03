@@ -2,6 +2,8 @@
 
 Разрабатываем аналог Google Colab: блокноты с блоками Python/R и текста.
 Правила работы с задачами, ветками и PR — в [README.md](README.md).
+Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации;
+в Claude Code для этого подключён скилл `cdd-tasks`.
 
 ## Целевые продуктовые требования
 
