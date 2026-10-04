@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -52,7 +53,7 @@ func run() error {
 	dbName := getEnv("POSTGRES_DB", "app_db")
 
 	ctx := context.Background()
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", dbUser, dbPass, dbHost, dbName)
+	dbURL := postgresURL(dbUser, dbPass, dbHost, dbName)
 
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
@@ -102,6 +103,16 @@ func run() error {
 	}
 
 	return nil
+}
+
+func postgresURL(user, password, host, database string) string {
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(user, password),
+		Host:   host + ":5432",
+		Path:   "/" + database,
+	}
+	return u.String()
 }
 
 func getEnv(key, fallback string) string {
