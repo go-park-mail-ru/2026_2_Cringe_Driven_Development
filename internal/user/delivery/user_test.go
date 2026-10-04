@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -28,7 +28,7 @@ type fakeUsecase struct {
 	sess models.Session
 	err  error
 	// gotID запоминает, какой id хендлер достал из контекста.
-	gotID uuid.UUID
+	gotID int64
 }
 
 var _ usecase.Usecase = (*fakeUsecase)(nil)
@@ -49,16 +49,16 @@ func (f *fakeUsecase) Logout(context.Context, string) error {
 	return f.err
 }
 
-func (f *fakeUsecase) CurrentUser(_ context.Context, id uuid.UUID) (models.User, error) {
+func (f *fakeUsecase) CurrentUser(_ context.Context, id int64) (models.User, error) {
 	f.gotID = id
 	return f.user, f.err
 }
 
-// fakeTokens понимает токены вида "access-<uuid>".
+// fakeTokens понимает токены вида "access-<id>".
 type fakeTokens struct{}
 
-func (fakeTokens) Parse(token string) (uuid.UUID, error) {
-	return uuid.Parse(strings.TrimPrefix(token, "access-"))
+func (fakeTokens) Parse(token string) (int64, error) {
+	return strconv.ParseInt(strings.TrimPrefix(token, "access-"), 10, 64)
 }
 
 // Встроить два типа с именем Handler нельзя, поэтому псевдоним.
@@ -73,7 +73,7 @@ type testServer struct {
 // проверяется хендлер вместе со сгенерированным кодом и httperr.
 func newRouter(uc usecase.Usecase) http.Handler {
 	h := NewHandler(uc, CookieConfig{Path: "/api/v1/auth"})
-	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler()}, nil, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,
 	})
@@ -85,10 +85,10 @@ func newRouter(uc usecase.Usecase) http.Handler {
 	})
 }
 
-func newSession(userID uuid.UUID) models.Session {
+func newSession(userID int64) models.Session {
 	return models.Session{
 		UserID:       userID,
-		AccessToken:  "access-" + userID.String(),
+		AccessToken:  "access-" + strconv.FormatInt(userID, 10),
 		RefreshToken: "new-refresh",
 		ExpiresAt:    time.Now().Add(time.Hour),
 	}
@@ -163,7 +163,7 @@ func TestHandlerErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/api/v1"+tt.path, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer access-"+uuid.NewString())
+			req.Header.Set("Authorization", "Bearer access-1")
 			if tt.refresh != "" {
 				req.AddCookie(&http.Cookie{Name: "refresh_token", Value: tt.refresh})
 			}
@@ -186,7 +186,7 @@ func TestHandlerErrors(t *testing.T) {
 }
 
 func TestHandlerRegister(t *testing.T) {
-	u := models.User{ID: uuid.New(), Login: "bob"}
+	u := models.User{ID: 1, Login: "bob"}
 	uc := &fakeUsecase{user: u, sess: newSession(u.ID)}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register",
 		strings.NewReader(`{"login":"bob","password":"password123"}`))
@@ -205,7 +205,7 @@ func TestHandlerRegister(t *testing.T) {
 	if diff := cmp.Diff(api.User{Id: u.ID, Login: "bob"}, got); diff != "" {
 		t.Errorf("тело ответа (-want +got):\n%s", diff)
 	}
-	if want := "Bearer access-" + u.ID.String(); rec.Header().Get("Authorization") != want {
+	if want := "Bearer access-" + strconv.FormatInt(u.ID, 10); rec.Header().Get("Authorization") != want {
 		t.Errorf("Authorization = %q, want %q", rec.Header().Get("Authorization"), want)
 	}
 	cookie := rec.Header().Get("Set-Cookie")
@@ -217,7 +217,7 @@ func TestHandlerRegister(t *testing.T) {
 }
 
 func TestHandlerRefreshAndLogout(t *testing.T) {
-	uc := &fakeUsecase{sess: newSession(uuid.New())}
+	uc := &fakeUsecase{sess: newSession(1)}
 	post := func(path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1"+path, nil)
 		req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh"})
@@ -244,10 +244,10 @@ func TestHandlerRefreshAndLogout(t *testing.T) {
 }
 
 func TestHandlerGetCurrentUser(t *testing.T) {
-	u := models.User{ID: uuid.New(), Login: "alice"}
+	u := models.User{ID: 1, Login: "alice"}
 	uc := &fakeUsecase{user: u}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
-	req.Header.Set("Authorization", "Bearer access-"+u.ID.String())
+	req.Header.Set("Authorization", "Bearer access-"+strconv.FormatInt(u.ID, 10))
 	rec := httptest.NewRecorder()
 
 	newRouter(uc).ServeHTTP(rec, req)
@@ -256,7 +256,7 @@ func TestHandlerGetCurrentUser(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
 	}
 	if uc.gotID != u.ID {
-		t.Errorf("хендлер взял id %s, want %s из токена", uc.gotID, u.ID)
+		t.Errorf("хендлер взял id %d, want %d из токена", uc.gotID, u.ID)
 	}
 	var got api.User
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {

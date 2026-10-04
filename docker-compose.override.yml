@@ -1,0 +1,34 @@
+# Только для локальной разработки: docker compose подхватывает этот файл сам.
+# Без него (docker compose -f docker-compose.yml up) S3 не поднимается,
+# и его адрес и ключи нужно задать в .env через AWS_*.
+services:
+  api:
+    environment:
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-devkey}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-devsecret}
+      - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-http://s3:8333}
+      - S3_NOTEBOOKS_BUCKET=${S3_NOTEBOOKS_BUCKET:-cellestial-notebooks-0}
+    depends_on:
+      s3:
+        condition: service_healthy
+
+  s3:
+    image: chrislusf/seaweedfs:4.48
+    command: mini -bucket=${S3_NOTEBOOKS_BUCKET:-cellestial-notebooks-0}
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-devkey}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-devsecret}
+    ports:
+      - "8333:8333"
+    volumes:
+      - s3_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  s3_data:

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/repository"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -63,7 +62,7 @@ func (r *UserRepository) UserByLogin(ctx context.Context, login string) (u model
 	return u, passwordHash, nil
 }
 
-func (r *UserRepository) UserByID(ctx context.Context, id uuid.UUID) (models.User, error) {
+func (r *UserRepository) UserByID(ctx context.Context, id int64) (models.User, error) {
 	u := models.User{ID: id}
 	err := r.db.QueryRow(ctx, `SELECT login FROM users WHERE id = $1`, id).Scan(&u.Login)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -75,7 +74,7 @@ func (r *UserRepository) UserByID(ctx context.Context, id uuid.UUID) (models.Use
 	return u, nil
 }
 
-func (r *UserRepository) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error {
+func (r *UserRepository) CreateSession(ctx context.Context, userID int64, tokenHash string, expiresAt time.Time) error {
 	_, err := r.db.Exec(ctx,
 		`INSERT INTO refresh_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
 		userID, tokenHash, expiresAt,
@@ -88,16 +87,16 @@ func (r *UserRepository) CreateSession(ctx context.Context, userID uuid.UUID, to
 
 // DeleteSession удаляет и читает одним запросом: из двух одновременных
 // refresh с одним токеном сессию получит только один.
-func (r *UserRepository) DeleteSession(ctx context.Context, tokenHash string) (userID uuid.UUID, expiresAt time.Time, err error) {
+func (r *UserRepository) DeleteSession(ctx context.Context, tokenHash string) (userID int64, expiresAt time.Time, err error) {
 	err = r.db.QueryRow(ctx,
 		`DELETE FROM refresh_sessions WHERE token_hash = $1 RETURNING user_id, expires_at`,
 		tokenHash,
 	).Scan(&userID, &expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, time.Time{}, repository.ErrSessionNotFound
+		return 0, time.Time{}, repository.ErrSessionNotFound
 	}
 	if err != nil {
-		return uuid.Nil, time.Time{}, fmt.Errorf("delete refresh session: %w", err)
+		return 0, time.Time{}, fmt.Errorf("delete refresh session: %w", err)
 	}
 	return userID, expiresAt, nil
 }

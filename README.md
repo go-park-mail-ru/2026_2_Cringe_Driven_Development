@@ -93,7 +93,10 @@ Playbook ждёт healthcheck `/health` внутри Compose и проверяе
 предупреждением и не подменяет результат деплоя.
 
 Параметры S3 из `.env.example` роль `app` передаёт из infra vars и Vault.
-Текущий Go API ещё не читает их: интеграция S3 выполняется отдельной задачей.
+Go API хранит файлы блокнотов в бакете `S3_NOTEBOOKS_BUCKET`, используя
+`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` и `AWS_ENDPOINT_URL_S3`.
+Локальный Compose использует SeaweedFS, production — Selectel. Параметры
+аватарок передаются конфигурацией, но текущий API их ещё не читает.
 
 Откат выполняется из infra тем же playbook с прежним опубликованным SHA-тегом,
 см. [инструкцию Ansible](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/ansible/README.md).

@@ -30,7 +30,7 @@ type server struct {
 
 var _ api.StrictServerInterface = server{}
 
-func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) {
+func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string) (http.Handler, error) {
 	spec, err := api.GetSpec()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded spec: %w", err)
@@ -66,5 +66,5 @@ func newRouter(srv server, tokens middleware.TokenParser) (http.Handler, error) 
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	return r, nil
+	return middleware.CORS(corsOrigins)(r), nil
 }

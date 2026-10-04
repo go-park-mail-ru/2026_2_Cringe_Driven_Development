@@ -76,6 +76,8 @@ func requestIDMiddleware(next http.Handler) http.Handler {
   production-конфигурацию в backend и не коммить открытые секреты.
 - Проект Compose на VPS — `cellestial`, каталог `/opt/cellestial`; существующие
   volumes Caddy сохраняются. Миграции goose выполняются при старте API.
+- Файлы блокнотов хранятся в S3: нужен `S3_NOTEBOOKS_BUCKET` и параметры `AWS_*`.
+  Локально Compose использует SeaweedFS, production — Selectel.
 - `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
   `workflow_call` с SHA-тегом из job `docker`. CD после approval `production`
   запускает `deploy-backend.yml` из `infra/main`. Inventory статический;

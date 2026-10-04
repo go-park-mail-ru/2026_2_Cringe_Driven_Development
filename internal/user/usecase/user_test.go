@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
-	"github.com/google/uuid"
 )
 
 const refreshTTL = time.Hour
@@ -149,7 +148,7 @@ func TestUserUsecaseCurrentUser(t *testing.T) {
 	if err != nil || got != want {
 		t.Errorf("CurrentUser() = %v, %v; want %v, nil", got, err, want)
 	}
-	if _, err := uc.CurrentUser(context.Background(), uuid.New()); !errors.Is(err, ErrUserNotFound) {
+	if _, err := uc.CurrentUser(context.Background(), 999); !errors.Is(err, ErrUserNotFound) {
 		t.Errorf("CurrentUser() неизвестного: error = %v, want ErrUserNotFound", err)
 	}
 }
