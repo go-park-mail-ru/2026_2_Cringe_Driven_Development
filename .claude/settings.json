@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "cdd": {
+      "source": {
+        "source": "github",
+        "repo": "Cringe-Driven-Development-Team/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "cdd-tasks@cdd": true
+  }
+}

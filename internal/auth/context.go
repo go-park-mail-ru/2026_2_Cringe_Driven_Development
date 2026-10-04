@@ -2,19 +2,15 @@
 // через контекст запроса.
 package auth
 
-import (
-	"context"
-
-	"github.com/google/uuid"
-)
+import "context"
 
 type userIDKey struct{}
 
-func WithUserID(ctx context.Context, id uuid.UUID) context.Context {
+func WithUserID(ctx context.Context, id int64) context.Context {
 	return context.WithValue(ctx, userIDKey{}, id)
 }
 
-func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
-	id, ok := ctx.Value(userIDKey{}).(uuid.UUID)
+func UserIDFromContext(ctx context.Context) (int64, bool) {
+	id, ok := ctx.Value(userIDKey{}).(int64)
 	return id, ok
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
-	"github.com/google/uuid"
 )
 
 var (
@@ -26,9 +25,9 @@ type Usecase interface {
 	// Refresh делает ротацию: старая сессия удаляется, вместо неё создаётся новая.
 	Refresh(ctx context.Context, refreshToken string) (models.Session, error)
 	Logout(ctx context.Context, refreshToken string) error
-	CurrentUser(ctx context.Context, id uuid.UUID) (models.User, error)
+	CurrentUser(ctx context.Context, id int64) (models.User, error)
 }
 
 type TokenIssuer interface {
-	Issue(userID uuid.UUID) (string, error)
+	Issue(userID int64) (string, error)
 }

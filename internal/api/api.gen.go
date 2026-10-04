@@ -19,8 +19,43 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gorilla/mux"
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for CellKind.
+const (
+	CellKindCode     CellKind = "code"
+	CellKindMarkdown CellKind = "markdown"
+)
+
+// Valid indicates whether the value is a known member of the CellKind enum.
+func (e CellKind) Valid() bool {
+	switch e {
+	case CellKindCode:
+		return true
+	case CellKindMarkdown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateCellRequestKind.
+const (
+	CreateCellRequestKindCode     CreateCellRequestKind = "code"
+	CreateCellRequestKindMarkdown CreateCellRequestKind = "markdown"
+)
+
+// Valid indicates whether the value is a known member of the CreateCellRequestKind enum.
+func (e CreateCellRequestKind) Valid() bool {
+	switch e {
+	case CreateCellRequestKindCode:
+		return true
+	case CreateCellRequestKindMarkdown:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ErrorCode.
 const (
@@ -55,6 +90,33 @@ func (e ErrorCode) Valid() bool {
 	}
 }
 
+// Cell Блок блокнота
+type Cell struct {
+	// Id ID блока внутри блокнота
+	Id string `json:"id"`
+
+	// Kind Вид блока
+	Kind CellKind `json:"kind"`
+
+	// Source Содержимое блока
+	Source string `json:"source"`
+}
+
+// CellKind Вид блока
+type CellKind string
+
+// CreateCellRequest defines model for CreateCellRequest.
+type CreateCellRequest struct {
+	// Index Позиция нового блока, с нуля. Без поля блок добавляется в конец
+	Index *int `json:"index,omitempty"`
+
+	// Kind Вид блока
+	Kind CreateCellRequestKind `json:"kind"`
+}
+
+// CreateCellRequestKind Вид блока
+type CreateCellRequestKind string
+
 // CreateNotebookRequest defines model for CreateNotebookRequest.
 type CreateNotebookRequest struct {
 	Name string `json:"name"`
@@ -77,11 +139,12 @@ type ErrorCode string
 
 // Notebook Блокнот (.ipynb)
 type Notebook struct {
-	CreatedAt time.Time              `json:"created_at"`
-	Data      map[string]interface{} `json:"data"`
+	// Cells Блоки в порядке блокнота
+	Cells     []Cell    `json:"cells"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// Id ID
-	Id openapi_types.UUID `json:"id"`
+	Id int64 `json:"id"`
 
 	// Name Название блокнота
 	Name      string    `json:"name"`
@@ -90,16 +153,18 @@ type Notebook struct {
 
 // NotebookSummary defines model for NotebookSummary.
 type NotebookSummary struct {
-	Id        openapi_types.UUID `json:"id"`
-	Name      string             `json:"name"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	// CellsCount Число блоков
+	CellsCount int       `json:"cells_count"`
+	Id         int64     `json:"id"`
+	Name       string    `json:"name"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // User defines model for User.
 type User struct {
 	// Id ID
-	Id    openapi_types.UUID `json:"id"`
-	Login string             `json:"login"`
+	Id    int64  `json:"id"`
+	Login string `json:"login"`
 }
 
 // LogoutUserParams defines parameters for LogoutUser.
@@ -123,6 +188,9 @@ type RegisterUserJSONRequestBody = Credentials
 // CreateNotebookJSONRequestBody defines body for CreateNotebook for application/json ContentType.
 type CreateNotebookJSONRequestBody = CreateNotebookRequest
 
+// CreateCellJSONRequestBody defines body for CreateCell for application/json ContentType.
+type CreateCellJSONRequestBody = CreateCellRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// LoginUser Вход
@@ -145,7 +213,13 @@ type ServerInterface interface {
 	CreateNotebook(w http.ResponseWriter, r *http.Request)
 	// GetNotebook Блокнот
 	// (GET /notebooks/{id})
-	GetNotebook(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	GetNotebook(w http.ResponseWriter, r *http.Request, id int64)
+	// CreateCell Добавление блока
+	// (POST /notebooks/{id}/cells)
+	CreateCell(w http.ResponseWriter, r *http.Request, id int64)
+	// DeleteCell Удаление блока
+	// (DELETE /notebooks/{id}/cells/{index})
+	DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int)
 	// GetCurrentUser Текущий пользователь
 	// (GET /users/me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
@@ -299,9 +373,9 @@ func (siw *ServerInterfaceWrapper) GetNotebook(w http.ResponseWriter, r *http.Re
 	_ = err
 
 	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
+	var id int64
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
 		return
@@ -309,6 +383,67 @@ func (siw *ServerInterfaceWrapper) GetNotebook(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetNotebook(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCell operation middleware
+func (siw *ServerInterfaceWrapper) CreateCell(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCell(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCell operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCell(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "index" -------------
+	var index int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "index", mux.Vars(r)["index"], &index, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "index", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCell(w, r, id, index)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -455,11 +590,15 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/users/me", wrapper.GetCurrentUser).Methods(http.MethodGet)
 
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells", wrapper.CreateCell).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.GetNotebook).Methods(http.MethodGet)
+
 	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.ListNotebooks).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.CreateNotebook).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.GetNotebook).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells/{index}", wrapper.DeleteCell).Methods(http.MethodDelete)
 
 	return r
 }
@@ -842,7 +981,7 @@ func (response CreateNotebook500JSONResponse) VisitCreateNotebookResponse(w http
 }
 
 type GetNotebookRequestObject struct {
-	Id openapi_types.UUID `json:"id"`
+	Id int64 `json:"id"`
 }
 
 type GetNotebookResponseObject interface {
@@ -859,6 +998,20 @@ func (response GetNotebook200JSONResponse) VisitGetNotebookResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNotebook400JSONResponse Error
+
+func (response GetNotebook400JSONResponse) VisitGetNotebookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -894,6 +1047,172 @@ func (response GetNotebook404JSONResponse) VisitGetNotebookResponse(w http.Respo
 type GetNotebook500JSONResponse Error
 
 func (response GetNotebook500JSONResponse) VisitGetNotebookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCellRequestObject struct {
+	Id   int64 `json:"id"`
+	Body *CreateCellJSONRequestBody
+}
+
+type CreateCellResponseObject interface {
+	VisitCreateCellResponse(w http.ResponseWriter) error
+}
+
+type CreateCell201JSONResponse Cell
+
+func (response CreateCell201JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCell400JSONResponse Error
+
+func (response CreateCell400JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCell401JSONResponse Error
+
+func (response CreateCell401JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCell404JSONResponse Error
+
+func (response CreateCell404JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCell409JSONResponse Error
+
+func (response CreateCell409JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCell500JSONResponse Error
+
+func (response CreateCell500JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCellRequestObject struct {
+	Id    int64 `json:"id"`
+	Index int   `json:"index"`
+}
+
+type DeleteCellResponseObject interface {
+	VisitDeleteCellResponse(w http.ResponseWriter) error
+}
+
+type DeleteCell204Response struct {
+}
+
+func (response DeleteCell204Response) VisitDeleteCellResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCell400JSONResponse Error
+
+func (response DeleteCell400JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCell401JSONResponse Error
+
+func (response DeleteCell401JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCell404JSONResponse Error
+
+func (response DeleteCell404JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCell500JSONResponse Error
+
+func (response DeleteCell500JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -977,6 +1296,12 @@ type StrictServerInterface interface {
 	// GetNotebook Блокнот
 	// (GET /notebooks/{id})
 	GetNotebook(ctx context.Context, request GetNotebookRequestObject) (GetNotebookResponseObject, error)
+	// CreateCell Добавление блока
+	// (POST /notebooks/{id}/cells)
+	CreateCell(ctx context.Context, request CreateCellRequestObject) (CreateCellResponseObject, error)
+	// DeleteCell Удаление блока
+	// (DELETE /notebooks/{id}/cells/{index})
+	DeleteCell(ctx context.Context, request DeleteCellRequestObject) (DeleteCellResponseObject, error)
 	// GetCurrentUser Текущий пользователь
 	// (GET /users/me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
@@ -1191,7 +1516,7 @@ func (sh *strictHandler) CreateNotebook(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetNotebook operation middleware
-func (sh *strictHandler) GetNotebook(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+func (sh *strictHandler) GetNotebook(w http.ResponseWriter, r *http.Request, id int64) {
 	var request GetNotebookRequestObject
 
 	request.Id = id
@@ -1209,6 +1534,66 @@ func (sh *strictHandler) GetNotebook(w http.ResponseWriter, r *http.Request, id 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetNotebookResponseObject); ok {
 		if err := validResponse.VisitGetNotebookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCell operation middleware
+func (sh *strictHandler) CreateCell(w http.ResponseWriter, r *http.Request, id int64) {
+	var request CreateCellRequestObject
+
+	request.Id = id
+
+	var body CreateCellJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCell(ctx, request.(CreateCellRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCell")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateCellResponseObject); ok {
+		if err := validResponse.VisitCreateCellResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCell operation middleware
+func (sh *strictHandler) DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int) {
+	var request DeleteCellRequestObject
+
+	request.Id = id
+	request.Index = index
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCell(ctx, request.(DeleteCellRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCell")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCellResponseObject); ok {
+		if err := validResponse.VisitDeleteCellResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1245,30 +1630,38 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"7FpfbxvHEf8qh20eHPQokraaJgT64Nr9kyJIgzhFgQoss+atyI3uX/b2HCsCAZFu0xQOINjoU4E0TfvQ",
+	"V1oWI1oSqa8w+42K2SWPd+SRohCJiQw+kbe3tzszO7/fzszuHqkHXhj4zJcRqeyRqN5kHtV/7zHXxV+H",
+	"RXXBQ8kDn1QIPINTGMKJBS/MHxjAUHWgS2wSiiBkQnKmv+fO7Nfv3p9817XgEAbqieqofejnjefRx+8x",
+	"vyGbpPLWpk087o8fyzYJqZRM4KB/3qKFz+8W/lQqvFMrVH/6BrGJ3A0ZqZBICu43SMsmO9zPEQeeQx+O",
+	"UiIRmzA/9khli9QDh2kZxI4TfOaTas6oURCLOssZ91sYwhH01D58B304gyH0srNMDdWyiWCfxlwwB+fm",
+	"DhmJnMwxmT54+AmrS5z+nmBUMlynD9mnMYskSkIdh6MY1P0gtRzb1I3YzAr5DnucI/03MIRj6KsvoK8O",
+	"LFwQOIQhvIRhSgnbUm0L1w9O1cGGBc+gB8cWnMMQG5KOFhzBEF5AFw6xHXqqo9r4/tCCExjCAHrqC6IX",
+	"l3to+VKiKPclazBxXcs3ZXM9xXwrvx9I9jAIdlKWzhrTp572hJTTlm+/Pe21i2XQY8yRwWG+5NSNZmd2",
+	"gwb3p6a+czsz8515eJkDl5BG0WeBcKZG/Xl21Lcv0sdIlhouT7dfCRGIWa30Alb2kgV9RF3uUFz5GtNf",
+	"2IT7urFWT1nHNpPWJN1hOHXs01g2A8E/Z4gmP5C17SD2x/+5F7rMY77Ub9HjhE/dXLB7LIpoQ8u0WOux",
+	"64365+k89qb5/Gpo0Lq1wcNd/+GbM+xaZ64bLfi8rxF2DkO1rw7gCE7SDDShWC6Zp4d5Q7BtUiE/KU72",
+	"g+JoMyjqnaCVqEGFoLv4XNfIcGpUw2E7EB7+Iw6VrCC5x/I8K39XIPbkc+7LtzbTjFDOY4Qx3KbU/xq6",
+	"cAyH0IUB9PNVnhEpDp1LqpFH11oge7QuGdtkZljkDQ9iz6NiNwcLOGitHsS+zNH5f9BXbVRzou0QDkme",
+	"1biTUfFypr5ew6UGszMK51nsDxHLoYyr8q2EUJeQ3vSdlRGjA1aPBZe7DxBGRsKHjAom7sayOXn69Vi4",
+	"3/3xI2KbCAxHMm8nNmxKGZIWDsz97UCLx6WLb+6zbRq70vICJ3bRlo+YiIz65Y3SRgl1CkLm05CTCrmz",
+	"Ud4oaVKWTS1UERmymCgdBmZ7Q8tqvn3XIRXyHr7WZjdGYJH8ZeDsGqb2JTOeScPQ5XX9VfGTKPAnIeWF",
+	"HJPi8FbW0lLETDdEYeBHxpC3S6Urm1prpeecDi/UXzGOs+BQPTWBDYYrMLBNyxGyjHpqqY7GXA8fiE2a",
+	"jDpMaCnvjrYeKvm0QLOu9YDJwr0g2OFscU/su3mF6pv9N0//r6GnqfQUwyzUDl5ZcAxdOFf7MFRtoiUp",
+	"r0YS1bEwiERjY76AcmCACn2U4mcrscfzJF3pwQAG6gDj2KH6EvrwQoefadSTylbVJtGY0hNvIjaRtBEh",
+	"gSDuSBU/SiAYxHIhBoNYjkAYUkE9JrWnbU2z3odsW7CoWZi4pnXrt1KGv/fd3UJdO5ltfUBl8xdFGvLi",
+	"o7IWAKMM9phiSEQqRMdDpEJM9zFRV4gwY9dkYCKsLFDtBZ5bnQHxZm7u1FNt1da5h3qiUXaqDd61LSOL",
+	"yTJeQld9aV5kUZcFUnZ00259nFHiY53K9FVbddQzONELemapttofbaZnxL4QkGsYLAuDpxcCYbQ685Ew",
+	"8u+PRi742mLheWqbMXm4egq9zI6DeThGtmpf87OY1TaLlpXtUGtALAeIf8ELs7QjmutnFngcys9FSoNH",
+	"kolFUDE9fkyxW/n6Y7dvdB3qKzjWlu2qDvTw2VJtXdzSoFrHcek47p0VSPJPrPipv2hJTlTnpkD039CD",
+	"l6MAYd/wizrIR6U/yuW13zRYXhTHI/l+0ut75jVL1W+m6wszpZwcg2XKUAYcPThRT9TftS2G40rvNMIO",
+	"1knBYs/KFgG2qq2sq30L57qck3PEkt0JJo5WbdlzuD9bur4+9s+pj694H0h0vNCXMzsAWefSrwtskjWd",
+	"W/fNAU6GsYt73GnNpe3fMJkC0lTGMZspYHVtkifoUuH85OBS9cmc1KH0A+BoDZ1Z6GyWNlcjBSaDXXiF",
+	"Z8y4GjcWtlmPWhajxeTwa9G2p0+tLqgNpO8jTJhi9Wi+rl05fTdgxTuyOTSczyKZiwHoTWtC+XERymoy",
+	"wufTAOxh0fc7lOgMunCChWD9D1ONgb5Io/6We+Bp3SqXSqU3bywX/iMLh2wY070kORb39OWelqkpukyy",
+	"WZq8r9tvCE3aebeUkrsNpjD6ytRIz/DiVfae2YyTZW4vLaMLWnOhOosuMC1Z7R0z4/jUQz1bs+I6zLoC",
+	"avlv6hRtaVqJIyaioscWZUT3YiGYL5Pa8qpP6P+TFKX68GpeSeqrdW79vbxnSSNPPEl7DnpRK2kb3480",
+	"pdKWnTybvqmGiRu2qq3/DwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -2,21 +2,23 @@ package usecase
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/repository"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // fakeRepo реализует repository.Repository в памяти вместо базы.
 type fakeRepo struct {
 	mu       sync.Mutex
-	users    map[uuid.UUID]fakeUser
+	users    map[int64]fakeUser
 	sessions map[string]fakeSession
+	// lastID растёт с каждым пользователем, как IDENTITY в Postgres.
+	lastID int64
 }
 
 var _ repository.Repository = (*fakeRepo)(nil)
@@ -27,12 +29,12 @@ type fakeUser struct {
 }
 
 type fakeSession struct {
-	userID    uuid.UUID
+	userID    int64
 	expiresAt time.Time
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{users: map[uuid.UUID]fakeUser{}, sessions: map[string]fakeSession{}}
+	return &fakeRepo{users: map[int64]fakeUser{}, sessions: map[string]fakeSession{}}
 }
 
 // addUser кладёт пользователя с паролем. MinCost, чтобы тесты не ждали bcrypt.
@@ -41,7 +43,8 @@ func (r *fakeRepo) addUser(login, password string) models.User {
 	if err != nil {
 		panic(err)
 	}
-	u := models.User{ID: uuid.New(), Login: login}
+	r.lastID++
+	u := models.User{ID: r.lastID, Login: login}
 	r.users[u.ID] = fakeUser{User: u, hash: string(hash)}
 	return u
 }
@@ -54,7 +57,8 @@ func (r *fakeRepo) CreateUser(_ context.Context, login, passwordHash string) (mo
 			return models.User{}, repository.ErrLoginTaken
 		}
 	}
-	u := models.User{ID: uuid.New(), Login: login}
+	r.lastID++
+	u := models.User{ID: r.lastID, Login: login}
 	r.users[u.ID] = fakeUser{User: u, hash: passwordHash}
 	return u, nil
 }
@@ -70,7 +74,7 @@ func (r *fakeRepo) UserByLogin(_ context.Context, login string) (models.User, st
 	return models.User{}, "", repository.ErrUserNotFound
 }
 
-func (r *fakeRepo) UserByID(_ context.Context, id uuid.UUID) (models.User, error) {
+func (r *fakeRepo) UserByID(_ context.Context, id int64) (models.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	u, ok := r.users[id]
@@ -80,19 +84,19 @@ func (r *fakeRepo) UserByID(_ context.Context, id uuid.UUID) (models.User, error
 	return u.User, nil
 }
 
-func (r *fakeRepo) CreateSession(_ context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error {
+func (r *fakeRepo) CreateSession(_ context.Context, userID int64, tokenHash string, expiresAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.sessions[tokenHash] = fakeSession{userID: userID, expiresAt: expiresAt}
 	return nil
 }
 
-func (r *fakeRepo) DeleteSession(_ context.Context, tokenHash string) (uuid.UUID, time.Time, error) {
+func (r *fakeRepo) DeleteSession(_ context.Context, tokenHash string) (int64, time.Time, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s, ok := r.sessions[tokenHash]
 	if !ok {
-		return uuid.Nil, time.Time{}, repository.ErrSessionNotFound
+		return 0, time.Time{}, repository.ErrSessionNotFound
 	}
 	delete(r.sessions, tokenHash)
 	return s.userID, s.expiresAt, nil
@@ -101,6 +105,6 @@ func (r *fakeRepo) DeleteSession(_ context.Context, tokenHash string) (uuid.UUID
 // fakeTokens выдаёт предсказуемый access-токен.
 type fakeTokens struct{}
 
-func (fakeTokens) Issue(userID uuid.UUID) (string, error) {
-	return "access-" + userID.String(), nil
+func (fakeTokens) Issue(userID int64) (string, error) {
+	return "access-" + strconv.FormatInt(userID, 10), nil
 }

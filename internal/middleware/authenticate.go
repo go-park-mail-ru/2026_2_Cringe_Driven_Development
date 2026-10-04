@@ -6,11 +6,10 @@ import (
 	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
-	"github.com/google/uuid"
 )
 
 type TokenParser interface {
-	Parse(token string) (uuid.UUID, error)
+	Parse(token string) (int64, error)
 }
 
 // Authenticate кладёт пользователя в контекст, если в запросе валидный токен.
