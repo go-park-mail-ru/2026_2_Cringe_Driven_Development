@@ -50,6 +50,7 @@ docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
 
 ## Ссылки
 
+- [Сервис cellestial.ru](https://cellestial.ru)
 - [Доска задач](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
 - [Репозиторий фронтенда](https://github.com/frontend-park-mail-ru/2026_2_Cringe_Driven_Development)
 - [Организация команды](https://github.com/Cringe-Driven-Development-Team)
