@@ -3,10 +3,10 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 // ErrInvalidToken: токен испорчен, истёк или подписан другим ключом.
@@ -21,9 +21,9 @@ func NewAccessToken(secret []byte, ttl time.Duration) *AccessToken {
 	return &AccessToken{secret: secret, ttl: ttl}
 }
 
-func (t *AccessToken) Issue(userID uuid.UUID) (string, error) {
+func (t *AccessToken) Issue(userID int64) (string, error) {
 	claims := jwt.RegisteredClaims{
-		Subject:   userID.String(),
+		Subject:   strconv.FormatInt(userID, 10),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(t.ttl)),
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(t.secret)
@@ -33,7 +33,7 @@ func (t *AccessToken) Issue(userID uuid.UUID) (string, error) {
 	return token, nil
 }
 
-func (t *AccessToken) Parse(token string) (uuid.UUID, error) {
+func (t *AccessToken) Parse(token string) (int64, error) {
 	var claims jwt.RegisteredClaims
 	_, err := jwt.ParseWithClaims(token, &claims,
 		func(*jwt.Token) (any, error) { return t.secret, nil },
@@ -41,11 +41,11 @@ func (t *AccessToken) Parse(token string) (uuid.UUID, error) {
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return 0, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
-	id, err := uuid.Parse(claims.Subject)
+	id, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("%w: bad subject: %w", ErrInvalidToken, err)
+		return 0, fmt.Errorf("%w: bad subject: %w", ErrInvalidToken, err)
 	}
 	return id, nil
 }

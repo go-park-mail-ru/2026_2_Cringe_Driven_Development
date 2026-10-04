@@ -9,7 +9,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/models"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/repository"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -83,7 +82,7 @@ func (uc *UserUsecase) Logout(ctx context.Context, refreshToken string) error {
 	return err
 }
 
-func (uc *UserUsecase) CurrentUser(ctx context.Context, id uuid.UUID) (models.User, error) {
+func (uc *UserUsecase) CurrentUser(ctx context.Context, id int64) (models.User, error) {
 	u, err := uc.repo.UserByID(ctx, id)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return models.User{}, ErrUserNotFound
@@ -91,7 +90,7 @@ func (uc *UserUsecase) CurrentUser(ctx context.Context, id uuid.UUID) (models.Us
 	return u, err
 }
 
-func (uc *UserUsecase) startSession(ctx context.Context, userID uuid.UUID) (models.Session, error) {
+func (uc *UserUsecase) startSession(ctx context.Context, userID int64) (models.Session, error) {
 	access, err := uc.tokens.Issue(userID)
 	if err != nil {
 		return models.Session{}, err
