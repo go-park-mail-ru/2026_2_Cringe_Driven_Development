@@ -7,10 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
+	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/repository/postgres"
+	notebooks3 "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/repository/s3"
+	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	userdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/delivery"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/repository/postgres"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
@@ -45,6 +49,13 @@ func run() error {
 	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
 	refreshTTL := getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour)
 	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
+	corsOrigins := strings.FieldsFunc(os.Getenv("CORS_ALLOWED_ORIGINS"), func(r rune) bool {
+		return r == ',' || r == ' '
+	})
+	notebooksBucket := os.Getenv("S3_NOTEBOOKS_BUCKET")
+	if notebooksBucket == "" {
+		return errors.New("S3_NOTEBOOKS_BUCKET is not set")
+	}
 
 	dbUser := getEnv("POSTGRES_USER", "postgres")
 	dbPass := getEnv("POSTGRES_PASSWORD", "postgres")
@@ -72,12 +83,21 @@ func run() error {
 	tokens := auth.NewAccessToken([]byte(jwtSecret), accessTTL)
 	userRepo := postgres.NewUserRepository(pool)
 	userUsecase := usecase.NewUserUsecase(userRepo, tokens, refreshTTL)
+
+	s3Client, err := notebooks3.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	notebookUsecase := notebookusecase.NewNotebookUsecase(
+		notebookpostgres.NewNotebookRepository(pool),
+		notebooks3.NewFileStorage(s3Client, notebooksBucket),
+	)
 	srv := server{
 		userHandler: userdelivery.NewHandler(userUsecase,
 			userdelivery.CookieConfig{Path: baseURL + "/auth", Secure: cookieSecure}),
-		notebookHandler: notebookdelivery.NewHandler(),
+		notebookHandler: notebookdelivery.NewHandler(notebookUsecase),
 	}
-	router, err := newRouter(srv, tokens)
+	router, err := newRouter(srv, tokens, corsOrigins)
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ jobs:
             echo '### Контракт в Apidog ушёл вперёд кода'
             echo 'Запустите `make generate` на свежем `main` и откройте PR с изменениями.'
             echo '```diff'
-            git diff | head -n 500
+            git diff | head -n 500 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1

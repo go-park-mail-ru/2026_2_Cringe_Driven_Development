@@ -73,7 +73,7 @@ type testServer struct {
 // проверяется хендлер вместе со сгенерированным кодом и httperr.
 func newRouter(uc usecase.Usecase) http.Handler {
 	h := NewHandler(uc, CookieConfig{Path: "/api/v1/auth"})
-	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler()}, nil, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,
 	})
