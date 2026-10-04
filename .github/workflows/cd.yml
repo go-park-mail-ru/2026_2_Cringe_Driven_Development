@@ -1,0 +1,108 @@
+name: CD
+
+on:
+  workflow_call:
+    inputs:
+      backend_image_tag:
+        description: Published SHA tag from the CI docker job
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    environment:
+      name: production
+      url: https://cellestial.ru
+    concurrency:
+      group: backend-production
+      cancel-in-progress: false
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: "True"
+      ANSIBLE_SSH_ARGS: -C -o ControlMaster=auto -o ControlPersist=60s -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+    steps:
+      - name: Checkout deployment infrastructure
+        uses: actions/checkout@v7
+        with:
+          repository: Cringe-Driven-Development-Team/infra
+          # Merge infra#30 and install ci.pub before merging the backend PR.
+          ref: main
+          path: infra
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install deployment tools
+        working-directory: infra/ansible
+        run: |
+          python -m pip install -r deploy-requirements.txt
+          ansible-galaxy collection install -r deploy-requirements.yml
+      - name: Prepare SSH and Vault files
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          for name in DEPLOY_SSH_KEY SSH_KNOWN_HOSTS ANSIBLE_VAULT_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing production secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          mkdir -p "$RUNNER_TEMP/backend-deploy"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/backend-deploy/ci-key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/backend-deploy/known_hosts"
+          printf '%s\n' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/backend-deploy/vault-pass"
+          ssh-keygen -y -f "$RUNNER_TEMP/backend-deploy/ci-key" > "$RUNNER_TEMP/backend-deploy/ci-key.pub"
+          ssh-keygen -F cellestial.ru -f "$RUNNER_TEMP/backend-deploy/known_hosts" > /dev/null
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/backend-deploy/vault-pass" >> "$GITHUB_ENV"
+      - name: Deploy backend
+        working-directory: infra/ansible
+        env:
+          BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [[ "$BACKEND_IMAGE_TAG" =~ ^sha-[0-9a-f]{7,40}$ ]]
+          ansible-playbook -i inventory/ci.yml deploy-backend.yml \
+            -e "backend_image_tag=$BACKEND_IMAGE_TAG" \
+            -e "deploy_key_path=$RUNNER_TEMP/backend-deploy/ci-key" \
+            --ssh-common-args="-o UserKnownHostsFile=$RUNNER_TEMP/backend-deploy/known_hosts -o StrictHostKeyChecking=yes"
+      - name: Remove deployment secrets
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/backend-deploy"
+      - name: Send to tg
+        id: telegram
+        if: always()
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
+          DEPLOY_RESULT: ${{ job.status }}
+          BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
+        run: |
+          [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]
+          text="Backend production: $DEPLOY_RESULT
+          Image: $BACKEND_IMAGE_TAG
+          $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          args=(--data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text")
+          if [[ -n "$TELEGRAM_TOPIC_ID" ]]; then
+            args+=(--data-urlencode "message_thread_id=$TELEGRAM_TOPIC_ID")
+          fi
+          curl --silent --show-error --fail \
+            "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            "${args[@]}" | jq -e '.ok == true' > /dev/null
+      - name: Report notification failure
+        if: always() && steps.telegram.outcome == 'failure'
+        run: echo '::warning::Telegram notification failed; see the deployment step for the rollout result.'

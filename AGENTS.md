@@ -65,33 +65,40 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 
 ## Целевая архитектура MVP и границы
 
-Два VPS Selectel с Docker Compose: браузер → Caddy → BFF (VPS 1) → Go API →
-PostgreSQL (VPS 2). BFF обращается к API по приватной сети с S2S-ключом из Vault.
-Публичный вход — Caddy; статика клиента — S3/CDN.
+Одна VPS Selectel с Docker Compose: браузер → Caddy → Go API → PostgreSQL.
+Клиент обращается к `/api/v1` на том же домене, BFF нет. Только Caddy публикует
+80/443; API и Postgres доступны во внутренней сети Compose. Статика клиента — S3/CDN.
 
 - Backend отвечает за Go API, данные и бизнес-логику; местный Compose — для разработки.
 - [Frontend](https://github.com/frontend-park-mail-ru/2026_2_Cringe_Driven_Development):
-  клиент React/Vite и BFF Hono/bun; bun workspaces и Turborepo. tRPC — между клиентом и BFF.
-- `infra`: Pulumi, Ansible, Vault, production Compose и Caddyfile; деплой и откат
-  через Ansible. Не переноси production-конфигурацию в backend и не коммить секреты.
-- Контракт BFF–Go API, схема данных и механизм исполнения Python/R
-  инфраструктурной спецификацией не определены.
-- `diagrams/frozen-k3s/` в `docs` заморожен: схемы не изменять, k3s/Argo CD в MVP не переносить.
+  клиент React/Vite, обращается к Go API по контракту Apidog.
+- `infra`: Pulumi, Ansible Vault, production Compose и Caddyfile. Не переноси
+  production-конфигурацию в backend и не коммить открытые секреты.
+- Проект Compose на VPS — `cellestial`, каталог `/opt/cellestial`; существующие
+  volumes Caddy сохраняются. Миграции goose выполняются при старте API.
+- Файлы блокнотов хранятся в S3: нужен `S3_NOTEBOOKS_BUCKET` и параметры `AWS_*`.
+  Локально Compose использует SeaweedFS, production — Selectel.
+- `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
+  `workflow_call` с SHA-тегом из job `docker`. CD после approval `production`
+  запускает `deploy-backend.yml` из `infra/main`. Inventory статический;
+  Selectel credentials и Pulumi в CI не используются.
+- Reviewers production: `blackHATred`, `YarikMix`; достаточно одного одобрения.
+  Деплой только из `main`, без отмены выполняющейся выкатки.
+- Откат — тот же playbook с прежним SHA-тегом, без автоматических миграций Down.
+- API N+1 обслуживает клиента N: ручки и поля не удалять в том же релизе,
+  где клиент перестал ими пользоваться; проверять на ревью Apidog.
+- `diagrams/bff/` и `diagrams/frozen-k3s/` в docs заморожены; схемы не изменять.
 
 Источники: [docs](https://github.com/Cringe-Driven-Development-Team/docs),
-[MVP-спецификация](https://github.com/Cringe-Driven-Development-Team/docs/blob/main/docs/superpowers/specs/2026-09-16-mvp-compose-design.md),
-[каталог схем](https://cringe-driven-development-team.github.io/docs/).
-
-| Схема MVP | Что смотреть |
-| --- | --- |
-| [Deployment](https://cringe-driven-development-team.github.io/docs/deployment.html) | VPS, маршруты запросов, S3/CDN |
-| [Frontend monorepo](https://cringe-driven-development-team.github.io/docs/frontend-monorepo.html) | Клиент, BFF, взаимодействие с Go API |
-| [CI](https://cringe-driven-development-team.github.io/docs/ci.html) | Репозитории, проверки, публикация артефактов |
-| [CD](https://cringe-driven-development-team.github.io/docs/cd.html) | Деплой и откат через Ansible |
+[MVP-спецификация](https://github.com/Cringe-Driven-Development-Team/docs/blob/main/docs/superpowers/specs/2026-09-29-mvp-single-vps-design.md),
+[Deployment](https://cringe-driven-development-team.github.io/docs/deployment.html),
+[CD](https://cringe-driven-development-team.github.io/docs/cd.html).
 
 Фактический [CI backend](.github/workflows/ci.yml) публикует
 `ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development`: теги `sha-<short>` и `main`,
-без `latest`; неизменяемая ссылка — digest.
+без `latest`. Пакет приватный; job выкатки передаёт временный `GITHUB_TOKEN`
+с `packages: read` через окружение Ansible. Постоянного GHCR-токена в Vault нет.
+Выкатывается SHA-тег; строго неизменяемая ссылка — digest.
 
 ## Коммиты
 
