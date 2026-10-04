@@ -43,12 +43,37 @@ SELECT u.id, t.id,
  WHERE u.login = 'alice'
    AND t.name = 'Pro';
 
+-- Учебный промокод полностью покрывает цену любого платного тарифа.
+INSERT INTO promo_code (code, expires_at)
+VALUES ('DEMO2026', CURRENT_TIMESTAMP + INTERVAL '31536000 seconds');
+
+-- Две покупки alice: Pro оплачен через платёжный сервис, Max — промокодом.
+INSERT INTO payment (user_id, subscription_type_id)
+SELECT u.id, t.id
+  FROM app_user AS u
+ CROSS JOIN subscription_type AS t
+ WHERE u.login = 'alice'
+   AND t.name = 'Pro';
+
+INSERT INTO payment (user_id, subscription_type_id, promo_code_id)
+SELECT u.id, t.id, c.id
+  FROM app_user AS u
+ CROSS JOIN subscription_type AS t
+ CROSS JOIN promo_code AS c
+ WHERE u.login = 'alice'
+   AND t.name = 'Max'
+   AND c.code = 'DEMO2026';
+
 -- Bob пользуется бесплатным тарифом: строки user_subscription не нужны.
--- Проекты не создаём: миграция не загружает реальные ipynb/ZIP в S3.
+-- Проекты не создаём: миграция не загружает реальные файлы в S3.
 
 -- +goose Down
 SET LOCAL search_path TO colab, public;
 -- Откат seed предназначен только для отдельной учебной БД.
+DELETE FROM payment
+ WHERE user_id IN (SELECT id FROM app_user WHERE login IN ('alice', 'bob'));
+DELETE FROM promo_code
+ WHERE code = 'DEMO2026';
 DELETE FROM user_subscription
  WHERE user_id IN (SELECT id FROM app_user WHERE login IN ('alice', 'bob'));
 DELETE FROM app_user

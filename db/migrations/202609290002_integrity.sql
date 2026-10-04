@@ -92,6 +92,75 @@ $$;
 CREATE TRIGGER protect_subscription_type BEFORE UPDATE OR DELETE ON subscription_type
     FOR EACH ROW EXECUTE FUNCTION protect_subscription_type();
 
+-- Платёж оформляется только за платный тариф и только действующим промокодом.
+-- +goose StatementBegin
+CREATE FUNCTION colab.check_payment() RETURNS trigger
+LANGUAGE plpgsql SET search_path = colab, pg_temp AS $$
+DECLARE
+    type_price numeric(12, 2);
+    code_expires_at timestamptz;
+BEGIN
+    SELECT price_rub INTO type_price
+      FROM subscription_type
+     WHERE id = NEW.subscription_type_id
+       FOR SHARE;
+    IF type_price = 0 THEN
+        RAISE EXCEPTION 'free access does not require a payment' USING ERRCODE = '23514';
+    END IF;
+    IF NEW.promo_code_id IS NOT NULL THEN
+        SELECT expires_at INTO code_expires_at
+          FROM promo_code
+         WHERE id = NEW.promo_code_id
+           FOR SHARE;
+        IF code_expires_at <= NEW.created_at THEN
+            RAISE EXCEPTION 'promo code has expired' USING ERRCODE = '23514';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+CREATE TRIGGER check_payment BEFORE INSERT ON payment
+    FOR EACH ROW EXECUTE FUNCTION check_payment();
+
+-- Платёж — свершившийся факт: его пользователь, тариф и промокод не меняются.
+-- +goose StatementBegin
+CREATE FUNCTION colab.protect_payment() RETURNS trigger
+LANGUAGE plpgsql SET search_path = colab, pg_temp AS $$
+BEGIN
+    IF (NEW.user_id, NEW.subscription_type_id, NEW.promo_code_id)
+       IS DISTINCT FROM
+       (OLD.user_id, OLD.subscription_type_id, OLD.promo_code_id) THEN
+        RAISE EXCEPTION 'payment is immutable' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+CREATE TRIGGER protect_payment BEFORE UPDATE ON payment
+    FOR EACH ROW EXECUTE FUNCTION protect_payment();
+
+-- Владелец записан в project, поэтому обычный CHECK его не видит.
+-- +goose StatementBegin
+CREATE FUNCTION colab.check_project_share() RETURNS trigger
+LANGUAGE plpgsql SET search_path = colab, pg_temp AS $$
+DECLARE
+    owner_id integer;
+BEGIN
+    SELECT user_id INTO owner_id
+      FROM project
+     WHERE id = NEW.project_id
+       FOR SHARE;
+    IF owner_id = NEW.user_id THEN
+        RAISE EXCEPTION 'project cannot be shared with its owner' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+CREATE TRIGGER check_project_share BEFORE INSERT OR UPDATE ON project_share
+    FOR EACH ROW EXECUTE FUNCTION check_project_share();
+
 -- +goose Down
 -- +goose StatementBegin
 DO $$
@@ -111,4 +180,6 @@ BEGIN
 END;
 $$;
 -- +goose StatementEnd
-DROP FUNCTION colab.touch_row(), colab.check_subscription_type(), colab.protect_subscription_type();
+DROP FUNCTION colab.touch_row(), colab.check_subscription_type(),
+    colab.protect_subscription_type(), colab.check_payment(),
+    colab.protect_payment(), colab.check_project_share();

@@ -1,7 +1,7 @@
 # ER-диаграмма ДЗ №1
 
-Семь SQL-таблиц находятся в PostgreSQL. Refresh-сессии — в Redis,
-содержимое ipynb, ZIP и аватаров — в S3. Диаграмма редактируется непосредственно
+Десять SQL-таблиц находятся в PostgreSQL. Refresh-сессии — в Redis,
+содержимое ipynb, файлов окружения и аватаров — в S3. Диаграмма редактируется непосредственно
 в этом Markdown-файле и использует стандартный блок Mermaid `erDiagram`.
 
 `PK` — первичный ключ, `FK` — внешний ключ, `UK` — уникальный атрибут.
@@ -27,8 +27,15 @@ erDiagram
         attr id PK
         attr user_id FK
         attr notebook_file_id FK, UK
-        attr environment_files_zip_id FK, UK
         attr name
+        attr created_at
+        attr updated_at
+    }
+    environment_file {
+        attr id PK
+        attr project_id FK
+        attr file_id FK, UK
+        attr path
         attr created_at
         attr updated_at
     }
@@ -67,6 +74,21 @@ erDiagram
         attr created_at
         attr updated_at
     }
+    promo_code {
+        attr id PK
+        attr code UK
+        attr expires_at
+        attr created_at
+        attr updated_at
+    }
+    payment {
+        attr id PK
+        attr user_id FK
+        attr subscription_type_id FK
+        attr promo_code_id FK
+        attr created_at
+        attr updated_at
+    }
     project_share {
         attr id PK
         attr project_id FK
@@ -81,28 +103,33 @@ erDiagram
         attr expires_at
         attr created_at
     }
-    s3["S3: ipynb, ZIP, avatar"]
+    s3["S3: ipynb, environment files, avatar"]
 
     file |o..o{ app_user : "avatar_image_id"
     app_user ||..o{ project : "user_id"
     file ||..o| project : "notebook_file_id"
-    file ||..o| project : "environment_files_zip_id"
+    project ||..o{ environment_file : "project_id"
+    file ||..o| environment_file : "file_id"
     project ||..o{ runtime_session : "project_id"
     app_user ||..o{ user_subscription : "user_id"
     subscription_type ||..o{ user_subscription : "subscription_type_id"
+    app_user ||..o{ payment : "user_id"
+    subscription_type ||..o{ payment : "subscription_type_id"
+    promo_code |o..o{ payment : "promo_code_id"
     project ||..o{ project_share : "project_id"
     app_user ||..o{ project_share : "user_id"
     app_user ||..o{ refresh_session : "user_id (logical)"
     file ||..|| s3 : "file_path (logical)"
 ```
 
-Обязательная ссылка проекта на ZIP допускает пустой архив. Один пользователь
-может иметь много проектов, подписок, полученных доступов и refresh-сессий.
+Проект может не иметь файлов окружения; путь файла уникален внутри проекта.
+Один пользователь может иметь много проектов, подписок, платежей, полученных
+доступов и refresh-сессий. Платёж может быть без промокода.
 Для проекта хранится много запусков; одновременно незавершённым может быть один.
 Подписки пользователя не пересекаются по времени.
 
 Комментарии находятся в metadata блоков ipynb, код/текст — в cells, результаты —
 в outputs. Эти вложенные структуры файла не являются таблицами PostgreSQL.
-Их поля, ключи и права описаны в [relations.md](relations.md#s3-ipynb-zip-и-аватары).
+Их поля, ключи и права описаны в [relations.md](relations.md#s3-ipynb-файлы-окружения-и-аватары).
 Redis Pub/Sub передаёт временные уведомления о комментариях по WebSocket;
 не создаёт отдельную таблицу или постоянную копию комментариев.

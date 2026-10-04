@@ -32,16 +32,28 @@ CREATE TABLE project (
         ON UPDATE RESTRICT ON DELETE RESTRICT,
     notebook_file_id integer NOT NULL UNIQUE REFERENCES file (id)
         ON UPDATE RESTRICT ON DELETE RESTRICT,
-    environment_files_zip_id integer NOT NULL UNIQUE REFERENCES file (id)
-        ON UPDATE RESTRICT ON DELETE RESTRICT,
     name text NOT NULL
         CHECK (name = btrim(name) AND char_length(name) BETWEEN 1 AND 200),
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CHECK (notebook_file_id <> environment_files_zip_id),
     CHECK (isfinite(created_at) AND isfinite(updated_at) AND updated_at >= created_at)
 );
 CREATE INDEX project_user_idx ON project (user_id);
+
+CREATE TABLE environment_file (
+    id integer GENERATED ALWAYS AS IDENTITY NOT NULL PRIMARY KEY CHECK (id > 0),
+    project_id integer NOT NULL REFERENCES project (id)
+        ON UPDATE RESTRICT ON DELETE CASCADE,
+    file_id integer NOT NULL UNIQUE REFERENCES file (id)
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
+    path text NOT NULL
+        CHECK (path = btrim(path) AND char_length(path) BETWEEN 1 AND 1024
+            AND path !~ '^/' AND path !~ '/$'),
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT environment_file_path_key UNIQUE (project_id, path),
+    CHECK (isfinite(created_at) AND isfinite(updated_at) AND updated_at >= created_at)
+);
 
 CREATE TABLE runtime_session (
     id integer GENERATED ALWAYS AS IDENTITY NOT NULL PRIMARY KEY CHECK (id > 0),
@@ -99,6 +111,33 @@ CREATE TABLE user_subscription (
     ) DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX user_subscription_type_idx ON user_subscription (subscription_type_id);
+
+CREATE TABLE promo_code (
+    id integer GENERATED ALWAYS AS IDENTITY NOT NULL PRIMARY KEY CHECK (id > 0),
+    code text NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9]{4,32}$'),
+    expires_at timestamptz NOT NULL CHECK (isfinite(expires_at)),
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (expires_at > created_at),
+    CHECK (isfinite(created_at) AND isfinite(updated_at) AND updated_at >= created_at)
+);
+
+CREATE TABLE payment (
+    id integer GENERATED ALWAYS AS IDENTITY NOT NULL PRIMARY KEY CHECK (id > 0),
+    user_id integer NOT NULL REFERENCES app_user (id)
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
+    subscription_type_id integer NOT NULL REFERENCES subscription_type (id)
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
+    promo_code_id integer REFERENCES promo_code (id)
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Один промокод засчитывается пользователю один раз; строки без промокода не ограничены.
+    CONSTRAINT payment_promo_code_key UNIQUE (user_id, promo_code_id),
+    CHECK (isfinite(created_at) AND isfinite(updated_at) AND updated_at >= created_at)
+);
+CREATE INDEX payment_type_idx ON payment (subscription_type_id);
+CREATE INDEX payment_promo_code_idx ON payment (promo_code_id);
 
 CREATE TABLE project_share (
     id integer GENERATED ALWAYS AS IDENTITY NOT NULL PRIMARY KEY CHECK (id > 0),
