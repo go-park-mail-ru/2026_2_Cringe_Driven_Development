@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
@@ -50,9 +49,10 @@ func run() error {
 	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
 	refreshTTL := getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour)
 	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
-	corsOrigins := strings.FieldsFunc(os.Getenv("CORS_ALLOWED_ORIGINS"), func(r rune) bool {
-		return r == ',' || r == ' '
-	})
+	corsOrigins, err := parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins))
+	if err != nil {
+		return err
+	}
 	notebooksBucket := os.Getenv("S3_NOTEBOOKS_BUCKET")
 	if notebooksBucket == "" {
 		return errors.New("S3_NOTEBOOKS_BUCKET is not set")
