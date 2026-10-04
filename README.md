@@ -9,7 +9,8 @@ Backend-репозиторий проекта «Colab» команды «Cringe 
 На каждом PR запускаются `lint` (golangci-lint), `test` (проверка зависимостей
 через `go mod tidy -diff`, сборка и тесты с race detector) и `docker` (сборка образа
 без публикации). Покрытие выводится в summary запуска; минимального порога нет.
-Новый push отменяет предыдущий запуск CI для той же ветки или PR.
+Новый push в PR отменяет предыдущие проверки этого PR. Запуски `main` не отменяют
+друг друга; выкатки сериализуются отдельно и требуют ручного approval.
 
 После push в `main`, если все проверки прошли, образ публикуется в
 `ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development`:
@@ -19,7 +20,9 @@ Backend-репозиторий проекта «Colab» команды «Cringe 
 
 Тег `latest` не публикуется. SHA-тег может быть перезаписан повторным запуском
 для того же коммита; для строго неизменяемой ссылки используется digest образа.
-Деплой выполняется отдельно в `infra`.
+После публикации `ci.yml` вызывает reusable workflow `cd.yml`, передавая SHA-тег
+из job `docker`. CD запускает Ansible из ветки `main` репозитория `infra`
+и выкатывает этот образ на единственную VPS Selectel.
 
 Для локальной работы нужны Go версии из `go.mod`, компилятор C для `-race`,
 Make и Docker с Compose. Команды:
@@ -36,17 +39,71 @@ make run           # API и PostgreSQL через Docker Compose
 настройки. После `make run` API доступен по `http://localhost:8080/health`
 (если порт не изменён). Остановка: `docker compose down`.
 
-После первой публикации администратор должен сделать пакет публичным в GHCR,
-проверить его связь с репозиторием и включить обязательные проверки
-`lint`, `test`, `docker` для `main`. После этого образ можно скачать без входа:
-
-```bash
-docker pull ghcr.io/go-park-mail-ru/2026_2_cringe_driven_development:main
-```
+Пакет GHCR остаётся приватным: организация `go-park-mail-ru` запрещает публичные
+пакеты. CI публикует его с `GITHUB_TOKEN`; job выкатки получает `packages: read`
+и передаёт собственный временный `GITHUB_TOKEN` в Ansible через окружение.
+Постоянный PAT для production и отдельный GHCR secret не нужны. Для `main`
+администратор включает обязательные проверки `lint`, `test`, `docker`.
 
 Если публикация завершается с 403, передайте ментору ссылку на запуск для
 проверки прав организации и пакета. Личные токены для обхода ограничений
 не используются; CI работает с `GITHUB_TOKEN`.
+
+## Production-деплой
+
+На VPS один проект Compose `cellestial` в `/opt/cellestial`: Caddy, Go API и
+Postgres. Caddy проксирует `/api/v1/*` в API с сохранением пути; API и БД не публикуют
+порты наружу. Production Compose, Caddyfile, Vault и playbook принадлежат `infra`;
+местный `docker-compose.yml` остаётся окружением разработки. Пути клиента
+вне `/api/v1/*` Caddy продолжает обслуживать из S3.
+
+После успешных `lint`, `test`, `docker` на push в `main` CI вызывает
+[CD](.github/workflows/cd.yml) через `workflow_call`. Его job `deploy` ждёт approval
+Environment `production`. В настройках GitHub нужно разрешить только ветку `main`
+и назначить required reviewers `blackHATred` и `YarikMix`: достаточно одного
+одобрения. Это внешняя настройка GitHub, workflow сам reviewers не создаёт.
+
+Первоначальная подготовка:
+
+- Пакет остаётся приватным и доступен `GITHUB_TOKEN` курсового репозитория.
+  Ansible временно авторизует VPS для pull и делает logout даже при ошибке.
+- Денис создаёт отдельный CI-ключ, коммитит `ci.pub` в infra и устанавливает ключ
+  через `site.yml`. Проверенный host key берёт с доверенного подключения.
+- Ярослав или Александр добавляет environment secrets `DEPLOY_SSH_KEY`,
+  `SSH_KNOWN_HOSTS`, `ANSIBLE_VAULT_PASSWORD`. Личные SSH-ключи для CI не используются.
+- Существующие `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_TOPIC_ID` доступны
+  job без дублирования. Результат и ссылка на запуск отправляются в основной топик.
+- Сначала влить infra#22 и PR, закрывающий infra#30, затем установить `ci.pub`
+  через `site.yml` и настроить environment. Backend PR мержится последним;
+  job выкатки получает `deploy-backend.yml` из `infra/main`.
+
+Деплой пишет пароль Vault и SSH-файлы во временный каталог runner, проверяет host key,
+запускает `deploy-backend.yml` со статическим inventory и удаляет временные файлы.
+В CI не нужны Selectel credentials, доступ к Pulumi state и `pulumi up`.
+
+Только шаг с playbook получает `GHCR_USERNAME` из `github.actor` и `GHCR_TOKEN`
+из `secrets.GITHUB_TOKEN`. Токен не передаётся через `-e`, не записывается в Vault
+или `.env` API. Ansible выполняет login через stdin с `no_log`, скачивает API,
+всегда делает logout и запускает уже скачанный образ. Отсутствие credentials
+останавливает playbook до изменений VPS. Анонимный HTTP 401 для пакета ожидаем.
+
+Playbook ждёт healthcheck `/health` внутри Compose и проверяет через HTTPS
+`/api/v1/users/me`: без токена ожидается JSON с HTTP 401. Миграции встроены в образ и
+выполняются при старте; отдельного шага миграций нет. Ошибка Telegram показывается
+предупреждением и не подменяет результат деплоя.
+
+Параметры S3 из `.env.example` роль `app` передаёт из infra vars и Vault.
+Текущий Go API ещё не читает их: интеграция S3 выполняется отдельной задачей.
+
+Откат выполняется из infra тем же playbook с прежним опубликованным SHA-тегом,
+см. [инструкцию Ansible](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/ansible/README.md).
+Миграции Down автоматически не запускаются: прежний бинарник должен быть совместим
+с уже применённой схемой. SHA-тег может быть перезаписан повторной сборкой; перед
+откатом сверить digest с исходным запуском публикации.
+
+Клиент не перезагружает открытые вкладки автоматически. Go API N+1 должен
+обслуживать клиента N: ручки и поля не удаляются в релизе, где клиент перестаёт их
+использовать. Совместимость проверяется на ревью контракта в Apidog.
 
 ## Ссылки
 
