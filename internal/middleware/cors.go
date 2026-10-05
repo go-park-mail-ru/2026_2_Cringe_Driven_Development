@@ -1,6 +1,12 @@
 package middleware
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+	"unicode"
+)
 
 // CORS разрешает запросы со страниц из allowed; пустой список выключает его.
 func CORS(allowed []string) func(http.Handler) http.Handler {
@@ -34,4 +40,23 @@ func CORS(allowed []string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// DefaultCORSOrigins содержит origin фронта, разрешённые без настройки окружения.
+const DefaultCORSOrigins = "https://cellestial.ru,http://localhost:5173"
+
+// ParseCORSOrigins разбирает и проверяет белый список; пустая строка выключает CORS.
+func ParseCORSOrigins(value string) ([]string, error) {
+	origins := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	})
+	for _, origin := range origins {
+		u, err := url.Parse(origin)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") ||
+			u.Hostname() == "" || strings.Contains(u.Host, "*") || u.User != nil ||
+			u.Path != "" || u.RawQuery != "" || u.ForceQuery || strings.Contains(origin, "#") {
+			return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS: invalid origin %q; expected an HTTP(S) origin without credentials, path, query or fragment", origin)
+		}
+	}
+	return origins, nil
 }

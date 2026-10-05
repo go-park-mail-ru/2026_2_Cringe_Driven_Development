@@ -3,7 +3,13 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
+
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/httperr"
+	"github.com/gorilla/mux"
 )
 
 func TestCORS(t *testing.T) {
@@ -126,5 +132,103 @@ func TestCORSPreservesVary(t *testing.T) {
 	values := rec.Header().Values("Vary")
 	if len(values) != 2 || values[0] != "Accept-Encoding" || values[1] != "Origin" {
 		t.Errorf("Vary = %v, want [Accept-Encoding Origin]", values)
+	}
+}
+
+func TestCORSOriginsConfig(t *testing.T) {
+	for _, tt := range []struct {
+		name, value string
+		want        []string
+	}{
+		{name: "default", value: DefaultCORSOrigins, want: []string{"https://cellestial.ru", "http://localhost:5173"}},
+		{name: "disabled", value: ""},
+		{name: "override", value: "https://dev.example", want: []string{"https://dev.example"}},
+		{name: "separators", value: " ,https://cellestial.ru,\t http://localhost:5173\n", want: []string{"https://cellestial.ru", "http://localhost:5173"}},
+		{name: "IPv6", value: "http://[::1]:5173", want: []string{"http://[::1]:5173"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCORSOrigins(tt.value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("origins = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCORSInvalidOrigins(t *testing.T) {
+	for _, value := range []string{
+		"*", "null", "https://*.example", "cellestial.ru", "ftp://example.com", "https://",
+		"https://example.com/", "https://example.com/path", "https://example.com?",
+		"https://example.com?x=1", "https://example.com#", "https://example.com#fragment",
+		"https://user:password@example.com", "http://localhost:bad", "http://[invalid",
+		"https://cellestial.ru,*",
+	} {
+		t.Run(value, func(t *testing.T) {
+			if _, err := ParseCORSOrigins(value); err == nil {
+				t.Error("invalid origin accepted")
+			}
+		})
+	}
+}
+
+func TestCORSWithAPIMiddleware(t *testing.T) {
+	const origin = "http://localhost:5173"
+	spec, err := api.GetSpec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := mux.NewRouter()
+	r.NotFoundHandler = http.HandlerFunc(httperr.NotFound)
+	r.MethodNotAllowedHandler = http.HandlerFunc(httperr.MethodNotAllowed)
+	// Эти запросы завершаются до вызова API-хендлеров.
+	api.HandlerWithOptions(nil, api.GorillaServerOptions{
+		BaseURL:          "/api/v1",
+		BaseRouter:       r,
+		Middlewares:      []api.MiddlewareFunc{Validator(spec, "/api/v1"), Authenticate(nil)},
+		ErrorHandlerFunc: httperr.RequestError,
+	})
+	router := CORS([]string{origin})(r)
+	for _, tt := range []struct {
+		name, method, path string
+		status             int
+	}{
+		{"protected preflight", http.MethodOptions, "/api/v1/users/me", http.StatusNoContent},
+		{"unauthorized", http.MethodGet, "/api/v1/users/me", http.StatusUnauthorized},
+		{"not found", http.MethodGet, "/api/v1/missing", http.StatusNotFound},
+		{"method not allowed", http.MethodPut, "/api/v1/users/me", http.StatusMethodNotAllowed},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req.Header.Set("Origin", origin)
+			if tt.method == http.MethodOptions {
+				req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+				req.Header.Set("Access-Control-Request-Headers", "Authorization, Content-Type, X-Request-ID")
+			}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.status {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tt.status, rec.Body.String())
+			}
+			for header, want := range map[string]string{
+				"Access-Control-Allow-Origin":      origin,
+				"Access-Control-Allow-Credentials": "true",
+				"Vary":                             "Origin",
+			} {
+				if got := rec.Header().Get(header); got != want {
+					t.Errorf("%s = %q, want %q", header, got, want)
+				}
+			}
+			if tt.method == http.MethodOptions {
+				if rec.Body.Len() != 0 {
+					t.Error("preflight has a response body")
+				}
+				if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "X-Request-ID") {
+					t.Error("preflight does not allow X-Request-ID")
+				}
+			}
+		})
 	}
 }

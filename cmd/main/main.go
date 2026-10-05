@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/middleware"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
 	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/repository/postgres"
 	notebooks3 "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/repository/s3"
@@ -49,7 +50,7 @@ func run() error {
 	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
 	refreshTTL := getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour)
 	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
-	corsOrigins, err := parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", defaultCORSOrigins))
+	corsOrigins, err := middleware.ParseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", middleware.DefaultCORSOrigins))
 	if err != nil {
 		return err
 	}
