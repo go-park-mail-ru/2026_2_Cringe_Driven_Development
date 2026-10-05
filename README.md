@@ -39,6 +39,27 @@ make run           # API и PostgreSQL через Docker Compose
 настройки. После `make run` API доступен по `http://localhost:8080/health`
 (если порт не изменён). Остановка: `docker compose down`.
 
+CORS для запросов с `credentials: "include"` настраивает Go API через
+`CORS_ALLOWED_ORIGINS`. Если переменная отсутствует, разрешены
+`https://cellestial.ru` и `http://localhost:5173`; явно пустое значение выключает
+CORS. Заданный список заменяет значения по умолчанию: укажите все нужные origin
+через запятые или пробелы, со схемой и без завершающего слэша. Другие порты,
+`127.0.0.1` и dev-стенды добавляются явно; `*` не допускается.
+
+Проверка preflight без авторизации (ожидается `204` с точным разрешённым origin,
+`Access-Control-Allow-Credentials: true`, методами и заголовками):
+
+```bash
+curl -i -X OPTIONS http://localhost:8080/api/v1/users/me \
+  -H 'Origin: http://localhost:5173' \
+  -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: Authorization, Content-Type, X-Request-ID'
+```
+
+В браузере фронт должен использовать `credentials: "include"`; разрешающие
+CORS-заголовки приходят и на ошибках API. Политика cookie (`SameSite`/`Secure`)
+настраивается отдельно и этим изменением не расширяется.
+
 Пакет GHCR остаётся приватным: организация `go-park-mail-ru` запрещает публичные
 пакеты. CI публикует его с `GITHUB_TOKEN`; job выкатки получает `packages: read`
 и передаёт собственный временный `GITHUB_TOKEN` в Ansible через окружение.
