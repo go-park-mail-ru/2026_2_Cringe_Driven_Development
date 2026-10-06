@@ -22,5 +22,6 @@ type Repository interface {
 	UserByLogin(ctx context.Context, login string) (u models.User, passwordHash string, err error)
 	UserByID(ctx context.Context, id int64) (models.User, error)
 	CreateSession(ctx context.Context, userID int64, tokenHash string, expiresAt time.Time) error
+	SessionByTokenHash(ctx context.Context, tokenHash string) (userID int64, expiresAt time.Time, err error)
 	DeleteSession(ctx context.Context, tokenHash string) (userID int64, expiresAt time.Time, err error)
 }

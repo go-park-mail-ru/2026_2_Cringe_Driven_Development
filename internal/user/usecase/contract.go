@@ -24,6 +24,8 @@ type Usecase interface {
 	Login(ctx context.Context, login, password string) (models.User, models.Session, error)
 	// Refresh делает ротацию: старая сессия удаляется, вместо неё создаётся новая.
 	Refresh(ctx context.Context, refreshToken string) (models.Session, error)
+	// RefreshUserID читает владельца действующей refresh-сессии без её ротации.
+	RefreshUserID(ctx context.Context, refreshToken string) (int64, error)
 	Logout(ctx context.Context, refreshToken string) error
 	CurrentUser(ctx context.Context, id int64) (models.User, error)
 }

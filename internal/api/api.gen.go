@@ -59,6 +59,7 @@ func (e CreateCellRequestKind) Valid() bool {
 
 // Defines values for ErrorCode.
 const (
+	CsrfInvalid        ErrorCode = "csrf_invalid"
 	Internal           ErrorCode = "internal"
 	InvalidCredentials ErrorCode = "invalid_credentials"
 	LoginTaken         ErrorCode = "login_taken"
@@ -71,6 +72,8 @@ const (
 // Valid indicates whether the value is a known member of the ErrorCode enum.
 func (e ErrorCode) Valid() bool {
 	switch e {
+	case CsrfInvalid:
+		return true
 	case Internal:
 		return true
 	case InvalidCredentials:
@@ -167,16 +170,55 @@ type User struct {
 	Login string `json:"login"`
 }
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// LoginUserParams defines parameters for LoginUser.
+type LoginUserParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+}
+
 // LogoutUserParams defines parameters for LogoutUser.
 type LogoutUserParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+
 	// RefreshToken Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth)
 	RefreshToken string `form:"refresh_token" json:"refresh_token"`
 }
 
 // RefreshTokenParams defines parameters for RefreshToken.
 type RefreshTokenParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+
 	// RefreshToken Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth)
 	RefreshToken string `form:"refresh_token" json:"refresh_token"`
+}
+
+// RegisterUserParams defines parameters for RegisterUser.
+type RegisterUserParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateNotebookParams defines parameters for CreateNotebook.
+type CreateNotebookParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+}
+
+// CreateCellParams defines parameters for CreateCell.
+type CreateCellParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+}
+
+// DeleteCellParams defines parameters for DeleteCell.
+type DeleteCellParams struct {
+	// XCSRFToken Значение cookie __Host-csrf
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
 }
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
@@ -195,7 +237,7 @@ type CreateCellJSONRequestBody = CreateCellRequest
 type ServerInterface interface {
 	// LoginUser Вход
 	// (POST /auth/login)
-	LoginUser(w http.ResponseWriter, r *http.Request)
+	LoginUser(w http.ResponseWriter, r *http.Request, params LoginUserParams)
 	// LogoutUser Выход
 	// (POST /auth/logout)
 	LogoutUser(w http.ResponseWriter, r *http.Request, params LogoutUserParams)
@@ -204,22 +246,22 @@ type ServerInterface interface {
 	RefreshToken(w http.ResponseWriter, r *http.Request, params RefreshTokenParams)
 	// RegisterUser Регистрация
 	// (POST /auth/register)
-	RegisterUser(w http.ResponseWriter, r *http.Request)
+	RegisterUser(w http.ResponseWriter, r *http.Request, params RegisterUserParams)
 	// ListNotebooks Список блокнотов
 	// (GET /notebooks)
 	ListNotebooks(w http.ResponseWriter, r *http.Request)
 	// CreateNotebook Создание блокнота
 	// (POST /notebooks)
-	CreateNotebook(w http.ResponseWriter, r *http.Request)
+	CreateNotebook(w http.ResponseWriter, r *http.Request, params CreateNotebookParams)
 	// GetNotebook Блокнот
 	// (GET /notebooks/{id})
 	GetNotebook(w http.ResponseWriter, r *http.Request, id int64)
 	// CreateCell Добавление блока
 	// (POST /notebooks/{id}/cells)
-	CreateCell(w http.ResponseWriter, r *http.Request, id int64)
+	CreateCell(w http.ResponseWriter, r *http.Request, id int64, params CreateCellParams)
 	// DeleteCell Удаление блока
 	// (DELETE /notebooks/{id}/cells/{index})
-	DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int)
+	DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int, params DeleteCellParams)
 	// GetCurrentUser Текущий пользователь
 	// (GET /users/me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
@@ -237,8 +279,35 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // LoginUser operation middleware
 func (siw *ServerInterfaceWrapper) LoginUser(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LoginUserParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.LoginUser(w, r)
+		siw.Handler.LoginUser(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -256,6 +325,27 @@ func (siw *ServerInterfaceWrapper) LogoutUser(w http.ResponseWriter, r *http.Req
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params LogoutUserParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
 
 	{
 		var cookie *http.Cookie
@@ -295,6 +385,27 @@ func (siw *ServerInterfaceWrapper) RefreshToken(w http.ResponseWriter, r *http.R
 	// Parameter object where we will unmarshal all parameters from the context
 	var params RefreshTokenParams
 
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	{
 		var cookie *http.Cookie
 
@@ -327,8 +438,35 @@ func (siw *ServerInterfaceWrapper) RefreshToken(w http.ResponseWriter, r *http.R
 // RegisterUser operation middleware
 func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RegisterUserParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterUser(w, r)
+		siw.Handler.RegisterUser(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -355,8 +493,35 @@ func (siw *ServerInterfaceWrapper) ListNotebooks(w http.ResponseWriter, r *http.
 // CreateNotebook operation middleware
 func (siw *ServerInterfaceWrapper) CreateNotebook(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateNotebookParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateNotebook(w, r)
+		siw.Handler.CreateNotebook(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -407,8 +572,32 @@ func (siw *ServerInterfaceWrapper) CreateCell(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateCellParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateCell(w, r, id)
+		siw.Handler.CreateCell(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -442,8 +631,32 @@ func (siw *ServerInterfaceWrapper) DeleteCell(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteCellParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = &XCSRFToken
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteCell(w, r, id, index)
+		siw.Handler.DeleteCell(w, r, id, index, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -603,8 +816,11 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	return r
 }
 
+type ForbiddenJSONResponse Error
+
 type LoginUserRequestObject struct {
-	Body *LoginUserJSONRequestBody
+	Params LoginUserParams
+	Body   *LoginUserJSONRequestBody
 }
 
 type LoginUserResponseObject interface {
@@ -663,6 +879,20 @@ func (response LoginUser401JSONResponse) VisitLoginUserResponse(w http.ResponseW
 	return err
 }
 
+type LoginUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response LoginUser403JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type LoginUser500JSONResponse Error
 
 func (response LoginUser500JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
@@ -711,6 +941,20 @@ func (response LogoutUser401JSONResponse) VisitLogoutUserResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response LogoutUser403JSONResponse) VisitLogoutUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -767,6 +1011,20 @@ func (response RefreshToken401JSONResponse) VisitRefreshTokenResponse(w http.Res
 	return err
 }
 
+type RefreshToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RefreshToken403JSONResponse) VisitRefreshTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RefreshToken500JSONResponse Error
 
 func (response RefreshToken500JSONResponse) VisitRefreshTokenResponse(w http.ResponseWriter) error {
@@ -782,7 +1040,8 @@ func (response RefreshToken500JSONResponse) VisitRefreshTokenResponse(w http.Res
 }
 
 type RegisterUserRequestObject struct {
-	Body *RegisterUserJSONRequestBody
+	Params RegisterUserParams
+	Body   *RegisterUserJSONRequestBody
 }
 
 type RegisterUserResponseObject interface {
@@ -823,6 +1082,20 @@ func (response RegisterUser400JSONResponse) VisitRegisterUserResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegisterUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RegisterUser403JSONResponse) VisitRegisterUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -905,7 +1178,8 @@ func (response ListNotebooks500JSONResponse) VisitListNotebooksResponse(w http.R
 }
 
 type CreateNotebookRequestObject struct {
-	Body *CreateNotebookJSONRequestBody
+	Params CreateNotebookParams
+	Body   *CreateNotebookJSONRequestBody
 }
 
 type CreateNotebookResponseObject interface {
@@ -950,6 +1224,20 @@ func (response CreateNotebook401JSONResponse) VisitCreateNotebookResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNotebook403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateNotebook403JSONResponse) VisitCreateNotebookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1047,8 +1335,9 @@ func (response GetNotebook500JSONResponse) VisitGetNotebookResponse(w http.Respo
 }
 
 type CreateCellRequestObject struct {
-	Id   int64 `json:"id"`
-	Body *CreateCellJSONRequestBody
+	Id     int64 `json:"id"`
+	Params CreateCellParams
+	Body   *CreateCellJSONRequestBody
 }
 
 type CreateCellResponseObject interface {
@@ -1097,6 +1386,20 @@ func (response CreateCell401JSONResponse) VisitCreateCellResponse(w http.Respons
 	return err
 }
 
+type CreateCell403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateCell403JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateCell404JSONResponse Error
 
 func (response CreateCell404JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
@@ -1140,8 +1443,9 @@ func (response CreateCell500JSONResponse) VisitCreateCellResponse(w http.Respons
 }
 
 type DeleteCellRequestObject struct {
-	Id    int64 `json:"id"`
-	Index int   `json:"index"`
+	Id     int64 `json:"id"`
+	Index  int   `json:"index"`
+	Params DeleteCellParams
 }
 
 type DeleteCellResponseObject interface {
@@ -1180,6 +1484,20 @@ func (response DeleteCell401JSONResponse) VisitDeleteCellResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCell403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteCell403JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1335,8 +1653,10 @@ type strictHandler struct {
 }
 
 // LoginUser operation middleware
-func (sh *strictHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) LoginUser(w http.ResponseWriter, r *http.Request, params LoginUserParams) {
 	var request LoginUserRequestObject
+
+	request.Params = params
 
 	var body LoginUserJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1418,8 +1738,10 @@ func (sh *strictHandler) RefreshToken(w http.ResponseWriter, r *http.Request, pa
 }
 
 // RegisterUser operation middleware
-func (sh *strictHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) RegisterUser(w http.ResponseWriter, r *http.Request, params RegisterUserParams) {
 	var request RegisterUserRequestObject
+
+	request.Params = params
 
 	var body RegisterUserJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1473,8 +1795,10 @@ func (sh *strictHandler) ListNotebooks(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateNotebook operation middleware
-func (sh *strictHandler) CreateNotebook(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) CreateNotebook(w http.ResponseWriter, r *http.Request, params CreateNotebookParams) {
 	var request CreateNotebookRequestObject
+
+	request.Params = params
 
 	var body CreateNotebookJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1530,10 +1854,11 @@ func (sh *strictHandler) GetNotebook(w http.ResponseWriter, r *http.Request, id 
 }
 
 // CreateCell operation middleware
-func (sh *strictHandler) CreateCell(w http.ResponseWriter, r *http.Request, id int64) {
+func (sh *strictHandler) CreateCell(w http.ResponseWriter, r *http.Request, id int64, params CreateCellParams) {
 	var request CreateCellRequestObject
 
 	request.Id = id
+	request.Params = params
 
 	var body CreateCellJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1563,11 +1888,12 @@ func (sh *strictHandler) CreateCell(w http.ResponseWriter, r *http.Request, id i
 }
 
 // DeleteCell operation middleware
-func (sh *strictHandler) DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int) {
+func (sh *strictHandler) DeleteCell(w http.ResponseWriter, r *http.Request, id int64, index int, params DeleteCellParams) {
 	var request DeleteCellRequestObject
 
 	request.Id = id
 	request.Index = index
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteCell(ctx, request.(DeleteCellRequestObject))
@@ -1618,38 +1944,41 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"Gv1vAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

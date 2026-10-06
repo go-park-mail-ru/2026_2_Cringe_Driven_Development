@@ -75,7 +75,7 @@ func newRouter(t *testing.T, uc usecase.Usecase) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := testServer{userdelivery.NewHandler(nil, userdelivery.CookieConfig{}), NewHandler(uc)}
+	srv := testServer{userdelivery.NewHandler(nil, userdelivery.CookieConfig{}, nil), NewHandler(uc)}
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,

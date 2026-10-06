@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/middleware"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
@@ -30,7 +31,7 @@ type server struct {
 
 var _ api.StrictServerInterface = server{}
 
-func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string) (http.Handler, error) {
+func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string, csrf *auth.CSRF) (http.Handler, error) {
 	spec, err := api.GetSpec()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded spec: %w", err)
@@ -57,14 +58,12 @@ func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string) 
 	api.HandlerWithOptions(strict, api.GorillaServerOptions{
 		BaseURL:    baseURL,
 		BaseRouter: r,
-		// Только для ручек контракта. Здесь внешний последний в списке,
-		// поэтому Authenticate выполняется раньше Validator.
+		// Проверки CSRF и Authenticate выполняются внешней обёрткой до разбора параметров.
 		Middlewares: []api.MiddlewareFunc{
 			middleware.Validator(spec, baseURL),
-			middleware.Authenticate(tokens),
 		},
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	return middleware.CORS(corsOrigins)(r), nil
+	return middleware.CORS(corsOrigins)(middleware.CSRF(tokens, csrf, baseURL, corsOrigins)(r)), nil
 }

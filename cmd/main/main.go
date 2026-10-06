@@ -47,6 +47,10 @@ func run() error {
 	if jwtSecret == "" {
 		return errors.New("JWT_SECRET is not set")
 	}
+	csrfSecret := os.Getenv("CSRF_SECRET")
+	if csrfSecret == "" {
+		return errors.New("CSRF_SECRET is not set")
+	}
 	accessTTL := getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute)
 	refreshTTL := getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour)
 	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
@@ -82,6 +86,7 @@ func run() error {
 		return err
 	}
 
+	csrf := auth.NewCSRF([]byte(csrfSecret), refreshTTL)
 	tokens := auth.NewAccessToken([]byte(jwtSecret), accessTTL)
 	userRepo := postgres.NewUserRepository(pool)
 	userUsecase := usecase.NewUserUsecase(userRepo, tokens, refreshTTL)
@@ -96,10 +101,10 @@ func run() error {
 	)
 	srv := server{
 		userHandler: userdelivery.NewHandler(userUsecase,
-			userdelivery.CookieConfig{AccessPath: baseURL, RefreshPath: baseURL + "/auth", AccessTTL: accessTTL, Secure: cookieSecure}),
+			userdelivery.CookieConfig{AccessPath: baseURL, RefreshPath: baseURL + "/auth", AccessTTL: accessTTL, Secure: cookieSecure}, csrf),
 		notebookHandler: notebookdelivery.NewHandler(notebookUsecase),
 	}
-	router, err := newRouter(srv, tokens, corsOrigins)
+	router, err := newRouter(srv, tokens, corsOrigins, csrf)
 	if err != nil {
 		return err
 	}

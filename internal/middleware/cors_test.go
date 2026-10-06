@@ -96,8 +96,8 @@ func TestCORS(t *testing.T) {
 
 func TestCORSPreflight(t *testing.T) {
 	const origin = "http://localhost:5173"
-	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodDelete} {
-		for _, header := range []string{"Authorization", "Content-Type", "X-Request-ID"} {
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		for _, header := range []string{"Authorization", "Content-Type", "X-Request-ID", "X-CSRF-Token"} {
 			t.Run(method+"/"+header, func(t *testing.T) {
 				req := httptest.NewRequest(http.MethodOptions, "/api/v1/notebooks", nil)
 				req.Header.Set("Origin", origin)
@@ -111,8 +111,8 @@ func TestCORSPreflight(t *testing.T) {
 					t.Fatalf("preflight status = %d, body = %q", rec.Code, rec.Body.String())
 				}
 				for name, want := range map[string]string{
-					"Access-Control-Allow-Methods": "GET, POST, DELETE",
-					"Access-Control-Allow-Headers": "Authorization, Content-Type, X-Request-ID",
+					"Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, PATCH, DELETE",
+					"Access-Control-Allow-Headers": "Authorization, Content-Type, X-Request-ID, X-CSRF-Token",
 					"Access-Control-Max-Age":       "600",
 				} {
 					if got := rec.Header().Get(name); got != want {
@@ -205,7 +205,7 @@ func TestCORSWithAPIMiddleware(t *testing.T) {
 			req.Header.Set("Origin", origin)
 			if tt.method == http.MethodOptions {
 				req.Header.Set("Access-Control-Request-Method", http.MethodGet)
-				req.Header.Set("Access-Control-Request-Headers", "Authorization, Content-Type, X-Request-ID")
+				req.Header.Set("Access-Control-Request-Headers", "Authorization, Content-Type, X-Request-ID, X-CSRF-Token")
 			}
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)

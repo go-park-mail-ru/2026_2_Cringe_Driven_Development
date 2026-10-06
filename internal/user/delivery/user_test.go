@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/middleware"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
@@ -73,7 +74,7 @@ type testServer struct {
 // newRouter собирает сервер как в main, но без валидатора:
 // проверяется хендлер вместе со сгенерированным кодом и httperr.
 func newRouter(uc usecase.Usecase) http.Handler {
-	h := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute})
+	h := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute}, testCSRF())
 	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,
@@ -217,6 +218,7 @@ func TestHandlerRefreshAndLogout(t *testing.T) {
 	post := func(path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1"+path, nil)
 		req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh"})
+		req.Header.Set(auth.CSRFHeaderName, testCSRF().Signed(1))
 		rec := httptest.NewRecorder()
 		newRouter(uc).ServeHTTP(rec, req)
 		return rec
@@ -265,10 +267,24 @@ func assertTokenCookies(t *testing.T, rec *httptest.ResponseRecorder, secure, de
 		t.Error("response exposes access token in Authorization")
 	}
 	cookies := rec.Result().Cookies()
-	if len(cookies) != 2 || len(rec.Header().Values("Set-Cookie")) != 2 {
-		t.Fatalf("expected two separate cookies, got %v", rec.Header().Values("Set-Cookie"))
+	if len(cookies) != 3 || len(rec.Header().Values("Set-Cookie")) != 3 {
+		t.Fatalf("expected three separate cookies, got %v", rec.Header().Values("Set-Cookie"))
 	}
 	for i, cookie := range cookies {
+		if cookie.Name == auth.CSRFCookieName {
+			if cookie.Path != "/" || !cookie.Secure || cookie.HttpOnly || cookie.Domain != "" || cookie.SameSite != http.SameSiteLaxMode || cookie.MaxAge != 3600 {
+				t.Errorf("unexpected CSRF cookie: %+v", cookie)
+			}
+			if deleted {
+				if strings.Contains(cookie.Value, ".") || cookie.Value == "" {
+					t.Error("logout did not issue anonymous CSRF")
+				}
+			} else if !testCSRF().Valid(cookie.Value, 1) {
+				t.Error("session CSRF signature is invalid")
+			}
+			continue
+		}
+
 		name, path, value := "access_token", "/api/v1", "access-1"
 		if i == 1 {
 			name, path, value = "refresh_token", "/api/v1/auth", "new-refresh"
@@ -299,12 +315,13 @@ func TestHandlerSessionCookies(t *testing.T) {
 		for _, operation := range []string{"login", "register", "refresh", "logout"} {
 			t.Run(operation+"/secure="+strconv.FormatBool(secure), func(t *testing.T) {
 				uc := &fakeUsecase{user: models.User{ID: 1, Login: "bob"}, sess: newSession(1)}
-				handler := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute, Secure: secure})
+				handler := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute, Secure: secure}, testCSRF())
 				strict := api.NewStrictHandlerWithOptions(testServer{handler, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{})
 				router := api.HandlerWithOptions(strict, api.GorillaServerOptions{BaseURL: "/api/v1"})
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/"+operation, strings.NewReader(`{"login":"bob","password":"password123"}`))
 				req.Header.Set("Content-Type", "application/json")
 				req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh"})
+				req.Header.Set(auth.CSRFHeaderName, testCSRF().Signed(1))
 				rec := httptest.NewRecorder()
 				router.ServeHTTP(rec, req)
 				want := http.StatusNoContent
@@ -343,13 +360,16 @@ func TestHandlerCookieSessionLifecycle(t *testing.T) {
 		{http.MethodPost, "/auth/logout", http.StatusNoContent},
 		{http.MethodGet, "/users/me", http.StatusUnauthorized},
 	} {
-		req, err := http.NewRequest(step.method, "http://localhost/api/v1"+step.path, strings.NewReader(`{"login":"bob","password":"password123"}`))
+		req, err := http.NewRequest(step.method, "https://localhost/api/v1"+step.path, strings.NewReader(`{"login":"bob","password":"password123"}`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		for _, cookie := range jar.Cookies(req.URL) {
 			req.AddCookie(cookie)
+			if cookie.Name == auth.CSRFCookieName {
+				req.Header.Set(auth.CSRFHeaderName, cookie.Value)
+			}
 		}
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
@@ -361,8 +381,14 @@ func TestHandlerCookieSessionLifecycle(t *testing.T) {
 		if response.StatusCode != step.status {
 			t.Fatalf("%s: status = %d, want %d", step.path, response.StatusCode, step.status)
 		}
-		if step.path == "/auth/logout" && len(jar.Cookies(req.URL)) != 0 {
-			t.Error("logout left cookies in the jar")
+		if step.path == "/auth/logout" && len(jar.Cookies(req.URL)) != 1 {
+			t.Error("logout must leave only anonymous CSRF cookie")
 		}
 	}
+}
+
+func testCSRF() *auth.CSRF { return auth.NewCSRF([]byte("test-csrf-secret"), time.Hour) }
+
+func (f *fakeUsecase) RefreshUserID(context.Context, string) (int64, error) {
+	return f.sess.UserID, f.err
 }
