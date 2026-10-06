@@ -107,12 +107,6 @@ curl -i -b "$cookie_jar" http://localhost:8080/api/v1/users/me # ожидает�
 rm -f "$cookie_jar"
 ```
 
-Переход на cookie выкатывается только вместе с готовым frontend и CSRF-защитой
-backend#4. После её подключения изменяющие запросы, включая login и refresh,
-требуют `X-CSRF-Token`: перед login получите анонимную CSRF-cookie запросом к API,
-затем отправляйте текущее значение CSRF-cookie в заголовке каждого изменяющего
-запроса. Пример выше показывает обмен auth-cookie до подключения #4.
-
 ## Production-деплой
 
 На VPS один проект Compose `cellestial` в `/opt/cellestial`: Caddy, Go API и
