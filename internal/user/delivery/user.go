@@ -1,5 +1,5 @@
 // Package delivery содержит HTTP-ручки пользователя. Они переводят ошибки
-// usecase в ответы контракта и выставляют токены в заголовки.
+// usecase в ответы контракта и выдают токены в HttpOnly-cookie.
 package delivery
 
 import (
@@ -16,10 +16,11 @@ import (
 
 const refreshCookie = "refresh_token"
 
-// CookieConfig хранит настройки cookie с refresh-токеном.
+// CookieConfig хранит настройки cookie с токенами.
 type CookieConfig struct {
-	// Path нужен, чтобы браузер отправлял cookie только в ручки /auth.
-	Path string
+	AccessPath  string
+	RefreshPath string
+	AccessTTL   time.Duration
 	// Secure отправляет cookie только по HTTPS. Локально HTTPS нет, поэтому это настройка.
 	Secure bool
 }
@@ -43,11 +44,8 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 	case err != nil:
 		return nil, err
 	}
-	bearer, cookie := h.sessionHeaders(sess)
-	return api.RegisterUser201JSONResponse{
-		Body:    toAPIUser(u),
-		Headers: api.RegisterUser201ResponseHeaders{Authorization: &bearer, SetCookie: &cookie},
-	}, nil
+	cookies := h.sessionCookies(sess)
+	return registerResponse{api.RegisterUser201JSONResponse{Body: toAPIUser(u)}, cookies}, nil
 }
 
 func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
@@ -58,11 +56,8 @@ func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject)
 	case err != nil:
 		return nil, err
 	}
-	bearer, cookie := h.sessionHeaders(sess)
-	return api.LoginUser200JSONResponse{
-		Body:    toAPIUser(u),
-		Headers: api.LoginUser200ResponseHeaders{Authorization: &bearer, SetCookie: &cookie},
-	}, nil
+	cookies := h.sessionCookies(sess)
+	return loginResponse{api.LoginUser200JSONResponse{Body: toAPIUser(u)}, cookies}, nil
 }
 
 func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
@@ -73,10 +68,8 @@ func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestO
 	case err != nil:
 		return nil, err
 	}
-	bearer, cookie := h.sessionHeaders(sess)
-	return api.RefreshToken204Response{
-		Headers: api.RefreshToken204ResponseHeaders{Authorization: &bearer, SetCookie: &cookie},
-	}, nil
+	cookies := h.sessionCookies(sess)
+	return refreshResponse{api.RefreshToken204Response{}, cookies}, nil
 }
 
 func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
@@ -88,8 +81,11 @@ func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObjec
 		return nil, err
 	}
 	// Отрицательный MaxAge велит браузеру удалить cookie.
-	cookie := h.refreshCookie("", -1).String()
-	return api.LogoutUser204Response{Headers: api.LogoutUser204ResponseHeaders{SetCookie: &cookie}}, nil
+	cookies := responseCookies{
+		h.tokenCookie("access_token", "", h.cookie.AccessPath, -1),
+		h.tokenCookie(refreshCookie, "", h.cookie.RefreshPath, -1),
+	}
+	return logoutResponse{api.LogoutUser204Response{}, cookies}, nil
 }
 
 func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
@@ -106,20 +102,17 @@ func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserReques
 	return api.GetCurrentUser200JSONResponse(toAPIUser(u)), nil
 }
 
-func (h *Handler) sessionHeaders(sess models.Session) (bearer, cookie string) {
-	maxAge := int(time.Until(sess.ExpiresAt).Seconds())
-	return "Bearer " + sess.AccessToken, h.refreshCookie(sess.RefreshToken, maxAge).String()
+func (h *Handler) sessionCookies(sess models.Session) responseCookies {
+	return responseCookies{
+		h.tokenCookie("access_token", sess.AccessToken, h.cookie.AccessPath, int(h.cookie.AccessTTL/time.Second)),
+		h.tokenCookie(refreshCookie, sess.RefreshToken, h.cookie.RefreshPath, int(time.Until(sess.ExpiresAt).Seconds())),
+	}
 }
 
-func (h *Handler) refreshCookie(value string, maxAge int) *http.Cookie {
+func (h *Handler) tokenCookie(name, value, path string, maxAge int) *http.Cookie {
 	return &http.Cookie{
-		Name:     refreshCookie,
-		Value:    value,
-		Path:     h.cookie.Path,
-		MaxAge:   maxAge,
-		HttpOnly: true,
-		Secure:   h.cookie.Secure,
-		SameSite: http.SameSiteLaxMode,
+		Name: name, Value: value, Path: path, MaxAge: maxAge,
+		HttpOnly: true, Secure: h.cookie.Secure, SameSite: http.SameSiteLaxMode,
 	}
 }
 

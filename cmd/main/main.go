@@ -96,7 +96,7 @@ func run() error {
 	)
 	srv := server{
 		userHandler: userdelivery.NewHandler(userUsecase,
-			userdelivery.CookieConfig{Path: baseURL + "/auth", Secure: cookieSecure}),
+			userdelivery.CookieConfig{AccessPath: baseURL, RefreshPath: baseURL + "/auth", AccessTTL: accessTTL, Secure: cookieSecure}),
 		notebookHandler: notebookdelivery.NewHandler(notebookUsecase),
 	}
 	router, err := newRouter(srv, tokens, corsOrigins)

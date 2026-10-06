@@ -84,7 +84,7 @@ func TestCORS(t *testing.T) {
 			}
 			for header, want := range map[string]string{
 				"Access-Control-Allow-Credentials": "true",
-				"Access-Control-Expose-Headers":    "Authorization, X-Request-Id",
+				"Access-Control-Expose-Headers":    "X-Request-Id",
 			} {
 				if got := rec.Header().Get(header); got != want {
 					t.Errorf("%s = %q, want %q", header, got, want)
