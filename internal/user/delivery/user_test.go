@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ type testServer struct {
 // newRouter собирает сервер как в main, но без валидатора:
 // проверяется хендлер вместе со сгенерированным кодом и httperr.
 func newRouter(uc usecase.Usecase) http.Handler {
-	h := NewHandler(uc, CookieConfig{Path: "/api/v1/auth"})
+	h := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute})
 	strict := api.NewStrictHandlerWithOptions(testServer{h, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,
@@ -163,7 +164,7 @@ func TestHandlerErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/api/v1"+tt.path, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer access-1")
+			req.AddCookie(&http.Cookie{Name: "access_token", Value: "access-1"})
 			if tt.refresh != "" {
 				req.AddCookie(&http.Cookie{Name: "refresh_token", Value: tt.refresh})
 			}
@@ -173,6 +174,9 @@ func TestHandlerErrors(t *testing.T) {
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d; body %s", rec.Code, tt.wantStatus, rec.Body)
+			}
+			if len(rec.Header().Values("Set-Cookie")) != 0 || rec.Header().Get("Authorization") != "" {
+				t.Error("error response issued tokens")
 			}
 			var got api.Error
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -205,15 +209,7 @@ func TestHandlerRegister(t *testing.T) {
 	if diff := cmp.Diff(api.User{Id: u.ID, Login: "bob"}, got); diff != "" {
 		t.Errorf("тело ответа (-want +got):\n%s", diff)
 	}
-	if want := "Bearer access-" + strconv.FormatInt(u.ID, 10); rec.Header().Get("Authorization") != want {
-		t.Errorf("Authorization = %q, want %q", rec.Header().Get("Authorization"), want)
-	}
-	cookie := rec.Header().Get("Set-Cookie")
-	for _, part := range []string{"refresh_token=new-refresh", "Path=/api/v1/auth", "HttpOnly", "SameSite=Lax"} {
-		if !strings.Contains(cookie, part) {
-			t.Errorf("Set-Cookie = %q, нет %q", cookie, part)
-		}
-	}
+	assertTokenCookies(t, rec, false, false)
 }
 
 func TestHandlerRefreshAndLogout(t *testing.T) {
@@ -230,24 +226,20 @@ func TestHandlerRefreshAndLogout(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("refresh: status = %d, want 204; body %s", rec.Code, rec.Body)
 	}
-	if cookie := rec.Header().Get("Set-Cookie"); !strings.Contains(cookie, "refresh_token=new-refresh") {
-		t.Errorf("refresh не выдал новый токен: Set-Cookie = %q", cookie)
-	}
+	assertTokenCookies(t, rec, false, false)
 
 	rec = post("/auth/logout")
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("logout: status = %d, want 204; body %s", rec.Code, rec.Body)
 	}
-	if cookie := rec.Header().Get("Set-Cookie"); !strings.Contains(cookie, "Max-Age=0") {
-		t.Errorf("logout не удалил cookie: Set-Cookie = %q", cookie)
-	}
+	assertTokenCookies(t, rec, false, true)
 }
 
 func TestHandlerGetCurrentUser(t *testing.T) {
 	u := models.User{ID: 1, Login: "alice"}
 	uc := &fakeUsecase{user: u}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
-	req.Header.Set("Authorization", "Bearer access-"+strconv.FormatInt(u.ID, 10))
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "access-" + strconv.FormatInt(u.ID, 10)})
 	rec := httptest.NewRecorder()
 
 	newRouter(uc).ServeHTTP(rec, req)
@@ -264,5 +256,113 @@ func TestHandlerGetCurrentUser(t *testing.T) {
 	}
 	if diff := cmp.Diff(api.User{Id: u.ID, Login: "alice"}, got); diff != "" {
 		t.Errorf("тело ответа (-want +got):\n%s", diff)
+	}
+}
+
+func assertTokenCookies(t *testing.T, rec *httptest.ResponseRecorder, secure, deleted bool) {
+	t.Helper()
+	if rec.Header().Get("Authorization") != "" {
+		t.Error("response exposes access token in Authorization")
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 2 || len(rec.Header().Values("Set-Cookie")) != 2 {
+		t.Fatalf("expected two separate cookies, got %v", rec.Header().Values("Set-Cookie"))
+	}
+	for i, cookie := range cookies {
+		name, path, value := "access_token", "/api/v1", "access-1"
+		if i == 1 {
+			name, path, value = "refresh_token", "/api/v1/auth", "new-refresh"
+		}
+		if deleted {
+			value = ""
+		}
+		if cookie.Name != name || cookie.Path != path || cookie.Value != value || !cookie.HttpOnly || cookie.Secure != secure || cookie.SameSite != http.SameSiteLaxMode || cookie.Domain != "" {
+			t.Errorf("unexpected cookie: %+v", cookie)
+		}
+		switch {
+		case deleted:
+			if cookie.MaxAge != -1 {
+				t.Errorf("cookie not deleted: %+v", cookie)
+			}
+		case i == 0:
+			if cookie.MaxAge != 900 {
+				t.Errorf("access MaxAge = %d, want 900", cookie.MaxAge)
+			}
+		case cookie.MaxAge < 3590 || cookie.MaxAge > 3600:
+			t.Errorf("refresh MaxAge = %d", cookie.MaxAge)
+		}
+	}
+}
+
+func TestHandlerSessionCookies(t *testing.T) {
+	for _, secure := range []bool{false, true} {
+		for _, operation := range []string{"login", "register", "refresh", "logout"} {
+			t.Run(operation+"/secure="+strconv.FormatBool(secure), func(t *testing.T) {
+				uc := &fakeUsecase{user: models.User{ID: 1, Login: "bob"}, sess: newSession(1)}
+				handler := NewHandler(uc, CookieConfig{AccessPath: "/api/v1", RefreshPath: "/api/v1/auth", AccessTTL: 15 * time.Minute, Secure: secure})
+				strict := api.NewStrictHandlerWithOptions(testServer{handler, notebookdelivery.NewHandler(nil)}, nil, api.StrictHTTPServerOptions{})
+				router := api.HandlerWithOptions(strict, api.GorillaServerOptions{BaseURL: "/api/v1"})
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/"+operation, strings.NewReader(`{"login":"bob","password":"password123"}`))
+				req.Header.Set("Content-Type", "application/json")
+				req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh"})
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				want := http.StatusNoContent
+				if operation == "login" {
+					want = http.StatusOK
+				}
+				if operation == "register" {
+					want = http.StatusCreated
+				}
+				if rec.Code != want {
+					t.Fatalf("status = %d, want %d: %s", rec.Code, want, rec.Body)
+				}
+				assertTokenCookies(t, rec, secure, operation == "logout")
+			})
+		}
+	}
+}
+
+func TestHandlerCookieSessionLifecycle(t *testing.T) {
+	uc := &fakeUsecase{user: models.User{ID: 1, Login: "bob"}, sess: newSession(1)}
+	spec, err := api.GetSpec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := middleware.Authenticate(fakeTokens{})(middleware.Validator(spec, "/api/v1")(newRouter(uc)))
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []struct {
+		method, path string
+		status       int
+	}{
+		{http.MethodPost, "/auth/login", http.StatusOK},
+		{http.MethodGet, "/users/me", http.StatusOK},
+		{http.MethodPost, "/auth/logout", http.StatusNoContent},
+		{http.MethodGet, "/users/me", http.StatusUnauthorized},
+	} {
+		req, err := http.NewRequest(step.method, "http://localhost/api/v1"+step.path, strings.NewReader(`{"login":"bob","password":"password123"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		for _, cookie := range jar.Cookies(req.URL) {
+			req.AddCookie(cookie)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		response := rec.Result()
+		jar.SetCookies(req.URL, response.Cookies())
+		if err := response.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != step.status {
+			t.Fatalf("%s: status = %d, want %d", step.path, response.StatusCode, step.status)
+		}
+		if step.path == "/auth/logout" && len(jar.Cookies(req.URL)) != 0 {
+			t.Error("logout left cookies in the jar")
+		}
 	}
 }

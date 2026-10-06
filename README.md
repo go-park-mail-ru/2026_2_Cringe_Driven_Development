@@ -70,6 +70,49 @@ CORS-заголовки приходят и на ошибках API. Полит�
 проверки прав организации и пакета. Личные токены для обхода ограничений
 не используются; CI работает с `GITHUB_TOKEN`.
 
+## Авторизация
+
+API принимает access-токен только из cookie `access_token`; заголовок
+`Authorization` для авторизации не используется и в ответах не возвращается.
+Login, register и refresh выдают две отдельные cookie:
+
+| Cookie | Path | Срок жизни |
+| --- | --- | --- |
+| `access_token` | `/api/v1` | `ACCESS_TOKEN_TTL` (по умолчанию 15 минут) |
+| `refresh_token` | `/api/v1/auth` | Оставшийся срок refresh-сессии (`REFRESH_TOKEN_TTL`, по умолчанию 30 дней) |
+
+Обе cookie имеют `HttpOnly` и `SameSite=Lax`, без `Domain`. Настройка
+`COOKIE_SECURE=true` включает `Secure` для обеих cookie; в production с HTTPS
+она обязательна. Для локального HTTP используется `COOKIE_SECURE=false`.
+Браузерный клиент отправляет запросы с `credentials: "include"` и не читает JWT.
+При истечении access-токена закрытая ручка отвечает 401; клиент вызывает
+`POST /api/v1/auth/refresh`, получает новые cookie и повторяет запрос.
+Успешный logout удаляет обе cookie с исходными путями и отзывает refresh-сессию.
+
+Пример для локального API: curl сохраняет cookie в файл и отправляет их сам.
+Используйте тестовую учётную запись; файл cookie содержит токены, не коммитьте его.
+
+```bash
+cookie_jar=$(mktemp)
+curl --fail-with-body -i -c "$cookie_jar" \
+  -H 'Content-Type: application/json' \
+  -d '{"login":"bob","password":"password123"}' \
+  http://localhost:8080/api/v1/auth/login
+curl --fail-with-body -b "$cookie_jar" http://localhost:8080/api/v1/users/me
+curl --fail-with-body -i -b "$cookie_jar" -c "$cookie_jar" -X POST \
+  http://localhost:8080/api/v1/auth/refresh
+curl --fail-with-body -i -b "$cookie_jar" -c "$cookie_jar" -X POST \
+  http://localhost:8080/api/v1/auth/logout
+curl -i -b "$cookie_jar" http://localhost:8080/api/v1/users/me # ожидается 401
+rm -f "$cookie_jar"
+```
+
+Переход на cookie выкатывается только вместе с готовым frontend и CSRF-защитой
+backend#4. После её подключения изменяющие запросы, включая login и refresh,
+требуют `X-CSRF-Token`: перед login получите анонимную CSRF-cookie запросом к API,
+затем отправляйте текущее значение CSRF-cookie в заголовке каждого изменяющего
+запроса. Пример выше показывает обмен auth-cookie до подключения #4.
+
 ## Production-деплой
 
 На VPS один проект Compose `cellestial` в `/opt/cellestial`: Caddy, Go API и
@@ -311,7 +354,8 @@ APIDOG_BRANCH_ID=<id ветки> make generate
 
 - **Авторизация задаётся на самой ручке.** Auth, выставленный на папке, в Apidog работает,
   но в экспорт (а значит, в `security` и в сгенерированный код) не попадает.
-  Для закрытой ручки: **Design → Auth → Security Scheme → `bearerAuth`**
+  Для закрытой ручки: **Design → Auth → Security Scheme → схема cookie-авторизации**
+  (`type: apiKey`, `in: cookie`, `name: access_token`)
 - **Удаления через sprint-ветку не работают.** Удалить ресурс в ветке — значит просто
   перестать его переопределять: он продолжает приходить из `main` и в экспорт, и в
   `make generate`, а при слиянии не удаляется. Ненужные ручки и схемы удаляются

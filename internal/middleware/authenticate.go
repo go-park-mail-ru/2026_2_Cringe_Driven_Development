@@ -3,7 +3,6 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
 )
@@ -17,9 +16,9 @@ type TokenParser interface {
 func Authenticate(tokens TokenParser) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if ok {
-				if userID, err := tokens.Parse(token); err == nil {
+			cookie, err := r.Cookie("access_token")
+			if err == nil && cookie.Value != "" {
+				if userID, err := tokens.Parse(cookie.Value); err == nil {
 					r = r.WithContext(auth.WithUserID(r.Context(), userID))
 				}
 			}

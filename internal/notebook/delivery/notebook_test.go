@@ -98,7 +98,7 @@ func do(t *testing.T, uc usecase.Usecase, method, path, body string, withToken b
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if withToken {
-		req.Header.Set("Authorization", "Bearer access-1")
+		req.AddCookie(&http.Cookie{Name: "access_token", Value: "access-1"})
 	}
 	rec := httptest.NewRecorder()
 	newRouter(t, uc).ServeHTTP(rec, req)
