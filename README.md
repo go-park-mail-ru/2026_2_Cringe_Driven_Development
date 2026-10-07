@@ -29,7 +29,7 @@ Make и Docker с Compose. Команды:
 
 ```bash
 make lint          # статический анализ
-make test          # тесты с race detector и coverage.out
+make test          # тесты с race detector, coverage.out и итоговое покрытие
 make build         # бинарник bin/server
 make docker-build  # образ colab-backend:local
 make run           # API и PostgreSQL через Docker Compose

@@ -40,17 +40,7 @@ jobs:
       - name: Build
         run: go build ./...
       - name: Test
-        run: go test -race -count=1 -coverprofile=coverage.out ./...
-      - name: Coverage summary
-        shell: bash
-        run: |
-          echo '### Покрытие тестами' >> "$GITHUB_STEP_SUMMARY"
-          if [[ -s coverage.out ]] && grep -qv '^mode:' coverage.out; then
-            go tool cover -func=coverage.out > coverage-summary.txt
-            awk '$1 == "total:" { print "Итоговое покрытие: " $3 }' coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'Нет данных покрытия' >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: make test
 
   docker:
     name: docker
