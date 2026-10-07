@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ type server struct {
 
 var _ api.StrictServerInterface = server{}
 
-func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string, csrf *auth.CSRF) (http.Handler, error) {
+func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string, csrf *auth.CSRF, refreshUsers middleware.RefreshUserResolver, appOrigin string) (http.Handler, error) {
 	spec, err := api.GetSpec()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded spec: %w", err)
@@ -40,9 +40,6 @@ func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string, 
 	r := mux.NewRouter()
 	r.NotFoundHandler = http.HandlerFunc(httperr.NotFound)
 	r.MethodNotAllowedHandler = http.HandlerFunc(httperr.MethodNotAllowed)
-
-	// Первый в списке внешний: запрос сначала попадает в него.
-	r.Use(middleware.RequestID, middleware.Logging, middleware.Recover)
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -65,5 +62,8 @@ func newRouter(srv server, tokens middleware.TokenParser, corsOrigins []string, 
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	return middleware.CORS(corsOrigins)(middleware.CSRF(tokens, csrf, baseURL, corsOrigins)(r)), nil
+	// Общие middleware оборачивают и ранние ответы CORS/CSRF, и ошибки маршрутизации.
+	// Порядок запроса: RequestID → Logging → Recover → CORS → CSRF/Authenticate → Validator.
+	handler := middleware.CORS(corsOrigins)(middleware.CSRF(tokens, csrf, baseURL, corsOrigins, refreshUsers, appOrigin)(r))
+	return middleware.RequestID(middleware.Logging(middleware.Recover(handler))), nil
 }

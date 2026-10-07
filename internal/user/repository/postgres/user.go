@@ -101,7 +101,7 @@ func (r *UserRepository) DeleteSession(ctx context.Context, tokenHash string) (u
 	return userID, expiresAt, nil
 }
 
-// SessionByTokenHash читает владельца сессии без её изменения для проверки CSRF.
+// SessionByTokenHash возвращает владельца и срок действия сессии по хешу токена.
 func (r *UserRepository) SessionByTokenHash(ctx context.Context, tokenHash string) (userID int64, expiresAt time.Time, err error) {
 	err = r.db.QueryRow(ctx,
 		`SELECT user_id, expires_at FROM refresh_sessions WHERE token_hash = $1`, tokenHash,

@@ -25,6 +25,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-}
       - S3_NOTEBOOKS_BUCKET=${S3_NOTEBOOKS_BUCKET:-}
+      - APP_ORIGIN=${APP_ORIGIN-https://cellestial.ru}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS-https://cellestial.ru,http://localhost:5173}
     depends_on:
       db:

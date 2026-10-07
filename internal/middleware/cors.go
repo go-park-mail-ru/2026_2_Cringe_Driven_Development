@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -47,6 +48,25 @@ const DefaultCORSOrigins = "https://cellestial.ru,http://localhost:5173"
 
 // ParseCORSOrigins разбирает и проверяет белый список; пустая строка выключает CORS.
 func ParseCORSOrigins(value string) ([]string, error) {
+	return parseOrigins(value, "CORS_ALLOWED_ORIGINS")
+}
+
+// DefaultAppOrigin — доверенный публичный origin приложения, независимо от CORS.
+const DefaultAppOrigin = "https://cellestial.ru"
+
+// ParseAppOrigin проверяет единственный доверенный origin приложения.
+func ParseAppOrigin(value string) (string, error) {
+	origins, err := parseOrigins(value, "APP_ORIGIN")
+	if err != nil {
+		return "", err
+	}
+	if len(origins) != 1 {
+		return "", errors.New("APP_ORIGIN: expected exactly one HTTP(S) origin")
+	}
+	return origins[0], nil
+}
+
+func parseOrigins(value, setting string) ([]string, error) {
 	origins := strings.FieldsFunc(value, func(r rune) bool {
 		return r == ',' || unicode.IsSpace(r)
 	})
@@ -55,7 +75,7 @@ func ParseCORSOrigins(value string) ([]string, error) {
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") ||
 			u.Hostname() == "" || strings.Contains(u.Host, "*") || u.User != nil ||
 			u.Path != "" || u.RawQuery != "" || u.ForceQuery || strings.Contains(origin, "#") {
-			return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS: invalid origin %q; expected an HTTP(S) origin without credentials, path, query or fragment", origin)
+			return nil, fmt.Errorf("%s: invalid origin %q; expected an HTTP(S) origin without credentials, path, query or fragment", setting, origin)
 		}
 	}
 	return origins, nil

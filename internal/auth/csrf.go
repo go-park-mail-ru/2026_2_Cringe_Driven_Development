@@ -28,6 +28,12 @@ func (c *CSRF) Anonymous() string {
 	return base64.RawURLEncoding.EncodeToString(csrfNonce())
 }
 
+// IsAnonymousCSRF распознаёт только корректный неподписанный токен.
+func IsAnonymousCSRF(token string) bool {
+	nonce, err := base64.RawURLEncoding.Strict().DecodeString(token)
+	return err == nil && len(nonce) == 32 && base64.RawURLEncoding.EncodeToString(nonce) == token
+}
+
 func (c *CSRF) Signed(userID int64) string {
 	nonce := csrfNonce()
 	return base64.RawURLEncoding.EncodeToString(nonce) + "." + base64.RawURLEncoding.EncodeToString(c.signature(userID, nonce))

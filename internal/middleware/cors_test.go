@@ -232,3 +232,17 @@ func TestCORSWithAPIMiddleware(t *testing.T) {
 		})
 	}
 }
+
+func TestAppOriginConfig(t *testing.T) {
+	for _, origin := range []string{DefaultAppOrigin, "http://localhost:8080", "https://dev.example:8443"} {
+		got, err := ParseAppOrigin(origin)
+		if err != nil || got != origin {
+			t.Fatalf("APP_ORIGIN %q: got %q error=%v", origin, got, err)
+		}
+	}
+	for _, origin := range []string{"", "null", "*", "https://cellestial.ru/", "https://evil.example,path", "https://one.example,https://two.example", "https://user:password@example.com", "ftp://example.com", "https://example.com?query"} {
+		if _, err := ParseAppOrigin(origin); err == nil || !strings.Contains(err.Error(), "APP_ORIGIN") {
+			t.Errorf("invalid APP_ORIGIN accepted or wrong error: %q %v", origin, err)
+		}
+	}
+}

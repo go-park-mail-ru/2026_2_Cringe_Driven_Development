@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/middleware"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery"
 	notebookmodels "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/models"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -24,6 +25,7 @@ type csrfUsers struct {
 	usecase.Usecase
 	session   models.Session
 	mutations int
+	lookupErr error
 }
 
 func (u *csrfUsers) Login(context.Context, string, string) (models.User, models.Session, error) {
@@ -36,6 +38,9 @@ func (u *csrfUsers) CurrentUser(context.Context, int64) (models.User, error) {
 	return models.User{ID: 1, Login: "bob"}, nil
 }
 func (u *csrfUsers) RefreshUserID(_ context.Context, refresh string) (int64, error) {
+	if u.lookupErr != nil {
+		return 0, u.lookupErr
+	}
 	if refresh != u.session.RefreshToken || refresh == "" {
 		return 0, usecase.ErrInvalidRefresh
 	}
@@ -81,6 +86,11 @@ func (csrfNotebooks) DeleteCell(_ context.Context, _, ownerID int64, _ int) erro
 
 func csrfRouter(t *testing.T) (http.Handler, *auth.CSRF, *csrfUsers, string, string) {
 	t.Helper()
+	return csrfRouterOrigins(t, []string{"https://cellestial.ru"}, middleware.DefaultAppOrigin)
+}
+
+func csrfRouterOrigins(t *testing.T, corsOrigins []string, appOrigin string) (http.Handler, *auth.CSRF, *csrfUsers, string, string) {
+	t.Helper()
 	tokens := auth.NewAccessToken([]byte("jwt-test-secret"), time.Hour)
 	access, err := tokens.Issue(1)
 	if err != nil {
@@ -95,7 +105,7 @@ func csrfRouter(t *testing.T) (http.Handler, *auth.CSRF, *csrfUsers, string, str
 	handler, err := newRouter(server{
 		userHandler:     userdelivery.NewHandler(users, userdelivery.CookieConfig{AccessPath: baseURL, RefreshPath: baseURL + "/auth", AccessTTL: time.Hour, Secure: true}, csrf),
 		notebookHandler: notebookdelivery.NewHandler(csrfNotebooks{}),
-	}, tokens, []string{"https://cellestial.ru"}, csrf)
+	}, tokens, corsOrigins, csrf, users, appOrigin)
 	if err != nil {
 		t.Fatal(err)
 	}
