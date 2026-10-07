@@ -108,3 +108,13 @@ type fakeTokens struct{}
 func (fakeTokens) Issue(userID int64) (string, error) {
 	return "access-" + strconv.FormatInt(userID, 10), nil
 }
+
+func (r *fakeRepo) SessionByTokenHash(_ context.Context, tokenHash string) (int64, time.Time, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s, ok := r.sessions[tokenHash]
+	if !ok {
+		return 0, time.Time{}, repository.ErrSessionNotFound
+	}
+	return s.userID, s.expiresAt, nil
+}

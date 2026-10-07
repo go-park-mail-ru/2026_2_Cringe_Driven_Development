@@ -28,10 +28,11 @@ type CookieConfig struct {
 type Handler struct {
 	uc     usecase.Usecase
 	cookie CookieConfig
+	csrf   *auth.CSRF
 }
 
-func NewHandler(uc usecase.Usecase, cookie CookieConfig) *Handler {
-	return &Handler{uc: uc, cookie: cookie}
+func NewHandler(uc usecase.Usecase, cookie CookieConfig, csrf *auth.CSRF) *Handler {
+	return &Handler{uc: uc, cookie: cookie, csrf: csrf}
 }
 
 func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
@@ -61,6 +62,16 @@ func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject)
 }
 
 func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
+	if err := h.checkRefreshCSRF(ctx, req.Params.RefreshToken, req.Params.XCSRFToken); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrInvalidRefresh):
+			return api.RefreshToken401JSONResponse{Code: api.Unauthorized, Message: err.Error()}, nil
+		case errors.Is(err, errCSRFInvalid):
+			return api.RefreshToken403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Code: api.CsrfInvalid, Message: err.Error()}}, nil
+		default:
+			return nil, err
+		}
+	}
 	sess, err := h.uc.Refresh(ctx, req.Params.RefreshToken)
 	switch {
 	case errors.Is(err, usecase.ErrInvalidRefresh):
@@ -73,6 +84,16 @@ func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestO
 }
 
 func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
+	if err := h.checkRefreshCSRF(ctx, req.Params.RefreshToken, req.Params.XCSRFToken); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrInvalidRefresh):
+			return api.LogoutUser401JSONResponse{Code: api.Unauthorized, Message: err.Error()}, nil
+		case errors.Is(err, errCSRFInvalid):
+			return api.LogoutUser403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Code: api.CsrfInvalid, Message: err.Error()}}, nil
+		default:
+			return nil, err
+		}
+	}
 	err := h.uc.Logout(ctx, req.Params.RefreshToken)
 	switch {
 	case errors.Is(err, usecase.ErrInvalidRefresh):
@@ -84,6 +105,7 @@ func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObjec
 	cookies := responseCookies{
 		h.tokenCookie("access_token", "", h.cookie.AccessPath, -1),
 		h.tokenCookie(refreshCookie, "", h.cookie.RefreshPath, -1),
+		h.csrf.Cookie(h.csrf.Anonymous()),
 	}
 	return logoutResponse{api.LogoutUser204Response{}, cookies}, nil
 }
@@ -106,6 +128,7 @@ func (h *Handler) sessionCookies(sess models.Session) responseCookies {
 	return responseCookies{
 		h.tokenCookie("access_token", sess.AccessToken, h.cookie.AccessPath, int(h.cookie.AccessTTL/time.Second)),
 		h.tokenCookie(refreshCookie, sess.RefreshToken, h.cookie.RefreshPath, int(time.Until(sess.ExpiresAt).Seconds())),
+		h.csrf.Cookie(h.csrf.Signed(sess.UserID)),
 	}
 }
 
@@ -118,4 +141,17 @@ func (h *Handler) tokenCookie(name, value, path string, maxAge int) *http.Cookie
 
 func toAPIUser(u models.User) api.User {
 	return api.User{Id: u.ID, Login: u.Login}
+}
+
+var errCSRFInvalid = errors.New("CSRF token is invalid")
+
+func (h *Handler) checkRefreshCSRF(ctx context.Context, refreshToken string, csrfToken *string) error {
+	userID, err := h.uc.RefreshUserID(ctx, refreshToken)
+	if err != nil {
+		return err
+	}
+	if csrfToken == nil || !h.csrf.Valid(*csrfToken, userID) {
+		return errCSRFInvalid
+	}
+	return nil
 }

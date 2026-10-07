@@ -44,7 +44,11 @@ docker compose down                    # остановить локальное
 
 ## Паттерны кода
 
-Middleware из [cmd/main/main.go](cmd/main/main.go):
+В `cmd/` размещай только точки входа в приложение; допустим README с описанием
+микросервиса. Тесты в `cmd/` запрещены: проверяемую логику и её тесты размещай
+в `internal/` (сборка и запуск API — `internal/app`).
+
+Middleware из [internal/middleware/common.go](internal/middleware/common.go):
 
 ```go
 func requestIDMiddleware(next http.Handler) http.Handler {
@@ -61,7 +65,9 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 ```
 
 Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика
-используй `r.Context()`. Порядок middleware сейчас: recover → request ID → logging.
+используй `r.Context()`. Порядок: request ID → logging → recover → CORS →
+CSRF/Authenticate → Validator. Общие middleware оборачивают весь роутер, чтобы
+request ID был на всех ответах, включая CSRF-отказы, preflight, 404 и 405.
 
 ## Целевая архитектура MVP и границы
 

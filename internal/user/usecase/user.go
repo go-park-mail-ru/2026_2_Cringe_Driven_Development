@@ -102,3 +102,17 @@ func (uc *UserUsecase) startSession(ctx context.Context, userID int64) (models.S
 	}
 	return models.Session{UserID: userID, AccessToken: access, RefreshToken: refresh, ExpiresAt: expiresAt}, nil
 }
+
+func (uc *UserUsecase) RefreshUserID(ctx context.Context, refreshToken string) (int64, error) {
+	userID, expiresAt, err := uc.repo.SessionByTokenHash(ctx, auth.HashRefreshToken(refreshToken))
+	if errors.Is(err, repository.ErrSessionNotFound) {
+		return 0, ErrInvalidRefresh
+	}
+	if err != nil {
+		return 0, err
+	}
+	if !uc.now().Before(expiresAt) {
+		return 0, ErrInvalidRefresh
+	}
+	return userID, nil
+}

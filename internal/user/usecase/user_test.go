@@ -152,3 +152,47 @@ func TestUserUsecaseCurrentUser(t *testing.T) {
 		t.Errorf("CurrentUser() неизвестного: error = %v, want ErrUserNotFound", err)
 	}
 }
+
+func TestRefreshUserIDDoesNotConsumeSession(t *testing.T) {
+	repo := newFakeRepo()
+	user := repo.addUser("alice", "password123")
+	uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
+	_, session, err := uc.Login(context.Background(), "alice", "password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		id, lookupErr := uc.RefreshUserID(context.Background(), session.RefreshToken)
+		if lookupErr != nil || id != user.ID {
+			t.Fatalf("lookup: id=%d error=%v", id, lookupErr)
+		}
+	}
+	if _, err = uc.Refresh(context.Background(), session.RefreshToken); err != nil {
+		t.Fatalf("lookup consumed session: %v", err)
+	}
+	if _, err = uc.RefreshUserID(context.Background(), session.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
+		t.Fatalf("consumed refresh remains valid: %v", err)
+	}
+}
+
+func TestRefreshUserIDInvalidSessions(t *testing.T) {
+	repo := newFakeRepo()
+	repo.addUser("alice", "password123")
+	uc := NewUserUsecase(repo, fakeTokens{}, refreshTTL)
+	_, session, err := uc.Login(context.Background(), "alice", "password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{"", "not-issued"} {
+		if _, err = uc.RefreshUserID(context.Background(), token); !errors.Is(err, ErrInvalidRefresh) {
+			t.Fatalf("invalid session: %v", err)
+		}
+	}
+	uc.now = func() time.Time { return session.ExpiresAt }
+	if _, err = uc.RefreshUserID(context.Background(), session.RefreshToken); !errors.Is(err, ErrInvalidRefresh) {
+		t.Fatalf("expired session: %v", err)
+	}
+	if _, ok := repo.sessions[auth.HashRefreshToken(session.RefreshToken)]; !ok {
+		t.Fatal("lookup deleted expired session")
+	}
+}
