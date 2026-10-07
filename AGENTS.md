@@ -29,11 +29,18 @@
 go mod download       # скачать зависимости
 go mod tidy -diff      # проверить согласованность go.mod/go.sum без изменения
 make build            # собрать bin/server
-make test             # go test -race -count=1 -coverprofile=coverage.out ./...
+make test             # тесты с -race, coverage.out и итоговое покрытие
 make lint             # статический анализ
 make docker-build     # собрать colab-backend:local
 make run              # собрать и запустить API и PostgreSQL; занимает терминал
 ```
+
+`make test` и CI используют `scripts/test.sh`: тестируются все пакеты с
+`-race -count=1 -coverpkg=./...` (включая вызовы из тестов других пакетов).
+Из `coverage.out` исключаются `internal/api`, `cmd/apidog`,
+`migrations` и `cmd/main`. Логика приложения в `internal/app` учитывается.
+Последняя строка — итоговое покрытие; CI пишет ту же строку в summary.
+Цель — ≥50%, автоматического порога нет. Отчёт: `go tool cover -func=coverage.out`.
 
 В другом терминале, при стандартном порте 8080:
 

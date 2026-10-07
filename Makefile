@@ -14,7 +14,7 @@ lint-fix: $(LINT_BIN)
 	$(LINT_BIN) run --fix ./...
 
 test:
-	go test -race -count=1 -coverprofile=coverage.out ./...
+	@bash scripts/test.sh
 
 build:
 	go build -o bin/server ./cmd/main
