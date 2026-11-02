@@ -103,7 +103,7 @@ func TestNotebookModifyTransactions(t *testing.T) {
 					if stage == "callback" {
 						want = source
 					} else {
-						upd := db.ExpectExec(updateSQL).WithArgs(int64(17), 3)
+						upd := db.ExpectExec(updateSQL).WithArgs(int64(17), "next", 3)
 						if stage == "update" {
 							upd.WillReturnError(source)
 							want = source
@@ -123,15 +123,15 @@ func TestNotebookModifyTransactions(t *testing.T) {
 					rollback.WillReturnError(source)
 				}
 			}
-			err := r.Modify(context.Background(), 17, 23, func(n domain.Notebook) (int, error) {
+			err := r.Modify(context.Background(), 17, 23, func(n domain.Notebook) (usecase.MetadataUpdate, error) {
 				called = true
 				if n.ID != 17 || n.OwnerID != 23 || n.FileKey != "SECRET-key" || n.CellsCount != 1 {
 					t.Fatalf("callback notebook=%+v", n)
 				}
 				if stage == "callback" {
-					return 0, source
+					return usecase.MetadataUpdate{}, source
 				}
-				return 3, nil
+				return usecase.MetadataUpdate{FileKey: "next", CellsCount: 3, Changed: true}, nil
 			})
 			if !errors.Is(err, want) {
 				t.Fatalf("err=%v want=%v", err, want)

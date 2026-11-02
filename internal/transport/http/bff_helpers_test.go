@@ -56,13 +56,13 @@ func (bffNotebooks) Create(_ context.Context, ownerID int64, name string) (noteb
 	}
 	return notebookmodels.Notebook{ID: 1, Name: name}, nil
 }
-func (bffNotebooks) CreateCell(_ context.Context, _, ownerID int64, kind notebookmodels.CellKind, _ *int) (notebookmodels.Cell, error) {
+func (bffNotebooks) CreateCell(_ context.Context, _, ownerID int64, _ string, kind notebookmodels.CellKind, _ *int) (notebookmodels.Cell, error) {
 	if ownerID != 1 {
 		panic("user context lost")
 	}
 	return notebookmodels.Cell{ID: "cell", Kind: kind}, nil
 }
-func (bffNotebooks) DeleteCell(_ context.Context, _, ownerID int64, _ int) error {
+func (bffNotebooks) DeleteCell(_ context.Context, _, ownerID int64, _ string, _ int) error {
 	if ownerID != 1 {
 		panic("user context lost")
 	}

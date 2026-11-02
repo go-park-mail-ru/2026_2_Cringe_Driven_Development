@@ -92,7 +92,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 `internal/tooling/apidog` — экспорт контракта; `migrations` — встроенные goose SQL.
 `internal/transport/http/api/api.gen.go` не редактируй вручную. Контракт и `make generate` описаны в [docs/apidog.md](docs/apidog.md).
 
-Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
+Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → ограничение тела блокнотов (512 КиБ) → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
 
 ## Границы backend и эксплуатация
 

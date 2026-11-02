@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	"github.com/pashagolub/pgxmock/v5"
 )
@@ -55,7 +56,11 @@ func TestNotebookRepositoryLogsFailedOperationsOnce(t *testing.T) {
 		{"notebook.create", func() error { _, err := repo.Create(ctx, domain.Notebook{Name: "SECRET-name"}); return err }},
 		{"notebook.list", func() error { _, err := repo.List(ctx, 2); return err }},
 		{"notebook.get", func() error { _, err := repo.Get(ctx, 1, 2); return err }},
-		{"notebook.modify", func() error { return repo.Modify(ctx, 1, 2, func(domain.Notebook) (int, error) { return 2, nil }) }},
+		{"notebook.modify", func() error {
+			return repo.Modify(ctx, 1, 2, func(domain.Notebook) (usecase.MetadataUpdate, error) {
+				return usecase.MetadataUpdate{FileKey: "next", CellsCount: 2, Changed: true}, nil
+			})
+		}},
 	} {
 		out.Reset()
 		if err := tc.call(); !errors.Is(err, failure) {
@@ -96,12 +101,28 @@ func TestNotebookModifyLogsCommitError(t *testing.T) {
 	db := newPool(t)
 	db.ExpectBegin()
 	db.ExpectQuery(lockSQL).WithArgs(int64(1), int64(2)).WillReturnRows(notebookRows())
-	db.ExpectExec(updateSQL).WithArgs(int64(1), 2).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+	db.ExpectExec(updateSQL).WithArgs(int64(1), "next", 2).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	db.ExpectCommit().WillReturnError(source)
 	db.ExpectRollback()
 	repo := NewNotebookRepository(db)
-	err := repo.Modify(context.Background(), 1, 2, func(domain.Notebook) (int, error) { return 2, nil })
+	err := repo.Modify(context.Background(), 1, 2, func(domain.Notebook) (usecase.MetadataUpdate, error) {
+		return usecase.MetadataUpdate{FileKey: "next", CellsCount: 2, Changed: true}, nil
+	})
 	if !errors.Is(err, source) || strings.Count(out.String(), `"operation":"notebook.modify"`) != 1 || !strings.Contains(out.String(), `"outcome":"error"`) || strings.Contains(out.String(), "SECRET") {
 		t.Fatalf("err=%v log=%s", err, out.String())
+	}
+}
+
+func TestModifyNoOpDoesNotUpdateTimestamp(t *testing.T) {
+	db := newPool(t)
+	db.ExpectBegin()
+	db.ExpectQuery(lockSQL).WithArgs(int64(17), int64(23)).WillReturnRows(notebookRows())
+	db.ExpectCommit()
+	db.ExpectRollback()
+	err := NewNotebookRepository(db).Modify(context.Background(), 17, 23, func(domain.Notebook) (usecase.MetadataUpdate, error) {
+		return usecase.MetadataUpdate{}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

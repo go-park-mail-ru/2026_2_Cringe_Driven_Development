@@ -5,8 +5,7 @@ generate:
   strict-server: true
   models: true
   embedded-spec: true
-# Generate only implemented operations (API-41 and API-68). API-14 extends this list
-# together with its notebook editing handlers and tests.
+# Generate the implemented authentication and notebook operations.
 output-options:
   include-operation-ids:
     - registerUser
@@ -20,3 +19,8 @@ output-options:
     - getNotebook
     - createCell
     - deleteCell
+    - getNotebookContent
+    - addNotebookCell
+    - editNotebookCell
+    - moveNotebookCell
+    - removeNotebookCell

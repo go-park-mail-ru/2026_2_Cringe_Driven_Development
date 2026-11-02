@@ -42,10 +42,10 @@ func TestNotebookChangesLogOnlySuccessfulEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := uc.CreateCell(ctx, n.ID, owner, domain.CellKindCode, nil); err != nil {
+	if _, err := uc.CreateCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), domain.CellKindCode, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := uc.DeleteCell(ctx, n.ID, owner, 1); err != nil {
+	if err := uc.DeleteCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), 1); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := uc.Get(ctx, n.ID, owner); err != nil {

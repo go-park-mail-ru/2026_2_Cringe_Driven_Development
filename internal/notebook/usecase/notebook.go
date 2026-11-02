@@ -76,74 +76,39 @@ func (uc *NotebookUsecase) Get(ctx context.Context, id, ownerID int64) (domain.N
 	return n, nil
 }
 
-// CreateCell вставляет пустой блок на место index, а без index — в конец.
-func (uc *NotebookUsecase) CreateCell(ctx context.Context, id, ownerID int64, kind domain.CellKind, index *int) (domain.Cell, error) {
-	var cell domain.Cell
-	err := uc.modify(ctx, id, ownerID, func(cells []domain.Cell) ([]domain.Cell, error) {
-		if len(cells) >= MaxCells {
-			return nil, ErrTooManyCells
-		}
-		pos := len(cells)
-		if index != nil {
-			if *index < 0 || *index > len(cells) {
-				return nil, ErrIndexOutOfRange
-			}
-			pos = *index
-		}
-		cell = uc.newCell(kind)
-		return slices.Insert(cells, pos, cell), nil
-	})
+// CreateCell использует общую операцию вставки с пустым source.
+func (uc *NotebookUsecase) CreateCell(ctx context.Context, id, ownerID int64, hash string, kind domain.CellKind, index *int) (domain.Cell, error) {
+	result, err := uc.AddCell(ctx, id, ownerID, hash, kind, "", index)
 	if err != nil {
 		return domain.Cell{}, err
 	}
 	slog.InfoContext(ctx, "notebook.cell_create", slog.String("outcome", "success"), slog.Int64("notebook_id", id))
-	return cell, nil
+	return result.Cell, nil
 }
 
-// DeleteCell возвращает ErrCellNotFound, если блока с таким index нет.
-func (uc *NotebookUsecase) DeleteCell(ctx context.Context, id, ownerID int64, index int) error {
-	err := uc.modify(ctx, id, ownerID, func(cells []domain.Cell) ([]domain.Cell, error) {
-		if index < 0 || index >= len(cells) {
-			return nil, ErrCellNotFound
-		}
-		return slices.Delete(cells, index, index+1), nil
-	})
+// DeleteCell проверяет редакцию прежде, чем интерпретировать index.
+func (uc *NotebookUsecase) DeleteCell(ctx context.Context, id, ownerID int64, hash string, index int) error {
+	_, err := uc.changeCells(ctx, id, ownerID, hash, func(cells []domain.Cell) ([]domain.Cell, error) { return deleteCellAt(cells, index) })
 	if err == nil {
 		slog.InfoContext(ctx, "notebook.cell_delete", slog.String("outcome", "success"), slog.Int64("notebook_id", id))
 	}
 	return err
 }
 
-// modify меняет блоки через change, пока строка блокнота заблокирована.
-func (uc *NotebookUsecase) modify(ctx context.Context, id, ownerID int64, change func([]domain.Cell) ([]domain.Cell, error)) error {
-	err := uc.meta.Modify(ctx, id, ownerID, func(n domain.Notebook) (int, error) {
-		cells, err := uc.readCells(ctx, n.FileKey)
-		if err != nil {
-			return 0, err
-		}
-		cells, err = change(cells)
-		if err != nil {
-			return 0, err
-		}
-		data, err := uc.codec.Build(cells)
-		if err != nil {
-			return 0, err
-		}
-		if err = uc.files.Put(ctx, n.FileKey, data); err != nil {
-			return 0, err
-		}
-		return len(cells), nil
-	})
-	if errors.Is(err, ErrNotebookNotFound) {
-		return ErrNotebookNotFound
+func deleteCellAt(cells []domain.Cell, index int) ([]domain.Cell, error) {
+	if index < 0 || index >= len(cells) {
+		return nil, ErrCellNotFound
 	}
-	return err
+	return slices.Delete(cells, index, index+1), nil
 }
 
 func (uc *NotebookUsecase) readCells(ctx context.Context, key string) ([]domain.Cell, error) {
 	data, err := uc.files.Get(ctx, key)
 	if err != nil {
 		return nil, err
+	}
+	if len(data) > MaxNotebookBytes {
+		return nil, ErrTooLarge
 	}
 	cells, err := uc.codec.Parse(data)
 	if err != nil {

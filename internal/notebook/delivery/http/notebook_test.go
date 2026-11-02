@@ -58,6 +58,7 @@ func do(t *testing.T, uc usecase.Usecase, method, path, body string, withToken b
 	t.Helper()
 	req := httptest.NewRequest(method, "/api/v1"+path, strings.NewReader(body))
 	req.Header.Set("X-BFF-Key", "test-key")
+	req.Header.Set("If-Match", `"hash"`)
 	req = req.WithContext(context.WithValue(req.Context(), notebookRequestKey{}, t.Name()))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
@@ -120,7 +121,7 @@ func TestErrors(t *testing.T) {
 				case tt.method == http.MethodGet:
 					uc.EXPECT().Get(gomock.Any(), int64(1), int64(1)).Return(domain.Notebook{}, tt.err)
 				case tt.method == http.MethodDelete:
-					uc.EXPECT().DeleteCell(gomock.Any(), int64(1), int64(1), 7).Return(tt.err)
+					uc.EXPECT().DeleteCell(gomock.Any(), int64(1), int64(1), "hash", 7).Return(tt.err)
 				case tt.path == "/notebooks":
 					uc.EXPECT().Create(gomock.Any(), int64(1), "   ").Return(domain.Notebook{}, tt.err)
 				default:
@@ -128,7 +129,7 @@ func TestErrors(t *testing.T) {
 					if err := json.Unmarshal([]byte(tt.body), &body); err != nil {
 						t.Fatal(err)
 					}
-					uc.EXPECT().CreateCell(gomock.Any(), int64(1), int64(1), domain.CellKind(body.Kind), body.Index).Return(domain.Cell{}, tt.err)
+					uc.EXPECT().CreateCell(gomock.Any(), int64(1), int64(1), "hash", domain.CellKind(body.Kind), body.Index).Return(domain.Cell{}, tt.err)
 				}
 			}
 			rec := do(t, uc, tt.method, tt.path, tt.body, !tt.noToken)
@@ -215,7 +216,7 @@ func TestCreateAndGetNotebook(t *testing.T) {
 func TestCreateCell(t *testing.T) {
 	uc := NewMockUsecase(gomock.NewController(t))
 	index := 0
-	uc.EXPECT().CreateCell(gomock.Any(), int64(3), int64(1), domain.CellKindMarkdown, &index).Return(domain.Cell{ID: "c2", Kind: domain.CellKindMarkdown}, nil)
+	uc.EXPECT().CreateCell(gomock.Any(), int64(3), int64(1), "hash", domain.CellKindMarkdown, &index).Return(domain.Cell{ID: "c2", Kind: domain.CellKindMarkdown}, nil)
 	rec := do(t, uc, http.MethodPost, "/notebooks/3/cells", `{"kind":"markdown","index":0}`, true)
 
 	if rec.Code != http.StatusCreated {
@@ -233,7 +234,7 @@ func TestCreateCell(t *testing.T) {
 
 func TestDeleteCell(t *testing.T) {
 	uc := NewMockUsecase(gomock.NewController(t))
-	uc.EXPECT().DeleteCell(gomock.Any(), int64(3), int64(1), 0).Return(nil)
+	uc.EXPECT().DeleteCell(gomock.Any(), int64(3), int64(1), "hash", 0).Return(nil)
 	rec := do(t, uc, http.MethodDelete, "/notebooks/3/cells/0", "", true)
 
 	if rec.Code != http.StatusNoContent {

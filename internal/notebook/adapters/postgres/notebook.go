@@ -78,8 +78,8 @@ func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain
 	return n, err
 }
 
-// Modify выполняет fn под SELECT ... FOR UPDATE и сохраняет новое число блоков.
-func (r *NotebookRepository) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (int, error)) (err error) {
+// Modify выполняет fn под SELECT ... FOR UPDATE и атомарно публикует новую редакцию.
+func (r *NotebookRepository) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (usecase.MetadataUpdate, error)) (err error) {
 	started := time.Now()
 	defer func() { observability.LogStorage(ctx, "notebook.modify", started, err) }()
 	tx, err := r.db.Begin(ctx)
@@ -92,16 +92,18 @@ func (r *NotebookRepository) Modify(ctx context.Context, id, ownerID int64, fn f
 	if err != nil {
 		return err
 	}
-	cellsCount, err := fn(n)
+	update, err := fn(n)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx,
-		`UPDATE notebooks SET cells_count = $2, updated_at = now() WHERE id = $1`,
-		id, cellsCount,
-	)
-	if err != nil {
-		return fmt.Errorf("update notebook: %w", err)
+	if update.Changed {
+		_, err = tx.Exec(ctx,
+			`UPDATE notebooks SET file_key = $2, cells_count = $3, updated_at = now() WHERE id = $1`,
+			id, update.FileKey, update.CellsCount,
+		)
+		if err != nil {
+			return fmt.Errorf("update notebook: %w", err)
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit: %w", err)

@@ -57,6 +57,7 @@ VPS создаёт и удаляет backend; роли установки аге
 - `migrations/` — SQL-миграции goose; `internal/transport/http/api/api.gen.go` — код, сгенерированный из Apidog, вручную не редактируйте.
 - [Сессии Redis](docs/redis-sessions.md) — конфигурация, отзыв, переключение и восстановление.
 - [Авторизация через BFF](docs/authentication.md) — JSON-токены, Bearer и обязательный S2S-ключ.
+- [Редактирование ipynb](docs/notebook-editing.md) — операции над блоками, хеши и консистентность.
 - [Контракт API в Apidog](docs/apidog.md) — ветки, Merge Request и `make generate`.
 - [CI, образ и деплой](docs/release.md) — проверки и выпуск. Production-конфигурация принадлежит [infra](https://github.com/Cringe-Driven-Development-Team/infra).
 - [AGENTS.md](AGENTS.md) — локальные правила для агента; Claude Code подключает их через [CLAUDE.md](CLAUDE.md).

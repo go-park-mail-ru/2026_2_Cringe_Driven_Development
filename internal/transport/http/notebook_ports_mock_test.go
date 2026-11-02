@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	domain "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
+	usecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -87,7 +88,7 @@ func (mr *MockMetadataMockRecorder) List(ctx, ownerID any) *gomock.Call {
 }
 
 // Modify mocks base method.
-func (m *MockMetadata) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (int, error)) error {
+func (m *MockMetadata) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (usecase.MetadataUpdate, error)) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Modify", ctx, id, ownerID, fn)
 	ret0, _ := ret[0].(error)

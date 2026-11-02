@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/middleware"
@@ -51,6 +52,6 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(r))
+	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(middleware.BodyLimit(r, notebookusecase.MaxSourceBytes, BaseURL+"/notebooks")))
 	return middleware.RequestID(middleware.Logging(middleware.Recover(handler))), nil
 }
