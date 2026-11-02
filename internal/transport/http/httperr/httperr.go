@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	notebookdomain "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 )
@@ -30,11 +31,20 @@ func Internal(w http.ResponseWriter, r *http.Request, err error) {
 
 // RequestError отвечает, когда сгенерированный код не смог разобрать запрос.
 func RequestError(w http.ResponseWriter, _ *http.Request, err error) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		Write(w, http.StatusRequestEntityTooLarge, api.ErrorCodeValidationError, "request body too large")
+		return
+	}
 	Write(w, http.StatusBadRequest, api.ErrorCodeValidationError, err.Error())
 }
 
 // ResponseError отвечает на ошибки, которые вернули хендлеры.
 func ResponseError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, notebookdomain.ErrTooLarge) {
+		Write(w, http.StatusRequestEntityTooLarge, api.ErrorCodeValidationError, "notebook size limit exceeded")
+		return
+	}
 	if errors.Is(err, ErrNotImplemented) {
 		Write(w, http.StatusNotImplemented, api.ErrorCodeNotImplemented, "not implemented yet")
 		return

@@ -12,13 +12,21 @@ var (
 )
 
 // Metadata хранит строки блокнотов; чужой блокнот для неё — ErrNotebookNotFound.
+// MetadataUpdate описывает переход на уже записанный неизменяемый объект.
+// Changed=false оставляет метаданные, включая updated_at, без изменений.
+type MetadataUpdate struct {
+	FileKey    string
+	CellsCount int
+	Changed    bool
+}
+
 type Metadata interface {
 	// Create заполняет у n поля ID, CreatedAt и UpdatedAt.
 	Create(ctx context.Context, n domain.Notebook) (domain.Notebook, error)
 	List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error)
 	Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error)
-	// Modify блокирует строку блокнота на время fn и сохраняет число блоков, которое вернула fn.
-	Modify(ctx context.Context, id, ownerID int64, fn func(n domain.Notebook) (cellsCount int, err error)) error
+	// Modify блокирует строку до завершения fn и атомарно сохраняет новую редакцию.
+	Modify(ctx context.Context, id, ownerID int64, fn func(n domain.Notebook) (MetadataUpdate, error)) error
 }
 
 // Files хранит файлы .ipynb по ключу.
@@ -31,4 +39,5 @@ type Files interface {
 type NotebookCodec interface {
 	Parse(data []byte) ([]domain.Cell, error)
 	Build(cells []domain.Cell) ([]byte, error)
+	Rewrite(data []byte, cells []domain.Cell) ([]byte, error)
 }

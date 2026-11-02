@@ -87,7 +87,7 @@ func (mr *MockMetadataMockRecorder) List(ctx, ownerID any) *gomock.Call {
 }
 
 // Modify mocks base method.
-func (m *MockMetadata) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (int, error)) error {
+func (m *MockMetadata) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (MetadataUpdate, error)) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Modify", ctx, id, ownerID, fn)
 	ret0, _ := ret[0].(error)
@@ -205,4 +205,19 @@ func (m *MockNotebookCodec) Parse(data []byte) ([]domain.Cell, error) {
 func (mr *MockNotebookCodecMockRecorder) Parse(data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Parse", reflect.TypeOf((*MockNotebookCodec)(nil).Parse), data)
+}
+
+// Rewrite mocks base method.
+func (m *MockNotebookCodec) Rewrite(data []byte, cells []domain.Cell) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Rewrite", data, cells)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Rewrite indicates an expected call of Rewrite.
+func (mr *MockNotebookCodecMockRecorder) Rewrite(data, cells any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rewrite", reflect.TypeOf((*MockNotebookCodec)(nil).Rewrite), data, cells)
 }

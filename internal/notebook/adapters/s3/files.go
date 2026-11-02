@@ -61,7 +61,14 @@ func (s *FileStorage) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, fmt.Errorf("get object %s: %w", key, err)
 	}
 	defer out.Body.Close()
-	data, err := io.ReadAll(out.Body)
+	if out.ContentLength != nil && *out.ContentLength > usecase.MaxNotebookBytes {
+		observability.LogStorage(ctx, "notebook.get_object", started, usecase.ErrTooLarge)
+		return nil, usecase.ErrTooLarge
+	}
+	data, err := io.ReadAll(io.LimitReader(out.Body, usecase.MaxNotebookBytes+1))
+	if err == nil && len(data) > usecase.MaxNotebookBytes {
+		err = usecase.ErrTooLarge
+	}
 	observability.LogStorage(ctx, "notebook.get_object", started, err)
 	if err != nil {
 		return nil, fmt.Errorf("read object %s: %w", key, err)
@@ -71,6 +78,9 @@ func (s *FileStorage) Get(ctx context.Context, key string) ([]byte, error) {
 
 // Put записывает файл, заменяя прежний с тем же ключом.
 func (s *FileStorage) Put(ctx context.Context, key string, data []byte) error {
+	if len(data) > usecase.MaxNotebookBytes {
+		return usecase.ErrTooLarge
+	}
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()

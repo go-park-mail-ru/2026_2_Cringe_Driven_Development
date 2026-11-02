@@ -37,3 +37,15 @@ type NotebookSummary struct {
 	CellsCount int
 	UpdatedAt  time.Time
 }
+
+// Content — согласованный снимок содержимого и хеша точных байтов ipynb.
+type Content struct {
+	Hash  string
+	Cells []Cell
+}
+
+// CellChange возвращает изменённый блок и хеш новой редакции блокнота.
+type CellChange struct {
+	Hash string
+	Cell Cell
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
@@ -19,6 +20,7 @@ type fakeMeta struct {
 	mu        sync.Mutex
 	notebooks map[int64]domain.Notebook
 	lastID    int64
+	modifyErr error
 }
 
 func (m *fakeMeta) Create(_ context.Context, n domain.Notebook) (domain.Notebook, error) {
@@ -50,18 +52,25 @@ func (m *fakeMeta) Get(_ context.Context, id, ownerID int64) (domain.Notebook, e
 	return m.find(id, ownerID)
 }
 
-func (m *fakeMeta) Modify(_ context.Context, id, ownerID int64, fn func(domain.Notebook) (int, error)) error {
+func (m *fakeMeta) Modify(_ context.Context, id, ownerID int64, fn func(domain.Notebook) (MetadataUpdate, error)) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	n, err := m.find(id, ownerID)
 	if err != nil {
 		return err
 	}
-	cellsCount, err := fn(n)
+	update, err := fn(n)
 	if err != nil {
 		return err
 	}
-	n.CellsCount = cellsCount
+	if m.modifyErr != nil {
+		return m.modifyErr
+	}
+	if !update.Changed {
+		return nil
+	}
+	n.FileKey = update.FileKey
+	n.CellsCount = update.CellsCount
 	n.UpdatedAt = time.Now()
 	m.notebooks[id] = n
 	return nil
@@ -117,4 +126,13 @@ func newTestUsecase() (*NotebookUsecase, *fakeMeta, *fakeFiles) {
 		return "c" + strconv.Itoa(next)
 	}
 	return uc, meta, files
+}
+
+func testRevision(t *testing.T, uc *NotebookUsecase, id, ownerID int64) string {
+	t.Helper()
+	snapshot, err := uc.Content(context.Background(), id, ownerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snapshot.Hash
 }

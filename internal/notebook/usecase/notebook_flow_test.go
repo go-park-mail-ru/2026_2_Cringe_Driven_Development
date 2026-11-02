@@ -81,7 +81,7 @@ func TestCreateCell(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cell, err := uc.CreateCell(ctx, n.ID, owner, domain.CellKindMarkdown, tt.index)
+			cell, err := uc.CreateCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), domain.CellKindMarkdown, tt.index)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("CreateCell() error = %v, want %v", err, tt.wantErr)
 			}
@@ -110,12 +110,12 @@ func TestDeleteCell(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, kind := range []domain.CellKind{domain.CellKindMarkdown, domain.CellKindCode} {
-		if _, err = uc.CreateCell(ctx, n.ID, owner, kind, nil); err != nil {
+		if _, err = uc.CreateCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), kind, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err = uc.DeleteCell(ctx, n.ID, owner, 1); err != nil {
+	if err = uc.DeleteCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), 1); err != nil {
 		t.Fatal(err)
 	}
 	got, err := uc.Get(ctx, n.ID, owner)
@@ -129,12 +129,12 @@ func TestDeleteCell(t *testing.T) {
 		t.Errorf("cells_count = %d, want 2", meta.notebooks[n.ID].CellsCount)
 	}
 
-	if err = uc.DeleteCell(ctx, n.ID, owner, 2); !errors.Is(err, ErrCellNotFound) {
+	if err = uc.DeleteCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), 2); !errors.Is(err, ErrCellNotFound) {
 		t.Errorf("DeleteCell() за концом: error = %v, want ErrCellNotFound", err)
 	}
 
 	for range 2 {
-		if err = uc.DeleteCell(ctx, n.ID, owner, 0); err != nil {
+		if err = uc.DeleteCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), 0); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -156,7 +156,7 @@ func TestS3ErrorKeepsCellsCount(t *testing.T) {
 	}
 	files.down = true
 
-	if _, err = uc.CreateCell(ctx, n.ID, owner, domain.CellKindCode, nil); !errors.Is(err, errS3Down) {
+	if _, err = uc.CreateCell(ctx, n.ID, owner, testRevision(t, uc, n.ID, owner), domain.CellKindCode, nil); !errors.Is(err, errS3Down) {
 		t.Fatalf("CreateCell() error = %v, want errS3Down", err)
 	}
 	if meta.notebooks[n.ID].CellsCount != 1 {
