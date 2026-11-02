@@ -86,13 +86,13 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 Карта кода: `cmd/main` → `internal/app` (сборка и запуск), `internal/config` — окружение.
 `internal/runtime` — VPS сессий (воркер, OpenStack, Ansible), `cmd/runtime-smoke` — ручная проверка;
 `internal/transport/http` — роутер, `/health`, API-генерация, middleware, security, principal, httperr; `internal/{user,notebook}/delivery/http`
-→ `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,security,ipynb}`
+→ `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,avatar,security,ipynb}`
 реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.
 Сессии — Redis primary через `usecase.SessionStore`, пользователи — PostgreSQL; [runbook](docs/redis-sessions.md).
 `internal/tooling/apidog` — экспорт контракта; `migrations` — встроенные goose SQL.
 `internal/transport/http/api/api.gen.go` не редактируй вручную. Контракт и `make generate` описаны в [docs/apidog.md](docs/apidog.md).
 
-Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → ограничение тела блокнотов (512 КиБ) → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
+Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → ограничение тела блокнотов (512 КиБ) и аватаров (6 МиБ) → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
 
 ## Границы backend и эксплуатация
 
@@ -109,8 +109,8 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
   production-конфигурацию в backend и не коммить открытые секреты.
 - Проект Compose на VPS — `cellestial`, каталог `/opt/cellestial`; существующие
   volumes Caddy сохраняются. Миграции goose выполняются при старте API.
-- Файлы блокнотов хранятся в S3: нужен `S3_NOTEBOOKS_BUCKET` и параметры `AWS_*`.
-  Локально Compose использует SeaweedFS, production — Selectel.
+- S3 требует `S3_NOTEBOOKS_BUCKET`, отдельный `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`.
+  Локально SeaweedFS: anonymous Read только аватарам через `s3-init`; production S3/CDN — infra.
 - `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
   `workflow_call` с SHA-тегом из job `docker`. CD в environment `production`
   запускает `deploy-backend.yml` из `infra/main`. Inventory статический;

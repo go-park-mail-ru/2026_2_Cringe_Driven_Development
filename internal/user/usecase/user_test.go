@@ -15,7 +15,7 @@ const refreshTTL = time.Hour
 
 func expectSession(ctx context.Context, f userFixture, authorized *gomock.Call) {
 	gomock.InOrder(
-		f.sessions.EXPECT().CurrentVersion(ctx, int64(7)).Return(SessionVersion(1), nil).After(authorized),
+
 		f.tokens.EXPECT().IssueAccess(gomock.Any()).Return("access-SECRET", f.now.Add(time.Minute), nil).After(authorized),
 		f.refresh.EXPECT().New().Return("refresh-SECRET", "hash-SECRET"),
 		f.sessions.EXPECT().Create(ctx, gomock.Any()).Return(nil),
@@ -42,7 +42,10 @@ func TestUserUsecaseRegister(t *testing.T) {
 				hash := f.passwords.EXPECT().Hash(tc.password).Return("password-hash", nil)
 				created := f.users.EXPECT().CreateUser(ctx, tc.login, "password-hash").Return(want, tc.want).After(hash)
 				if tc.want == nil {
-					expectSession(ctx, f, created)
+					version := f.sessions.EXPECT().CurrentVersion(ctx, int64(7)).Return(SessionVersion(1), nil).After(created)
+					credentials := f.users.EXPECT().CredentialsByID(ctx, int64(7)).Return(want, "password-hash", nil).After(version)
+					verified := f.passwords.EXPECT().Compare("password-hash", tc.password).Return(true, nil).After(credentials)
+					expectSession(ctx, f, verified)
 				}
 			}
 			u, sess, err := f.uc.Register(ctx, tc.login, tc.password)
@@ -75,7 +78,9 @@ func TestUserUsecaseLogin(t *testing.T) {
 			want := domain.User{ID: 7, Login: "alice"}
 			lookup := f.users.EXPECT().UserByLogin(ctx, tc.login).Return(want, "password-hash", tc.storeErr)
 			if tc.storeErr == nil {
-				verified := f.passwords.EXPECT().Compare("password-hash", "password123").Return(tc.matched, nil).After(lookup)
+				version := f.sessions.EXPECT().CurrentVersion(ctx, int64(7)).Return(SessionVersion(1), nil).After(lookup)
+				credentials := f.users.EXPECT().CredentialsByID(ctx, int64(7)).Return(want, "password-hash", nil).After(version)
+				verified := f.passwords.EXPECT().Compare("password-hash", "password123").Return(tc.matched, nil).After(credentials)
 				if tc.matched {
 					expectSession(ctx, f, verified)
 				}

@@ -12,7 +12,7 @@ make lint          # статический анализ
 make test          # тесты с race detector, coverage.out и итоговое покрытие
 make build         # бинарник bin/server
 make docker-build  # образ colab-backend:local
-make run           # API, PostgreSQL и SeaweedFS через Docker Compose
+make run           # API, PostgreSQL, Redis и SeaweedFS через Docker Compose
 ```
 
 Первый локальный запуск (существующий `.env` не перезаписывайте):
@@ -22,9 +22,9 @@ cp -n .env.example .env
 # Задайте JWT_SECRET и BFF_API_KEY: два разных случайных значения.
 # Например, каждое получите командой: openssl rand -hex 32
 make doctor
-make up           # PostgreSQL + SeaweedFS + API, ожидание health до 120 секунд
+make up           # PostgreSQL + Redis + SeaweedFS + API, health до 120 секунд
 make health       # {"status": "alive"}; по умолчанию http://localhost:8080/health
-make logs         # последние 100 строк API, БД и S3
+make logs         # последние 100 строк API, БД, Redis и S3
 make down         # остановить; volumes с данными сохраняются
 ```
 
@@ -111,7 +111,8 @@ Apidog-токен нужен только для изменения контра
    Недоступный клиент отмечайте как непроверенный; запуск MCP сам по себе
    не подтверждает интеграцию с обоими клиентами. Правила ревью и исключение YarikMix — в [README](../README.md#как-работать-с-задачами).
 
-Go API требует `JWT_SECRET` и `BFF_API_KEY`. Запросы к `/api/v1` передают
+Go API требует `JWT_SECRET`, `BFF_API_KEY`, `S3_NOTEBOOKS_BUCKET`,
+`S3_AVATARS_BUCKET` и `S3_AVATARS_PUBLIC_URL`. Запросы к `/api/v1` передают
 `X-BFF-Key`, защищённые ручки — также Bearer. Контракт: [авторизация](authentication.md).
 
 ## Генерация тестовых моков
@@ -147,3 +148,28 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 Для Go API вне Compose нужен Redis, доступный с хоста: задайте REDIS_HOST/PORT
 или явно опубликуйте порт только на loopback в личном Compose override.
 `make logs` теперь включает Redis. `make down` сохраняет его volume.
+
+
+## S3 и аватары
+
+Локальный override запускает SeaweedFS 4.48 с двумя отдельными бакетами:
+`S3_NOTEBOOKS_BUCKET` (по умолчанию `cellestial-notebooks-0`) и
+`S3_AVATARS_BUCKET` (`cellestial-avatars-local`). Одноразовый сервис `s3-init`
+выдаёт `anonymous` только `Read` на бакет аватаров; API ждёт его успешного
+завершения. Чтение блокнотов и список объектов остаются закрытыми.
+Инициализация повторяется при `make up`, существующие данные сохраняются.
+Синтаксис нескольких бакетов и настройки доступа подтверждён в
+[mini SeaweedFS 4.48](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/command/mini.go)
+и [s3.bucket.access](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/shell/command_s3_bucket_access.go).
+
+`AWS_ENDPOINT_URL_S3=http://s3:8333` нужен API внутри Compose.
+`S3_AVATARS_PUBLIC_URL` нужен браузеру: локальное значение —
+`http://localhost:${S3_PORT:-8333}/${S3_AVATARS_BUCKET:-cellestial-avatars-local}`.
+В `.env.example` URL составляется из `S3_PORT` и `S3_AVATARS_BUCKET`;
+при работе с другим компьютером укажите доступное ему имя хоста вместо localhost.
+Диагностика инициализации: `docker compose logs s3-init`.
+
+При запуске только с `-f docker-compose.yml` задайте действительные AWS_* и оба
+бакета, а также публичный URL аватаров самостоятельно. Для production бакет,
+CDN и переменные приложения настраивает infra (infra#30); локальный init туда
+не переносится. Правила загрузки — в [профиле пользователя](user-profile.md).

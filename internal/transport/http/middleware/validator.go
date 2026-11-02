@@ -22,11 +22,45 @@ func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler 
 	// Без этого в текст ошибки попадает вся схема целиком.
 	openapi3.SchemaErrorDetailsDisabled = true
 
+	// kin-openapi buffers the body when validating security too. Authentication
+	// is enforced explicitly below; retain header validation without that second read.
+	streamSpec := *spec
+	streamSpec.Paths = openapi3.NewPaths()
+	for path, item := range spec.Paths.Map() {
+		streamSpec.Paths.Set(path, item)
+	}
+	if original := spec.Paths.Value("/users/me/avatar"); original != nil && original.Put != nil {
+		item := *original
+		operation := *original.Put
+		security := openapi3.SecurityRequirements{}
+		operation.Security = &security
+		item.Put = &operation
+		streamSpec.Paths.Set("/users/me/avatar", &item)
+	}
+	full, stream := validator(spec, prefix, false), validator(&streamSpec, prefix, true)
+	return func(next http.Handler) http.Handler {
+		fullHandler, streamHandler := full(next), stream(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPut && r.URL.Path == prefix+"/users/me/avatar" {
+				if _, ok := principal.UserIDFromContext(r.Context()); !ok {
+					httperr.Write(w, http.StatusUnauthorized, api.ErrorCodeUnauthorized, "authentication required")
+					return
+				}
+				streamHandler.ServeHTTP(w, r)
+				return
+			}
+			fullHandler.ServeHTTP(w, r)
+		})
+	}
+}
+
+func validator(spec *openapi3.T, prefix string, excludeBody bool) func(http.Handler) http.Handler {
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
 		Prefix:               prefix,
 		DoNotValidateServers: true,
 		Options: openapi3filter.Options{
 			AuthenticationFunc: requireUser,
+			ExcludeRequestBody: excludeBody,
 		},
 		ErrorHandlerWithOpts: validationError,
 	})

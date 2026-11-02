@@ -23,12 +23,12 @@ func TestUserRepositoryParameterizedQueries(t *testing.T) {
 			if err != nil || u != (domain.User{ID: 17, Login: payload}) {
 				t.Fatalf("user=%v err=%v", u, err)
 			}
-			db.ExpectQuery(byLoginSQL).WithArgs(payload).WillReturnRows(pgxmock.NewRows([]string{"id", "login", "password_hash"}).AddRow(int64(17), payload, "hash"))
+			db.ExpectQuery(byLoginSQL).WithArgs(payload).WillReturnRows(pgxmock.NewRows([]string{"id", "login", "password_hash", "avatar_key"}).AddRow(int64(17), payload, "hash", ""))
 			u, hash, err := r.UserByLogin(ctx, payload)
 			if err != nil || u.ID != 17 || u.Login != payload || hash != "hash" {
 				t.Fatalf("user=%v hash=%s err=%v", u, hash, err)
 			}
-			db.ExpectQuery(byIDSQL).WithArgs(int64(17)).WillReturnRows(pgxmock.NewRows([]string{"login"}).AddRow(payload))
+			db.ExpectQuery(byIDSQL).WithArgs(int64(17)).WillReturnRows(pgxmock.NewRows([]string{"login", "avatar_key"}).AddRow(payload, ""))
 			u, err = r.UserByID(ctx, 17)
 			if err != nil || u.Login != payload || u.ID != 17 {
 				t.Fatalf("user=%v err=%v", u, err)

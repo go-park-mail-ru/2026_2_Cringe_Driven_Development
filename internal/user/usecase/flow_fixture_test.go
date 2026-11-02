@@ -144,3 +144,55 @@ func flowIssuer(t *testing.T, calls int) *MockTokenIssuer {
 	issuer.EXPECT().IssueAccess(gomock.Any()).Return("access-1", time.Now().Add(time.Minute), nil).Times(calls)
 	return issuer
 }
+
+func (r *fakeRepo) CredentialsByID(ctx context.Context, id int64) (domain.User, string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return domain.User{}, "", ErrUserNotFound
+	}
+	return u.User, u.hash, nil
+}
+func (r *fakeRepo) UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return domain.User{}, ErrUserNotFound
+	}
+	for otherID, other := range r.users {
+		if otherID != id && strings.EqualFold(other.Login, login) {
+			return domain.User{}, ErrLoginTaken
+		}
+	}
+	u.Login = login
+	r.users[id] = u
+	return u.User, nil
+}
+func (r *fakeRepo) CompareAndSwapPassword(ctx context.Context, id int64, oldHash, newHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return ErrUserNotFound
+	}
+	if u.hash != oldHash {
+		return ErrInvalidCurrentPassword
+	}
+	u.hash = newHash
+	r.users[id] = u
+	return nil
+}
+func (r *fakeRepo) SwapAvatar(ctx context.Context, id int64, key string) (domain.User, string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return domain.User{}, "", ErrUserNotFound
+	}
+	old := u.AvatarKey
+	u.AvatarKey = key
+	r.users[id] = u
+	return u.User, old, nil
+}

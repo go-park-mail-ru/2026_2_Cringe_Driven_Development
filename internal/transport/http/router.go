@@ -52,6 +52,7 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(middleware.BodyLimit(r, notebookusecase.MaxSourceBytes, BaseURL+"/notebooks")))
+	bounded := middleware.BodyLimit(middleware.AvatarUpload(BaseURL)(r), notebookusecase.MaxSourceBytes, BaseURL+"/notebooks")
+	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(bounded))
 	return middleware.RequestID(middleware.Logging(middleware.Recover(handler))), nil
 }

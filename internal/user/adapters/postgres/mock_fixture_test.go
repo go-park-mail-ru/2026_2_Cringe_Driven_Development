@@ -8,8 +8,8 @@ import (
 
 const (
 	createUserSQL    = `INSERT INTO users (login, password_hash) VALUES ($1, $2) RETURNING id`
-	byLoginSQL       = `SELECT id, login, password_hash FROM users WHERE lower(login) = lower($1)`
-	byIDSQL          = `SELECT login FROM users WHERE id = $1`
+	byLoginSQL       = `SELECT id, login, password_hash, COALESCE(avatar_key, '') FROM users WHERE lower(login) = lower($1)`
+	byIDSQL          = `SELECT login, COALESCE(avatar_key, '') FROM users WHERE id = $1`
 	createSessionSQL = `INSERT INTO refresh_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`
 	deleteSessionSQL = `DELETE FROM refresh_sessions WHERE token_hash = $1 RETURNING user_id, expires_at`
 )

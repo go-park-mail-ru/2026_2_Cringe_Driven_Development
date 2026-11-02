@@ -42,6 +42,20 @@ func (m *MockUsecase) EXPECT() *MockUsecaseMockRecorder {
 	return m.recorder
 }
 
+// ChangeCurrentUserPassword mocks base method.
+func (m *MockUsecase) ChangeCurrentUserPassword(ctx context.Context, id int64, currentPassword, newPassword string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeCurrentUserPassword", ctx, id, currentPassword, newPassword)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ChangeCurrentUserPassword indicates an expected call of ChangeCurrentUserPassword.
+func (mr *MockUsecaseMockRecorder) ChangeCurrentUserPassword(ctx, id, currentPassword, newPassword any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeCurrentUserPassword", reflect.TypeOf((*MockUsecase)(nil).ChangeCurrentUserPassword), ctx, id, currentPassword, newPassword)
+}
+
 // CurrentUser mocks base method.
 func (m *MockUsecase) CurrentUser(ctx context.Context, id int64) (domain.User, error) {
 	m.ctrl.T.Helper()
@@ -130,4 +144,19 @@ func (m *MockUsecase) RevokeAll(ctx context.Context, userID int64) error {
 func (mr *MockUsecaseMockRecorder) RevokeAll(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeAll", reflect.TypeOf((*MockUsecase)(nil).RevokeAll), ctx, userID)
+}
+
+// UpdateCurrentUser mocks base method.
+func (m *MockUsecase) UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCurrentUser", ctx, id, login)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateCurrentUser indicates an expected call of UpdateCurrentUser.
+func (mr *MockUsecaseMockRecorder) UpdateCurrentUser(ctx, id, login any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCurrentUser", reflect.TypeOf((*MockUsecase)(nil).UpdateCurrentUser), ctx, id, login)
 }
