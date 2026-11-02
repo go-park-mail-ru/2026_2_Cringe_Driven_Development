@@ -3,7 +3,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -18,8 +20,10 @@ import (
 	runtimemodule "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime"
 	runtimeusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
 	httptransport "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http"
+	avatarcodec "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/avatar"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/postgres"
 	userredis "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/redis"
+	avatars3 "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/s3"
 	usersecurity "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/security"
 	userdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
@@ -89,7 +93,20 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	if err != nil {
 		return nil, startupError("runtime_init", err)
 	}
-	userHandler := userdelivery.NewHandler(userUsecase)
+	avatars := usecase.NewAvatarUsecase(userRepo, avatars3.NewStorage(s3Client, cfg.AvatarsBucket), func(ctx context.Context, source io.ReadSeeker, mime string) (usecase.SanitizedAvatar, error) {
+		file, codecErr := (avatarcodec.Codec{}).Sanitize(ctx, source, mime)
+		switch {
+		case errors.Is(codecErr, avatarcodec.ErrInvalidImage):
+			return usecase.SanitizedAvatar{}, usecase.ErrInvalidImage
+		case errors.Is(codecErr, avatarcodec.ErrUnsupportedMediaType):
+			return usecase.SanitizedAvatar{}, usecase.ErrUnsupportedMediaType
+		case codecErr != nil:
+			return usecase.SanitizedAvatar{}, codecErr
+		default:
+			return usecase.SanitizedAvatar{Body: file, Size: file.Size, ContentType: file.ContentType}, nil
+		}
+	})
+	userHandler := userdelivery.NewHandler(userUsecase, userdelivery.WithProfile(avatars, cfg.AvatarsPublicURL))
 	srv := httptransport.Server{UserHandler: userHandler, NotebookHandler: notebookdelivery.NewHandler(notebookUsecase)}
 	router, err := httptransport.NewRouter(srv, tokens, sessions, cfg.BFFAPIKey)
 	if err != nil {

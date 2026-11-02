@@ -33,7 +33,18 @@ func TestLogLevel(t *testing.T) {
 }
 
 func settings(values map[string]string) func(string) (string, bool) {
-	return func(key string) (string, bool) { v, ok := values[key]; return v, ok }
+	return func(key string) (string, bool) {
+		if v, ok := values[key]; ok {
+			return v, true
+		}
+		switch key {
+		case "S3_AVATARS_BUCKET":
+			return "avatars", true
+		case "S3_AVATARS_PUBLIC_URL":
+			return "https://avatars.example.com", true
+		}
+		return "", false
+	}
 }
 func TestLoadDefaultsAndOverrides(t *testing.T) {
 	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "notebooks"}

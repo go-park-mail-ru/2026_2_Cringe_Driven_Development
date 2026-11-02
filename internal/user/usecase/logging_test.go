@@ -51,6 +51,8 @@ func TestPasswordCompareFailureHasSafeCode(t *testing.T) {
 	f := newUserFixture(t)
 	source := errors.New("SECRET-password-hash")
 	f.users.EXPECT().UserByLogin(context.Background(), "alice").Return(domain.User{ID: 7}, "hash", nil)
+	f.sessions.EXPECT().CurrentVersion(context.Background(), int64(7)).Return(SessionVersion(1), nil)
+	f.users.EXPECT().CredentialsByID(context.Background(), int64(7)).Return(domain.User{ID: 7}, "hash", nil)
 	f.passwords.EXPECT().Compare("hash", "password").Return(false, source)
 	_, _, err := f.uc.Login(context.Background(), "alice", "password")
 	if !errors.Is(err, source) || observability.ErrorCode(err) != "password_compare_failed" {

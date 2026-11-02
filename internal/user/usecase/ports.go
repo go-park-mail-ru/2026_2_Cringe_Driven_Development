@@ -7,6 +7,10 @@ import (
 )
 
 type UserStore interface {
+	CredentialsByID(ctx context.Context, id int64) (domain.User, string, error)
+	UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error)
+	CompareAndSwapPassword(ctx context.Context, id int64, oldHash, newHash string) error
+	SwapAvatar(ctx context.Context, id int64, newKey string) (user domain.User, oldKey string, err error)
 	CreateUser(ctx context.Context, login, passwordHash string) (domain.User, error)
 	// UserByLogin ищет без учёта регистра, как и уникальный индекс.
 	UserByLogin(ctx context.Context, login string) (u domain.User, passwordHash string, err error)

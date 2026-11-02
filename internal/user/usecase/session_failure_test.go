@@ -58,7 +58,7 @@ func TestVersionConflictDoesNotRetryAuthorization(t *testing.T) {
 	sessions := &faultSessions{fakeRepo: repo, createErr: ErrVersionChanged}
 	uc := NewUserUsecase(repo, sessions, flowIssuer(t, 1), flowPasswords{}, flowRefresh{}, time.Hour)
 	_, pair, err := uc.Login(ctx, "alice", "password123")
-	if !errors.Is(err, ErrVersionChanged) || pair != (Session{}) || sessions.versionReads != 1 {
+	if !errors.Is(err, ErrInvalidCredentials) || pair != (Session{}) || sessions.versionReads != 1 {
 		t.Fatalf("reads=%d pair=%v err=%v", sessions.versionReads, pair, err)
 	}
 }

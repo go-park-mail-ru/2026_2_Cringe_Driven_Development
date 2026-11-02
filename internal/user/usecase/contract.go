@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	ErrLoginTaken         = errors.New("login is taken")
-	ErrInvalidCredentials = errors.New("invalid login or password")
+	ErrValidation             = errors.New("invalid profile input")
+	ErrInvalidCurrentPassword = errors.New("invalid current password")
+	ErrLoginTaken             = errors.New("login is taken")
+	ErrInvalidCredentials     = errors.New("invalid login or password")
 	// ErrPasswordTooLong: bcrypt считает байты, а контракт символы.
 	// 72 символа кириллицей занимают 144 байта.
 	ErrPasswordTooLong = errors.New("password is longer than 72 bytes")
@@ -21,6 +23,8 @@ var (
 )
 
 type Usecase interface {
+	UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error)
+	ChangeCurrentUserPassword(ctx context.Context, id int64, currentPassword, newPassword string) error
 	Register(ctx context.Context, login, password string) (domain.User, Session, error)
 	Login(ctx context.Context, login, password string) (domain.User, Session, error)
 	// Refresh атомарно меняет refresh-токен, сохраняя sid и версию.

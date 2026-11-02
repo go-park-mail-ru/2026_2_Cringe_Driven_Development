@@ -14,10 +14,18 @@ import (
 )
 
 type Handler struct {
-	uc usecase.Usecase
+	uc        usecase.Usecase
+	avatars   AvatarUploader
+	avatarURL string
 }
 
-func NewHandler(uc usecase.Usecase) *Handler { return &Handler{uc: uc} }
+func NewHandler(uc usecase.Usecase, options ...Option) *Handler {
+	h := &Handler{uc: uc}
+	for _, option := range options {
+		option(h)
+	}
+	return h
+}
 
 func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
 	u, sess, err := h.uc.Register(ctx, req.Body.Login, req.Body.Password)
@@ -33,7 +41,7 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 	if err != nil {
 		return nil, err
 	}
-	return api.RegisterUser201JSONResponse{User: toAPIUser(u), Tokens: pair}, nil
+	return api.RegisterUser201JSONResponse{User: h.toAPIUser(u), Tokens: pair}, nil
 }
 func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
 	u, sess, err := h.uc.Login(ctx, req.Body.Login, req.Body.Password)
@@ -47,7 +55,7 @@ func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	return api.LoginUser200JSONResponse{User: toAPIUser(u), Tokens: pair}, nil
+	return api.LoginUser200JSONResponse{User: h.toAPIUser(u), Tokens: pair}, nil
 }
 func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
 	sess, err := h.uc.Refresh(ctx, req.Body.RefreshToken)
@@ -97,7 +105,7 @@ func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserReques
 	if err != nil {
 		return nil, err
 	}
-	return api.GetCurrentUser200JSONResponse(toAPIUser(u)), nil
+	return api.GetCurrentUser200JSONResponse(h.toAPIUser(u)), nil
 }
 func toTokenPair(sess usecase.Session) (api.TokenPair, error) {
 	now := time.Now()
@@ -108,4 +116,11 @@ func toTokenPair(sess usecase.Session) (api.TokenPair, error) {
 	}
 	return api.TokenPair{AccessToken: sess.AccessToken, RefreshToken: sess.RefreshToken, AccessExpiresIn: access, RefreshExpiresIn: refresh}, nil
 }
-func toAPIUser(u domain.User) api.User { return api.User{Id: u.ID, Login: u.Login} }
+func (h *Handler) toAPIUser(u domain.User) api.User {
+	result := api.User{Id: u.ID, Login: u.Login}
+	if u.AvatarKey != "" {
+		v := h.avatarURL + "/" + u.AvatarKey
+		result.AvatarUrl = &v
+	}
+	return result
+}

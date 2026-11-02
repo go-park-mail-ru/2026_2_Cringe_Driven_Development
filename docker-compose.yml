@@ -31,6 +31,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-}
       - S3_NOTEBOOKS_BUCKET=${S3_NOTEBOOKS_BUCKET:-}
+      - S3_AVATARS_BUCKET=${S3_AVATARS_BUCKET:-}
+      - S3_AVATARS_PUBLIC_URL=${S3_AVATARS_PUBLIC_URL:-}
       # Локальная разработка: фейковый провайдер, реальное облако не используется.
       - RUNTIME_ENABLED=true
       - RUNTIME_PROVIDER=fake

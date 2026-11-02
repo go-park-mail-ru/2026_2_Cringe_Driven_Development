@@ -21,6 +21,7 @@ type Config struct {
 	JWTSecret                               string
 	AccessTTL, RefreshTTL                   time.Duration
 	NotebooksBucket                         string
+	AvatarsBucket, AvatarsPublicURL         string
 	DBUser, DBPassword, DBHost, DBName      string
 	Runtime                                 RuntimeConfig
 }
@@ -80,6 +81,15 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 	}
 	if c.NotebooksBucket == "" {
 		return Config{}, errors.New("S3_NOTEBOOKS_BUCKET is not set")
+	}
+	c.AvatarsBucket = strings.TrimSpace(get("S3_AVATARS_BUCKET", ""))
+	c.AvatarsPublicURL = strings.TrimRight(get("S3_AVATARS_PUBLIC_URL", ""), "/")
+	if c.AvatarsBucket == "" {
+		return Config{}, errors.New("S3_AVATARS_BUCKET is not set")
+	}
+	avatarURL, parseErr := url.Parse(c.AvatarsPublicURL)
+	if parseErr != nil || avatarURL.Hostname() == "" || (avatarURL.Scheme != "https" && avatarURL.Scheme != "http") || avatarURL.User != nil || avatarURL.RawQuery != "" || avatarURL.ForceQuery || avatarURL.Fragment != "" || strings.Contains(c.AvatarsPublicURL, "#") {
+		return Config{}, errors.New("invalid S3_AVATARS_PUBLIC_URL: expected absolute HTTP(S) URL without credentials, query or fragment")
 	}
 	if err := c.loadRedis(lookup); err != nil {
 		return Config{}, err

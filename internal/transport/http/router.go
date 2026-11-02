@@ -51,6 +51,6 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 		ErrorHandlerFunc: httperr.RequestError,
 	})
 
-	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(r))
+	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(middleware.AvatarUpload(BaseURL)(r)))
 	return middleware.RequestID(middleware.Logging(middleware.Recover(handler))), nil
 }

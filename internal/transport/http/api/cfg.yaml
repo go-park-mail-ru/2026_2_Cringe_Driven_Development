@@ -5,7 +5,7 @@ generate:
   strict-server: true
   models: true
   embedded-spec: true
-# Generate only implemented operations (API-41 and API-68). API-14 extends this list
+# Generate only implemented operations (API-41, API-68 and API-21). API-14 extends this list
 # together with its notebook editing handlers and tests.
 output-options:
   include-operation-ids:
@@ -15,6 +15,9 @@ output-options:
     - logoutUser
     - logoutAllUserSessions
     - getCurrentUser
+    - updateCurrentUser
+    - changeCurrentUserPassword
+    - uploadCurrentUserAvatar
     - listNotebooks
     - createNotebook
     - getNotebook

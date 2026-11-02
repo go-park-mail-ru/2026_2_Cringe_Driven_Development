@@ -42,7 +42,25 @@ func (uc *UserUsecase) Register(ctx context.Context, login, password string) (do
 	if err != nil {
 		return domain.User{}, Session{}, err
 	}
-	sess, err := uc.startSession(ctx, u.ID)
+	// Capture the revocation fence before the final password read. Create must
+	// reject this version if a concurrent password change revokes sessions.
+	version, err := uc.sessions.CurrentVersion(ctx, u.ID)
+	if err != nil {
+		return u, Session{}, err
+	}
+	current, currentHash, err := uc.users.CredentialsByID(ctx, u.ID)
+	if err != nil {
+		return u, Session{}, err
+	}
+	matched, err := uc.passwords.Compare(currentHash, password)
+	if err != nil {
+		return u, Session{}, err
+	}
+	if !matched {
+		return u, Session{}, ErrVersionChanged
+	}
+	u = current
+	sess, err := uc.startSession(ctx, u.ID, version)
 	if err == nil {
 		slog.InfoContext(ctx, "user.register", slog.String("outcome", "success"), slog.Int64("user_id", u.ID))
 	}
@@ -50,7 +68,20 @@ func (uc *UserUsecase) Register(ctx context.Context, login, password string) (do
 }
 
 func (uc *UserUsecase) Login(ctx context.Context, login, password string) (domain.User, Session, error) {
-	u, hash, err := uc.users.UserByLogin(ctx, login)
+	u, _, err := uc.users.UserByLogin(ctx, login)
+	if errors.Is(err, ErrUserNotFound) {
+		return domain.User{}, Session{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return domain.User{}, Session{}, err
+	}
+	// Capture the revocation fence before the final password read. Create must
+	// reject this version if a concurrent password change revokes sessions.
+	version, err := uc.sessions.CurrentVersion(ctx, u.ID)
+	if err != nil {
+		return domain.User{}, Session{}, err
+	}
+	u, hash, err := uc.users.CredentialsByID(ctx, u.ID)
 	if errors.Is(err, ErrUserNotFound) {
 		return domain.User{}, Session{}, ErrInvalidCredentials
 	}
@@ -64,7 +95,10 @@ func (uc *UserUsecase) Login(ctx context.Context, login, password string) (domai
 	if !matched {
 		return domain.User{}, Session{}, ErrInvalidCredentials
 	}
-	sess, err := uc.startSession(ctx, u.ID)
+	sess, err := uc.startSession(ctx, u.ID, version)
+	if errors.Is(err, ErrVersionChanged) {
+		return domain.User{}, Session{}, ErrInvalidCredentials
+	}
 	if err == nil {
 		slog.InfoContext(ctx, "user.login", slog.String("outcome", "success"), slog.Int64("user_id", u.ID))
 	}
@@ -106,8 +140,7 @@ func (uc *UserUsecase) Logout(ctx context.Context, refreshToken string, claims S
 	return refreshError(err)
 }
 
-// RevokeAll invalidates previously issued authorization; password changes require
-// their own cross-store and concurrent-login policy.
+// RevokeAll invalidates previously issued authorization.
 func (uc *UserUsecase) RevokeAll(ctx context.Context, userID int64) error {
 	return uc.sessions.RevokeAll(ctx, userID)
 }
@@ -120,11 +153,7 @@ func (uc *UserUsecase) CurrentUser(ctx context.Context, id int64) (domain.User, 
 	return u, err
 }
 
-func (uc *UserUsecase) startSession(ctx context.Context, userID int64) (Session, error) {
-	version, err := uc.sessions.CurrentVersion(ctx, userID)
-	if err != nil {
-		return Session{}, err
-	}
+func (uc *UserUsecase) startSession(ctx context.Context, userID int64, version SessionVersion) (Session, error) {
 	sid, err := uuid.NewRandom()
 	if err != nil {
 		return Session{}, err

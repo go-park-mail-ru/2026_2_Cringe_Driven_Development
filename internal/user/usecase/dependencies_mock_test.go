@@ -42,6 +42,20 @@ func (m *MockUserStore) EXPECT() *MockUserStoreMockRecorder {
 	return m.recorder
 }
 
+// CompareAndSwapPassword mocks base method.
+func (m *MockUserStore) CompareAndSwapPassword(ctx context.Context, id int64, oldHash, newHash string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompareAndSwapPassword", ctx, id, oldHash, newHash)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CompareAndSwapPassword indicates an expected call of CompareAndSwapPassword.
+func (mr *MockUserStoreMockRecorder) CompareAndSwapPassword(ctx, id, oldHash, newHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompareAndSwapPassword", reflect.TypeOf((*MockUserStore)(nil).CompareAndSwapPassword), ctx, id, oldHash, newHash)
+}
+
 // CreateUser mocks base method.
 func (m *MockUserStore) CreateUser(ctx context.Context, login, passwordHash string) (domain.User, error) {
 	m.ctrl.T.Helper()
@@ -55,6 +69,53 @@ func (m *MockUserStore) CreateUser(ctx context.Context, login, passwordHash stri
 func (mr *MockUserStoreMockRecorder) CreateUser(ctx, login, passwordHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUser", reflect.TypeOf((*MockUserStore)(nil).CreateUser), ctx, login, passwordHash)
+}
+
+// CredentialsByID mocks base method.
+func (m *MockUserStore) CredentialsByID(ctx context.Context, id int64) (domain.User, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CredentialsByID", ctx, id)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CredentialsByID indicates an expected call of CredentialsByID.
+func (mr *MockUserStoreMockRecorder) CredentialsByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialsByID", reflect.TypeOf((*MockUserStore)(nil).CredentialsByID), ctx, id)
+}
+
+// SwapAvatar mocks base method.
+func (m *MockUserStore) SwapAvatar(ctx context.Context, id int64, newKey string) (domain.User, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SwapAvatar", ctx, id, newKey)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SwapAvatar indicates an expected call of SwapAvatar.
+func (mr *MockUserStoreMockRecorder) SwapAvatar(ctx, id, newKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SwapAvatar", reflect.TypeOf((*MockUserStore)(nil).SwapAvatar), ctx, id, newKey)
+}
+
+// UpdateLogin mocks base method.
+func (m *MockUserStore) UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLogin", ctx, id, login)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateLogin indicates an expected call of UpdateLogin.
+func (mr *MockUserStoreMockRecorder) UpdateLogin(ctx, id, login any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogin", reflect.TypeOf((*MockUserStore)(nil).UpdateLogin), ctx, id, login)
 }
 
 // UserByID mocks base method.
