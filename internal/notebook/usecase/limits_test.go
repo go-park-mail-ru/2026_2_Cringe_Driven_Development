@@ -45,7 +45,7 @@ func TestOversizedStoredNotebookIsRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files.data[n.FileKey] = append(files.data[n.FileKey], []byte(strings.Repeat(" ", 8*1024*1024))...)
+	files.data[n.FileKey] = append(files.data[n.FileKey], []byte(strings.Repeat(" ", 128*1024*1024))...)
 	if _, err = uc.Content(ctx, n.ID, owner); err == nil {
 		t.Fatal("oversized notebook was parsed")
 	}
@@ -57,7 +57,7 @@ func TestOversizedStoredNotebookIsRejected(t *testing.T) {
 type oversizedRewrite struct{ NotebookCodec }
 
 func (c oversizedRewrite) Rewrite([]byte, []domain.Cell) ([]byte, error) {
-	return make([]byte, 8*1024*1024+1), nil
+	return make([]byte, 128*1024*1024+1), nil
 }
 
 func TestOversizedSerializedRevisionIsNotPublished(t *testing.T) {

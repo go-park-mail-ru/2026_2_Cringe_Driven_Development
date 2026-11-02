@@ -29,7 +29,7 @@ func (b *largeObjectBody) Read(p []byte) (int, error) {
 }
 func (*largeObjectBody) Close() error { return nil }
 func (tr *largeObjectTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	return &http.Response{StatusCode: 200, Header: make(http.Header), Body: &largeObjectBody{tr, 16 * 1024 * 1024}, ContentLength: -1, Request: r}, nil
+	return &http.Response{StatusCode: 200, Header: make(http.Header), Body: &largeObjectBody{tr, 256 * 1024 * 1024}, ContentLength: -1, Request: r}, nil
 }
 func TestGetLimitsUnknownLengthObject(t *testing.T) {
 	tr := &largeObjectTransport{}
@@ -40,13 +40,13 @@ func TestGetLimitsUnknownLengthObject(t *testing.T) {
 	if err == nil {
 		t.Fatal("oversized S3 object accepted")
 	}
-	if tr.read > 8*1024*1024+1 {
+	if tr.read > 128*1024*1024+1 {
 		t.Fatalf("read %d bytes from an oversized object", tr.read)
 	}
 }
 func TestPutRejectsOversizedObjectBeforeNetwork(t *testing.T) {
 	storage := NewFileStorage(nil, "test")
-	if err := storage.Put(context.Background(), "large", []byte(strings.Repeat("x", 8*1024*1024+1))); err == nil {
+	if err := storage.Put(context.Background(), "large", []byte(strings.Repeat("x", 128*1024*1024+1))); err == nil {
 		t.Fatal("oversized upload accepted")
 	}
 }

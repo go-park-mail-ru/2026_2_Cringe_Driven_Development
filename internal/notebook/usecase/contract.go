@@ -14,7 +14,7 @@ const MaxCells = 1000
 // Лимиты применяются к UTF-8 source и полному сериализованному ipynb в байтах.
 const (
 	MaxSourceBytes   = 64 * 1024
-	MaxNotebookBytes = 8 * 1024 * 1024
+	MaxNotebookBytes = 128 * 1024 * 1024
 )
 
 var (
