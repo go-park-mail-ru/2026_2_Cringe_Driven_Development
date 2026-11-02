@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:847528d009fff0a236b9f64c1492fe1b78d10ea2eab5c15518b8a927e02fb01e",
+  "claims": [
+    {
+      "id": "claim_f89d7ab7b79648628aa085335f8ab0f6",
+      "statement": "App собирает EnvironmentService и запускает включённый runtime-воркер, но EnvironmentService не подключён к HTTP-фасаду.",
+      "evidence": [
+        {
+          "resource": "repo://internal/app/app.go#L35-L42",
+          "version": "repo-lines-v1:sha256:8aac0185b594e048983e29edd1c6a9c1f470bdc8d4d9525aef84eb637bdbc316:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjBhYmMwNThlM2RmZTFmZmNlYjAzMGM5ZmQ0ZjZlMTk3OTdjOGExYzJjOTcyZGMxNjMxNDNkZmQ5YjE0YWZmNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiN2ZlMjJiOTg2MjM2MGI5OWQyZDA4MWEyMjVmM2M1NDY0MDY4ODc5OWJkZmFhMjQ2ZGQ1NzJiZmM3Y2NmNGRjZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYmE2MjkxMThlNDg2MzM2ODk1YTExZDY2NDg5NmY2MzgzMzQ3NzJkNGNhMjNmNzM4YWJhZDE1MjZmOWY2Y2U3MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjUyMGVkNmQ2MWNkZTNlOGU5YzhlN2JkNDRkYWFiOTYxMGM1NDAzYTRmNjg3NDcwZjY4OTdhODMwMmVhMjI1ZSJ9"
+        },
+        {
+          "resource": "repo://internal/app/app.go#L92-L111",
+          "version": "repo-lines-v1:sha256:b843a5a3b6e95f7cea387c5db8cea412d84c87bacaf5d71302cdd3defbdb09b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NzM5YjdiODgwZDcxNmEyZDUzM2I3ODQwNWNlYzI4MjRiNzRkNTNiMzhlNmI2NjEwMGE2ODg4MjI0NjQ0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhNTA5NWYyYTY0MWRiNjliMmE3NzMzMmE1ODhmZDJlMmVmNjcwOGRlODhjMmM3NjAwNTRkZDM3NmQyZTZhNDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkMDI4MGUzMjcwYTBlNDA1ZWEwZjRmMjM0NTJkMTFhNjQzMWNhNmJiYjU5OWQ1OTQ4OGNhNTEwNWJhY2Q4OTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM3NTBlMGIwNTk2YjJiYTYyZjEyMTMzNDFlNTNlY2FkNjIzZDkxNGQzYTg2MmUxMjk5YzA3MWRiYzI4ZTQyNjIifQ"
+        },
+        {
+          "resource": "repo://internal/app/run.go#L36-L52",
+          "version": "repo-lines-v1:sha256:e088adc4be47432e37f4a3adbcac5b22b8821c5563cc97da1dd976f50b971f35:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmNmUwNTZlMjJhMTM5ODQ1YWZiYTZmODNmNzdhN2ZkODhiNTEyOTBhNDg3YjEzMWY3MzhkY2RhZTg5OTZhYzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4MzBkNTRhMGJmYjE5ZjFkZTRjYThhOTBiZjFjYmM5YTBhMzMzNDZlM2U0ZjFhMWU5MjYwOWNmZjc4ZGJiZjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM2YWRjZjQ0NjJjMDQ3YmYxZjIwMTgwMDkxNjI0NTdlZTcxZjZhZjExZGY3NGZjOTZjOWRiN2JkM2I3YTlkNjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQxYTczMWE5MDg5NWNlYzdlMWQ5Y2VkYjUxOTRlZDA2YTAxNTg1MTliZGNkZjY2OTU1M2NjY2I2MmU0YjNjYWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a981596f00074442a1f9d4bd05d4da43",
+      "statement": "RequestCreate сохраняет окружение и задание в одной транзакции с проверкой лимита под advisory-lock; повтор SessionID идемпотентен при совпадающих языке и профиле.",
+      "evidence": [
+        {
+          "resource": "repo://internal/runtime/adapters/postgres/environments.go#L86-L126",
+          "version": "repo-lines-v1:sha256:c678e4b94877d0e36562d8f913a657b4c77d95cbfb4496ebd9ce63bc4db8c861:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiMjdjYTNlYWUyOTVjOGQ5Y2UxNGM0ZjMzY2FmZmFhZTYxMmZhZDk3NjhiNTJkZjc1MmY3MGRhMjQ1OTFiY2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNhZGE0YTgzZjA0MDgzNDkyNmVjMTRiY2E1MDBmNTFlMTc3MjE4MTdlYjhhZGFlYjE1YTUwYzE5NjEyYzFjMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZmN2IwNDAzNmU0NDM0YWJjN2ZlNmVlMWUwOWYwODI5NmY3ZjU1YTY2MzhiYjUwY2QyZTgzY2VmNzhjZWIyYzAifQ"
+        },
+        {
+          "resource": "repo://internal/runtime/usecase/service.go#L40-L72",
+          "version": "repo-lines-v1:sha256:e33a4be0d882dee0069810776a58d10865887be2258009cab8030ad92c2342cd:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1YWJiMTM1OGU4ODUzNTgxZjI3OWRhZjc4Mzc5OTRkMTRkMGY5ODQ2NmEyN2E4MzgyYzIwMTE5OTNhOGU3ZGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAwOTAyM2NmYmMzMDRiOTk5MDFiNzZjMDhiOGNhYWM1NzI0YmMyZmE4YzQwYWM1NjE4MTk0NWViNWI5Y2RmYzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3YmM2YWNmMjdmZjdiNGQyZDI5MzA3ODAyMDY5YTA3NjE3ZGYwMzEyMmMzZjQ3NmI1MDUzMjc4OTEyMTE3NjcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_506f9622afd644a4a6251aff702cf0c8",
+      "statement": "Очередь использует FOR UPDATE SKIP LOCKED и lease; потеря lease отменяет шаги воркера, смена задания на delete отменяет создание.",
+      "evidence": [
+        {
+          "resource": "repo://internal/runtime/adapters/postgres/jobs.go#L13-L63",
+          "version": "repo-lines-v1:sha256:b08107edb88b62632b9e180a78550871f78584e2f5bb966a6071470613b87e9b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwZDk4NmIwZGY3ZTljNDdhYTc4MmIwNjYwOTQ2OWJjOGVlY2E0NzYxMmI4MzhjZjgyOWRkYTRiY2RkZDMzMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkZmE2NTJjOTZmMmU5ZjM5YWVhYWU0M2NmMThlNTg0ZDM3YzZiNGM3YzQ2YjAwNWY1N2FjY2M5NWExY2VkNTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRiMWE2NmFmZmNmYTZmZmFjYzY0YTFlYjY0NzQ2YjM3MWEwN2FiYzg4Mzc3N2I0OTBjZDc4ODQxNDgyYmNmNDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyN2ZiOWRlYTNlZTIwYmQ1ZDRjYTBjNjE4ZWI5NDQ5MWY1MmJjNTRmODQyNjkwZGJjYTVhOWU2YjJmYzUxZjAifQ"
+        },
+        {
+          "resource": "repo://internal/runtime/usecase/worker.go#L150-L205",
+          "version": "repo-lines-v1:sha256:2912d05fffc71a3f7fd511f5f5461881b295bf659e5f713d652ae1a8973ffb6a:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlN2Y1NzE2MTBiM2Y2YzU0YWRmMDZhN2U3NDA3YmNiMDI2NDc1NjQzZWE3ZDI4ZGE4Mjg3MTBjMGQwMzNjZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzYWE5YjZiN2I1OTE0Y2Y4NDc0MGNlODM5ZGQ0NWIzYzY2MTFjMjZlNWI0ZmE2ZmQ1OWI3NjcwZTQxMmIyNWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjczNzY3N2FhNTFmMzY2NmNkOGY2NTE2ODYzM2NiZmY1ZWRjODcxZThjZTZmNzc4MTY2MjJmNjZjOWNjNTdjYjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM2NjdlYzY5ZWYwNjY4OTU3YWI3YTFmNTY3ZWNkODgzMmNmZTVjNzczNDU4YzIzN2FhN2ZiMjVmOWYwMDUwNDAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b9bdd2a45afc410e8f2044be1c1cccb0",
+      "statement": "Создание проходит QUEUED, CREATING, CONFIGURING, VERIFYING и READY; готовность требует совпадения сессии и языка и положительного Ready агента.",
+      "evidence": [
+        {
+          "resource": "repo://internal/runtime/usecase/create.go#L14-L49",
+          "version": "repo-lines-v1:sha256:7d361d51357c17144a2f2772f749fd89f5a238b530d244880c88ca3f6e567e6e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiMmVkMzA4ZGU4NDRlZjNjMjRlZmIxYmE2ZjlmMGYwNTljNWU2MjlmOTI3NzJiYTU3ZDliODlhZjRiMDRkMjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkNzQ3MDU4MDYxZTcxMjE3OWI1NGY2ZTBhZTNiMzIyODk5NTM2NDc5MGNhYmRhYjZmZjM3MTE3MWJiYjBjNWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmMjBkNGZhYWRhMzdiOGFlMTVjNjU1N2RlNzRlODI3YmM5YjlmZGM5OWI3OGQ5OTg5NDM1NGU3ZGI1ODkyOWEifQ"
+        },
+        {
+          "resource": "repo://internal/runtime/usecase/create.go#L210-L258",
+          "version": "repo-lines-v1:sha256:ac3c4ad6eff01c04f2414f63a3d7dbb29ddacdda33d305cb34fbafc14300587c:eyJzZWxlY3RlZExpbmVDb3VudCI6NDksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEwNWNmMzAwMTk1YzZiMzc3NmQ0MmIyMjc3YmM4MzA5ZmZiMjA5NjAwMjE3MmQ5YWE1ZmEzMzAxMWY1ZWFmNmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3ZjQxMGYxMzFjZTVkNTBlZWY0OTQ1MWNlNmNlOTE2Njk4ZmE3ZTAxOTgxNGM3ZTU0MzExZmExM2I3NzFjZTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY4NDUwMTQ1MjBmZTA5NjQyYmQyN2U2ZjUyNzcwMzYzYzJhMzk2NjNhNzA1MzY4NjUwNjlmMTMyZjhhMjk4MTQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_922169c8e74c4487b569ef248cfbf4e1",
+      "statement": "Удаление продолжает очистку при недоступном агенте и удаляет сервер, том и порт; очистка после ошибки создания заканчивается FAILED, обычное удаление — DELETED.",
+      "evidence": [
+        {
+          "resource": "repo://internal/runtime/usecase/delete.go#L19-L123",
+          "version": "repo-lines-v1:sha256:d59ad93fd926e8dddf300bfef8f6b5ffc5c666a568d00a5ddd058f5d69fa3658:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjODZiZTA1YzhlOGMxNDM2MWY0NWM1Y2RkMDJiNjgwYjQ0NTFhMDlmYjU5MTU3MzhlNzcwYjc5NzkzMWU4N2I5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYzhkOWE3MzgzMzM0MzZkOTBkN2FlYWJmODQ4ZmIyNzE2OTIwMWUxZDVlMGM0MmI3OWIxMDY5MWIxYzdiMzc4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5YjQ0ODQzNGMyZWVlZGQ5NTdmNTFkNzE4ZTg3MGNjMTE2MDQ1ODY3NGRlZTkyZWE0MjU5MTgyNGFhMzA3ZjQ3In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_585253cd50d543e085fac500cc0097fb",
+      "statement": "Reconcile повторяет CLEANUP_PENDING и удаляет принадлежащие окружению ресурсы неизвестных или завершённых сессий, пропуская ресурсы без SessionID.",
+      "evidence": [
+        {
+          "resource": "repo://internal/runtime/adapters/openstack/provider.go",
+          "version": "repo-file-v1:sha256:0e619303e28ea3a0a75a7883dfae0c2d167a9f8856b59646c31c4eaceeaa1430"
+        },
+        {
+          "resource": "repo://internal/runtime/usecase/reconcile.go#L14-L102",
+          "version": "repo-lines-v1:sha256:983ca93a32672e11373b1d3427cc6e8668eb9f2e35ac5193096435b3d3b114d5:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY4Zjk2ZjU2NDkzZTY2MzM0MzI4ZTZkMGQ1OTE2OGExNWRjMjhjYzBhNTQ0ZWUyNmQ3YTc3OGQ2YjQ5MmU5ZmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5ZWVhNTNmNjQ5NDQzNTJkZTYyYTlmZDI3MDczNWNjZGFkZjhiYjMxNzQxMjg0OWNhZjk2ZTY5YTJkZWYxNzUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0OGYyNmIyZjNmZWNhYjExYzJhYTUzZDk3YzU4OTUzMjdhMjQwMDJhN2E0NjEzYWFkMDdkODczZGJlM2Q0M2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-11-02T22:04:01.439Z"
+  }
+}

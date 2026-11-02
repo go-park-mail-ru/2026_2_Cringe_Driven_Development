@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:d51e5c0ee6eb27510047ca0184296c3b63f2ec4a6e356b9abfc8060660aff041",
+  "pageVersion": "sha256:a049ab61d40cfb2a21f5a0f64e2cf0b07920cd4abace3a17abdf82d261acd7fd",
   "claims": [
     {
       "id": "claim_e56f6d47f8b14def8f6ea6e90dad8ed4",
       "statement": "newServer проверяет PostgreSQL, применяет migrations.Up и проверяет Redis до сборки HTTP-сервера; S3 клиент создаётся без проверки бакета.",
       "evidence": [
         {
-          "resource": "repo://internal/app/app.go#L29-L94",
-          "version": "repo-lines-v1:sha256:bbbaa3801a114fa5d2032bece143b7e1acfa85129502c71fe855e5176508551d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MzZkMWNmNDU1ZTNkNDc0ZWJjNTVjZjJjMTY1MGMwNDlkMWE2ZDg2NTRmMjBlNDVjYzFmZGI3NTNlOWZhMjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhNjI5MTE4ZTQ4NjMzNjg5NWExMWQ2NjQ4OTZmNjM4MzM0NzcyZDRjYTIzZjczOGFiYWQxNTI2ZjlmNmNlNzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://internal/app/app.go#L45-L129",
+          "version": "repo-lines-v1:sha256:82d89791c1e8ceb97102a880b072c7b384f9e54fee9ff50ab62b97029fadaba8:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MzZkMWNmNDU1ZTNkNDc0ZWJjNTVjZjJjMTY1MGMwNDlkMWE2ZDg2NTRmMjBlNDVjYzFmZGI3NTNlOWZhMjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljOWJiNmZmNmJjMGE2MDlkMmUzYzFmMDg2ZDMxYmFlZTNjYjAwNGVlZGZkNjA3NmFmOGI2MzY5NzBhY2Q2ZmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjliOTMyZWM5ZDgxMjkwNmMxZGE4MjNiNTdiZmVlMDY4MWJiYmNlMjVjYTllMGI2N2E2MjVmNTVjMTE0ZDEzYTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         },
         {
           "resource": "repo://migrations/migrations.go#L15-L34",
@@ -21,8 +21,8 @@
       "statement": "Run обрабатывает SIGINT/SIGTERM через Shutdown с timeout 10 секунд и закрывает зависимости при выходе.",
       "evidence": [
         {
-          "resource": "repo://internal/app/run.go#L26-L52",
-          "version": "repo-lines-v1:sha256:499c72c0f5fc81f3db3519820ba4473975a60fea00c9b0a6ea77fa925eb4f2bc:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjOTE2ZmU2NDUyOWFhMWZkNmJiYTVhMzhmMjk4YmVmZjAxOTU1NGNjNTg2ZmY0NTFmNjk5NTk3YTQ4NDFiNjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZjZTc5NDJmNzM0OGMwYWMyYzExNjViYTgwNzFlNGI2NGEzM2U1Mzg5ZTdhMGQ1M2FkODljNWU5MDVjZjI0OGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://internal/app/run.go#L26-L71",
+          "version": "repo-lines-v1:sha256:f2f1171b38455e6e53428aaab8889b15f46532089c2e194ae635cf864a209b5e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjOTE2ZmU2NDUyOWFhMWZkNmJiYTVhMzhmMjk4YmVmZjAxOTU1NGNjNTg2ZmY0NTFmNjk5NTk3YTQ4NDFiNjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZjZTc5NDJmNzM0OGMwYWMyYzExNjViYTgwNzFlNGI2NGEzM2U1Mzg5ZTdhMGQ1M2FkODljNWU5MDVjZjI0OGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         }
       ]
     },
@@ -31,7 +31,7 @@
       "statement": "GET /health отвечает alive без обращения к хранилищам.",
       "evidence": [
         {
-          "resource": "repo://internal/transport/http/router.go#L34-L39",
+          "resource": "repo://internal/transport/http/router.go#L35-L40",
           "version": "repo-lines-v1:sha256:d9099c5218648e976b21a47f3c5a68c7df1a056e676a58c5c452426b4d30dfcb:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTFkNzMzYjYzMjhmMTExMjg3ZDYyYzFkZGJkYTJiODE5ZDRkOGZhMDM4YTJkZDcwMzMyMzVmZTkzMTNjZmFjZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTAwOWM0YTRhZDA4NDcyMmE1ZDJhNGFmYmEzMGJhMGM0NmMzYmQ3NmM1YjQ0MzRkMTRjNjgzMWYwZWMwYjQ1YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDhiZWE5ODgwMjdkOGQzYTY1MDM3NWNmMjJhMmIwOGY4ZWE0NzA4YTEzYjExMjNlYzk1ZDkxZTE4MzBmZGJiZCJ9"
         }
       ]
@@ -41,12 +41,12 @@
       "statement": "HTTP-контракт принадлежит Apidog; make generate скачивает спецификацию и запускает генератор Go.",
       "evidence": [
         {
-          "resource": "repo://Makefile#L55-L59",
-          "version": "repo-lines-v1:sha256:78d2fc3fecd19259cfdcc4303edc734bbda99faf6509dc2e635ad7227cb1d966:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTdmNGY4YWM0ZTVlMjJlZjQ4NmY2MmI0ZDNlZGQ5ODkzYzIxY2RlODFlOGRmZDU3YWQzODQxNzcxNDc5NTVkOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzE1MTE3ZGYxNTI0Mjc4MzE4M2IzMDgzNzc1M2Q4MDRmOTQ0NWFlYTJlZGM2YTc3NjY5NTFhZDc1ZDYxODFmYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODgwOGE0YTQ3ZmIxNTc3NWQzNjBhODQ2M2I2YzY5NTEwZDJjMjgzOTFjMzlkYzQwM2EwNGFjNjdkNTQ0MmQyOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2M2OGQ5MmViMzNhMTdiYTQ3MzQ4MTIyZGU3ZDBhNTdjYzhiMTY4MjYxYjUyYTBjZTc0ZmYxOTg2OTI0NDhkMiJ9"
+          "resource": "repo://Makefile#L58-L62",
+          "version": "repo-lines-v1:sha256:78d2fc3fecd19259cfdcc4303edc734bbda99faf6509dc2e635ad7227cb1d966:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTdmNGY4YWM0ZTVlMjJlZjQ4NmY2MmI0ZDNlZGQ5ODkzYzIxY2RlODFlOGRmZDU3YWQzODQxNzcxNDc5NTVkOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzE1MTE3ZGYxNTI0Mjc4MzE4M2IzMDgzNzc1M2Q4MDRmOTQ0NWFlYTJlZGM2YTc3NjY5NTFhZDc1ZDYxODFmYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzk1MTYxNjIyYjcyZThkNzU3NjZjNTliMzUxNjQwOTBhMmU5M2VlMzk4YWVmODdiYTAwMDhiYWJlODUxYWY2NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2M2OGQ5MmViMzNhMTdiYTQ3MzQ4MTIyZGU3ZDBhNTdjYzhiMTY4MjYxYjUyYTBjZTc0ZmYxOTg2OTI0NDhkMiJ9"
         },
         {
           "resource": "repo://docs/apidog.md#L1-L7",
-          "version": "repo-lines-v1:sha256:73bbcc5c87d74dbbedf5d50fd130c7f394f5731bcac993b98efe63a963361551:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjBiZDg1NDExMzZiMjczYTRhMzZmNDgzZjE1ZTEyOGIzMTdmYjdlZGIwY2FlMDZlZmI4ZjhmMzYzZmViNmQ4MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzcxNzJjZTg2YTQwYWFkYTMwMDA0OTYwMWQ1YTdiZjY4YjZiN2I1MTQ3ZjY3YWRmNTYzOTg1MDY4ZDJiODhmZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTViNjUxY2M3MWExZjdjMDY1ZTk1ZmJkZjJiOWIyNmJhYjAxYTZmMWMzMGYzNTExYzVkYmEwNjZlMTg0ODZmOSJ9"
+          "version": "repo-lines-v1:sha256:73bbcc5c87d74dbbedf5d50fd130c7f394f5731bcac993b98efe63a963361551:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjBiZDg1NDExMzZiMjczYTRhMzZmNDgzZjE1ZTEyOGIzMTdmYjdlZGIwY2FlMDZlZmI4ZjhmMzYzZmViNmQ4MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzcxNzJjZTg2YTQwYWFkYTMwMDA0OTYwMWQ1YTdiZjY4YjZiN2I1MTQ3ZjY3YWRmNTYzOTg1MDY4ZDJiODhmZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2U2ZjQxMGQ4NTRhNjkwNDhlNWVmZjIxNmY2YWFiMzQ4NjVmNzc3NjUwYjczMzNlNjNkNmVlNTk4YTk4Yzg1OCJ9"
         }
       ]
     },
@@ -62,21 +62,41 @@
     },
     {
       "id": "claim_5c7212f5477148c691da921556c0dce0",
-      "statement": "Конфигурация требует BFF_API_KEY, JWT_SECRET и S3_NOTEBOOKS_BUCKET, а Redis-настройки валидируются отдельно.",
+      "statement": "Конфигурация требует BFF_API_KEY, JWT_SECRET, S3_NOTEBOOKS_BUCKET, S3_AVATARS_BUCKET и валидный S3_AVATARS_PUBLIC_URL; Redis-настройки валидируются отдельно.",
       "evidence": [
         {
-          "resource": "repo://internal/config/config.go#L72-L91",
-          "version": "repo-lines-v1:sha256:752bfd500adf53c4fe513ddee70a8caf130a38558dedf98867c8f4246e3d8280:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJiYTJmMjEyNDIwYzY5YmM3NTk2YTFhYjJhZTZlYmI3MDExNDMwOTcwNTdjYTQ3MWU3YTZhODZmYjkzZDQ1YzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlOTlkNWYyMGUxZGM3ZjY4MzA3YWJhMTg0N2ZlZWU5OGY3NGY4MDg1NzFmNWExYzk5N2MxN2RkZTY3NzIwMzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4ZGQ5MDk4YTVkMDZjM2U0NWI0MjU4ZDAyMTAxOTY2NDI3Mjc3MTU1NGIxMzRlMjViMTM4MGY0M2NkNmE3MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE0MWI0NWZlOTIxY2RlZmZkMjE1NjdlMDhlZTg2ZDU0ZjY4NmMxZWQ1YWRmYTM3NTA1OWU2OThjMThkMjg1NGQifQ"
+          "resource": "repo://internal/config/config.go#L73-L102",
+          "version": "repo-lines-v1:sha256:45109207e0266c08733e4db4acaffe1b3b2d3fcb2c3dcb495ca8a481b1050aeb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5Mjg4ZDI1NjNmNDVhMTY2MjNiZWI0YTU5MWIwMTU3NWY2ZTQ3MTUwOTk4ZmM5N2M2YjM5YzBhYTBiNTQ4NzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyZGMxMmQxMjA0ZWU3YTE0NTI3YTUzZWUwNDVmYjYwYmMwMjczZGNkNGMxYzIxZGI5Mzg1ODE2MWYxNTA0YzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4ODI4MmI4ZDkzMDEwMDNlMDM3OGRkNmY4OGFiOTBiMDFkY2JkYTE4NmEwMzg4N2IyZmRjNDY1OWY1OWJjMGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhlMzFiNGQ1ZDk3ZDJiNmQ5MzRmMWY5MDQzMjYzOTA5ZmYyMjRkZGVlMWE5MTc0YTFjMTU0ZTA0YWM1ZDNkMzgifQ"
         },
         {
           "resource": "repo://internal/config/redis.go#L11-L44",
           "version": "repo-lines-v1:sha256:d8e7894c13dd087c8e18a1535414cc390791d5e78bcda202c3221e9ad6687c7c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyNGJhNDY4OTUxMDZjNTU2NDZiZWU1NWNiZGI3YjNlNzc1N2U4NDNkZTE4NDcyODUzMDBhMjVmYjkwMDNiOWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5MGNkNDcwZDUyZTM1OWU5NTRlMDM5NTdmYzExNzAzY2M5MDc3NDM5NTZiZGJkYzlmMzkxODc0OGEyZTY2YjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_78dfc8c9a97c40a3bb2d60f9f0ad0bf7",
+      "statement": "CI передаёт SHA-тег в CD только для push main при PRODUCTION_ENABLED=true; course-sync имеет отдельное условие и не зависит от deploy.",
+      "evidence": [
+        {
+          "resource": "repo://.github/workflows/ci.yml#L230-L255",
+          "version": "repo-lines-v1:sha256:7ce0b3e441fbdaf4e244fe8e19658e2bc0df44bba4a60162044c0527646d592e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4ZTY2ZmQ1YzViOGJmNWRlNGUyOTEwYzE4NTZkNzQyNmQ5ZjAwMjA3ZjJiNDQ5ODRjODJjMDUzNWU3MTgxMTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmYTYyZDkzNTExMjk4NzVhYTQ1NGIzNTZjMzVkNTUyZGYzMTc5NTcyNDY5ZmE0OTIzZjFmYzk3YTMwNjJlOWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4OWU4MzlmZjYwYjRkOTViNjZkOTg4ZWE5ZGRkYjY5YWNiYTQ3Mjk0ZWVjOGFhYWQ0Y2VhZmQ3YjdiZWRhNmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_539c386fe01549c39675183eef62047e",
+      "statement": "Dockerfile упаковывает server, runtime-smoke, артефакты агента и Ansible/SSH и запускает API непривилегированным пользователем.",
+      "evidence": [
+        {
+          "resource": "repo://build/main.Dockerfile#L8-L36",
+          "version": "repo-lines-v1:sha256:510891f58b0c940c5804d92909ab480c4c19c2c14f406f1a9ba8dc9df6c11b67:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiMjYyMWQ4M2I1YjlmMDI1ZWUzMThhYWNlNjFjMWFhNTdkNGQ5ZWVlMjg0YmI4N2E4NGJhZTVmZDRiMjQzMWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyYTNmNjljYTk1NjBkMmI5MWE3OGIyNTJkZjIzYjMwN2JmNGU5OGRhNzU2NWQxZjMwNzlmZGRhMTVkZWE5NDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI0ODg0NTM0YjA3ZGM3ZmQ5NGZmODI0MTQ5Mzg5MzNkOGI0YTg4MmJjZGFiNzliYWQ5NDg4ZGNkYjQ4MjExNzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-31T14:34:07.758Z"
+    "at": "2026-11-02T21:58:51.903Z"
   }
 }

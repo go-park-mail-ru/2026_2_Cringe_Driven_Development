@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:4a6644ea4ca3f2fcbf85737a6d895dbb165f67bdae7ad558c888caad93ca25db",
+  "pageVersion": "sha256:180d505d43b9bd00ea51d7502b81aeafe5c23f6f1a0364ac7008cdcf4c65cf94",
   "claims": [
     {
       "id": "claim_f1d04e6588b34d7bb0df63f759bf4ee5",
@@ -28,15 +28,15 @@
     },
     {
       "id": "claim_93f6e5d5ad914a5a8b6eba28e63d84ce",
-      "statement": "Изменения блоков выполняются под SELECT FOR UPDATE, но S3 Put предшествует SQL UPDATE и commit, поэтому общей атомарности хранилищ нет.",
+      "statement": "Изменения блоков выполняются под SELECT FOR UPDATE: новый S3-объект загружается до SQL UPDATE ссылки и commit; старый объект сохраняется, общей транзакции хранилищ нет.",
       "evidence": [
         {
-          "resource": "repo://internal/notebook/adapters/postgres/notebook.go#L85-L116",
-          "version": "repo-lines-v1:sha256:273f393e61a98275d79f575abece4713ded1ea3b4e86a2933b74ec5eb5994fad:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyNzAyMzhkMTQ4ZGRjNzhmMGVjY2ZhOWQ5NWNmM2RhZTU5YTMzMmEzZjBhYWFlMDZjZTVhMTEzZDAzNTRjNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkNTU3YjVlZjljY2U4Mzg2MjA3ZTg5NDYzNjJlNzg4NDU2OWJkMzhhMzhjZjI3MGYzOTk0MWU2MDVmMjgzZDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIyYTA5YWI4MzI0NzA2ZjMxN2UwYzE4MWY2YTdkMjlmZWVlZjQzODMzNjY2ZTAyNzk3YTNkMDc0M2IwY2I2YmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0Y2U3MTY3NDZiYzU1ZTllNGRmNzFiYTQyZTM1MzYzNWJiYjY0NjUxMjFiNDIzNWI1NjA1N2FlMGY4NDAyOTUifQ"
+          "resource": "repo://internal/notebook/adapters/postgres/notebook.go#L81-L111",
+          "version": "repo-lines-v1:sha256:c0d1d11450ef314be0640f846ff86a9f02c7679965479504a738c95d8ec53d87:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI1ZTM1NjQ3YjM5MDU4MTdiOGM4MjEwZWZjZDBkODdkYmZmMzQzNDQ1MjYyNWFmMzNiYWYzODg2YWEzYjdmYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5NzQzY2JjMzRhM2NjNTdmZWYwMzRlZmNhNzUyNTc1ZmU5MWIxZDAxYWEzMzc2YWQ4M2MyOTQ5YmI1NDdhODMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyNDVlMzU5ZTVmNjdlZmJhMGFmNWVhYjc4MWU0M2U0NTVlOGEzYjE3YmU5MWJkYmQzNTg4M2UzNGI4ZGJjZDEifQ"
         },
         {
-          "resource": "repo://internal/notebook/usecase/notebook.go#L117-L140",
-          "version": "repo-lines-v1:sha256:7f4f95b094a06b63ddcb309609e8c9617b3e767a6e6771ec216d435cf402d2b1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmMjMwODdmMWEyY2FjZTg1MzdlYmQwMTQxMDYwY2Q3NGEyYzA0NTUzMGE2ZTEyMTMyMjIxMjc4YWViYjM1MzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVlZDYxZWMxOGIzYzYyNTJlZTVjMDJkNGY1YTNmMTRiYzVmMzJhOWQ3MjFhOGUyOGUxYjI0YmI3Yzc1NGZjYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1N2QzMTBlZTg3NWJiMGM2MDFkM2Y2YThhYjA5NDlkY2UwYTZjODZjMjI4YTMzNDhiNWE5ODhhMGEyYjcwZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc5ZDkzZTVhOWQ2ZDU3ZDYwMWRmNWJmY2M4ZGYwNTJjMDZmODA5M2MyOWM3MjIyNmI0OTVhYzJlMGI4ZTk5OWQifQ"
+          "resource": "repo://internal/notebook/usecase/editing.go#L121-L170",
+          "version": "repo-lines-v1:sha256:e3114413be538d1b072317498e862c3d96575e190778599fe06e6caadbc1d9e2:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkYWM1Y2IyMWRmNjFkN2FiYjk0OTgwZmFkMTRkZmJlMzE5ZTIwZGE3M2QzMzQ5OTg5ODg1ODMxMWU5YTBjYmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlMTczNDc0Y2VjY2Q3ZWJjYzE3MjlmM2JlMGI4OTVjNTA2ODRmYTAzNWQzMTFkMmY0NzVlNWE5Yzc1NGRlYTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVlMGZmNWQzOTgxNTUwMDQwZGFmZjY2ZmU4YjgyM2QxZTg0YWE2ZDRhNjBhMWIxY2ZiNDI1MzlhYWY4MDU0NjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         }
       ]
     },
@@ -55,14 +55,48 @@
       "statement": "S3 Get и Put используют context timeout пять секунд; Put перезаписывает объект.",
       "evidence": [
         {
-          "resource": "repo://internal/notebook/adapters/s3/files.go#L32-L88",
-          "version": "repo-lines-v1:sha256:1373bf31d31c98e87d10e27098a5300a40dc180d285b7735bae366d84575ce75:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5YWNjNjk5ODk3OWM3YTliMTgyNTNiYjJiZGQ3OGEyYjJlODYyMjNjZjY4Y2MzMTJhYTc1OTcwZjNhNGIyN2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBjY2Q0NGQ4ZjNhMTU4ZjQ2ZWQ2ZDM0YTVlMTRjOTFiNmIzNTg2MjA5Nzk5ZmNhOGRhOGU5ODVkNmVkM2Y4N2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://internal/notebook/adapters/s3/files.go#L31-L98",
+          "version": "repo-lines-v1:sha256:c7c3fe1f482b7a54a74bd9839bcd5e894e70221a88cd11f8d545dd5322c17c7a:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1MmJlZmI5OGRlMWU1MzlmNDM1OGM1NWUyMzQwYmNiMTBhNzEyNTg5NDY5ZTIxZmU1ZmU3MzBjODMyNTM1YzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRiZDU4OTVlZDM1NGY5NmQxOWVjYTM1Y2UwZjk5MGY2NWM3MDU3Mjc5NTI5NzJmYjM3M2RkMDNmN2IwNDdiNGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ff0ca502498f4a69b8339b52204c7e17",
+      "statement": "Редактирование проверяет SHA-256 текущего файла до изменения блоков; несовпадение даёт конфликт, а no-op сохраняет редакцию и не обновляет SQL-метаданные.",
+      "evidence": [
+        {
+          "resource": "repo://internal/notebook/adapters/postgres/notebook.go#L95-L108",
+          "version": "repo-lines-v1:sha256:b1d4102f0e1ebafa01f54a3e80399de690d0251da113f5e57e88c022c4d5e777:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJiNjliNDY1YThmMjkxNmNlOGIyZjdjYWEzMjYwY2ZmNjc3OWU3MDYwMDYxY2NiNTRlNDQyYzllMzEyMjAzODkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg5ODlhY2U5ZTk5MGVmYTYxZDU0MzgxZmMxODc3MGIxNzhmOGQwZmIxZmIwNmQ0MDY0OGRmMmE5ZDYxZGUxM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY1ZDdiODIyMWZiZmU2NjQxMjc3Mzk2MzgwNmYyOWY4ZWYwNzFkMWQwNjM5YjIwNjM1MDA2MWMzMmFhMGU1NWIifQ"
+        },
+        {
+          "resource": "repo://internal/notebook/usecase/editing.go#L123-L165",
+          "version": "repo-lines-v1:sha256:092f8ed98fac8fb5b61977f1b12099b57b522223ca3c973f711cd18c76fb0564:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxNWI5MWZhOGZiYjNjMDZhNWYzNzI2ZTcyY2U1YmJhMDg0ZjRhM2ZhYjNmZDhkMGVjNjk2YjAyZGU5ZjdlNjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1ZjE5NjBmOGY5ZTMyNTMyMzZkNDA5ZDVkNmRjNWJiNzQyYTI0NTJjNTg1NzA1M2ZkYWIzNTdmYjJkMmQwZjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0YmM5Y2I0MDk4NThkYWFmYjRiMTFlNGZlNzlmNzEwZTQwOWI1NjhlNzc2MGMwNjI4Njk0NWNmMWVmNjAxODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk0ZGVhMzgyNDI0YjA0ZGJiODFjMGU0YzViMjM3NTU0YTY0ZTQyOTU3MjkxMDRhNGE1MDAwZTM5ODQ0NzI2Y2QifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ee94e4444e994a14b38d72e094ca1639",
+      "statement": "Rewrite сохраняет остальные поля ipynb и сбрасывает outputs и execution_count только у code-блоков с изменённым source или новых code-блоков.",
+      "evidence": [
+        {
+          "resource": "repo://internal/notebook/adapters/ipynb/rewrite.go#L13-L73",
+          "version": "repo-lines-v1:sha256:08f429ec6f545d7c44b5824a7085a1e2597f4f4668f90757a554d0a6de17c14e:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlMGY5NzgwMDg2NTI2YWIwZjhhYWRkYTdlZmFjNjRhZmVmZTkzMTM2OTE0MTBmYzRmODk3NTFjZjg4MGE2ZjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkNTU1YjE1NmNkOTA2YTM4MTQ5YmE3NzE0YzIzMGRkZTYxN2U1MWRlMjY0NjVjMDZjOWMyODdkMjc4MmJjNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcyOGY4YTY3OGEyYzBmNWQ2MzU4MTQ4YmQ0MGRlYjc5ZWQ1YzhjZjgxNWU3YTk3ODlmNjljMjkzZGE3OWNiYWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_27555e923e07425db7312dcee13042d5",
+      "statement": "HTTP delivery возвращает hash и ETag, принимает один сильный If-Match и отображает конфликт редакции в 409.",
+      "evidence": [
+        {
+          "resource": "repo://internal/notebook/delivery/http/editing.go#L14-L88",
+          "version": "repo-lines-v1:sha256:cf8bc1f5c6378fe35707c021a6e6b3b2e493093424eb50a8445635a5d2c73d9b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhMDU1Zjc1YWQxZmYyMDVlNzI2ODg2NjEyZjJkYTYwMjIyOWViNmVhY2Q5NmFhY2ZmODM5ZmFiMDY3NmE3NmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwYjQ1YjcwNWY5MDRhNjIzNjZiMmE2YTZkZjIxZGY2NjVmZGM0MTcwNzk2MjNiYjFmYzdjNTY3YWZjY2M3NDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY5MThiYzg5N2JkZWQwNjI3YjlmZmFjN2Y5NDQxZmViMjhlZTIxZjM2MjBhMGNkOTZiODg0NzFlNmNlMDFiZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJmZjdlYTIzZTUwNDIwYTY1ZjMyNDYzMGIyN2ZjMTMyYjg4YWQ5MDQ0ZTI1YjFjYjgyMTI0NDI2ZDQxNmU2YjcifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.2",
-    "at": "2026-10-31T14:34:07.758Z"
+    "at": "2026-11-02T21:58:51.903Z"
   }
 }
