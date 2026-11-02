@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:bc054d0fb881048bd5fba0a932c2a42808bde076649f2193e9ab83691b848f41",
+  "claims": [
+    {
+      "id": "claim_e979c7327f094a82bc398defeba91870",
+      "statement": "Смена пароля использует CAS старого хеша в PostgreSQL, затем отзывает все сессии в Redis; ошибка отзыва не откатывает смену пароля.",
+      "evidence": [
+        {
+          "resource": "repo://internal/user/adapters/postgres/user.go#L109-L117",
+          "version": "repo-lines-v1:sha256:fbd610f7657f29b03ef79da8c975d3c6890e5957a90ebdacecad41eff39c2164:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmZhZmI5ZjQyYTgyMjI1Y2I4NWQyODVlMThkMWU3Njg0ZDhhNGFlYWIwZmRkMTViMmI4OTI5MzRiODQzZjk2NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYWRhMWQ3OTE0ODA5ZTM0OTlkNDU3M2U4YmZlNTgyNmFlMDgyZWEyZTJhMTRkYjdjYzE0MTcyNTc3YzZhNzM1YSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjAyNzk3ZmZkMDE4YWQwZGJhOTIxMDYyMDMyNzk3NjE1MzBhYmNiNWRiMzZkMDQ5ODhjYTQ5OTlmYTE2ZjA5YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMGRmOWZhMzA3YTBkMmEzYjdiNDc2OWE1YjMyNzhkN2MwMWQyYjVkYWY3NWM0NmNjZjkxMzVlMDdmMTViMWM3MCJ9"
+        },
+        {
+          "resource": "repo://internal/user/usecase/profile.go#L20-L46",
+          "version": "repo-lines-v1:sha256:a7a30d84e82c328573e16d73df9ee09b62605585f4c34ec419a473a687da3932:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYwM2IxMDdlODg4OWJiYjgyY2VkMTYyM2M5M2I3ZDIyMTM4YzYxZWQxY2I5ZTUwZjg5YWNjNTcyZTAzOWIxMzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIxNmM1NDVjYWU4YzhiNDE2Mjg4ODBkYTE2OTlmMzUyNzMyNDQyOTVjNTQ2MTY3ZjljODM4ZTU4NjE0YzdiNDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM1YWQxNmU4NTUwMjJmZWM3OGZkOGE4N2UzYTE5ZmIxYmQ4NGI1ZmFjZGFkYWU0MTUwNjAyNGNlOGNmZjZhMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2189269d1b714527af41c80a47191def",
+      "statement": "Загрузка аватара ограничивает HTTP-тело шестью МиБ и один файл пятью МиБ; одновременно проходит одна загрузка на роутер.",
+      "evidence": [
+        {
+          "resource": "repo://internal/transport/http/middleware/avatar.go#L22-L56",
+          "version": "repo-lines-v1:sha256:b9b771b6613b8944f88b89a9291b866cf54d7e82548c90d9819daf61b2addaa2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiOGM0Zjk4ZTZmZTA0M2NmZDA0Mjk1NTUwZDAyZDgxYzkzNWRjN2FhMjNjN2JjNjhlMmZkMTVkZGNkNzhmOWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjljNmRhNTM2NGIxZjI3NzFlOWQ3ZWIzZDdjNTgyMTI1MWY1NGY0Y2I5MGY5NmQ0MmEzNWY4YWZiZTE5ZmI3NjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://internal/user/delivery/http/profile.go#L76-L120",
+          "version": "repo-lines-v1:sha256:7001939a5e97125177d48c88891d88539cd3834a0c9a5a6c1c2598f1492e57ff:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY2NThlZTFkMDE5ZmE4YTliOGJhZWM0MmRmZGUzMGNlMWIyOTZlODIzYmMzOTk3NTIwMGExM2ZmZDdmMGY4NDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUxYjkzMWU0YjQ2MWZhODc3NzUwYTVjZmRjMDM3N2JiMWYxY2Y1ZWQxYWM4NjdkYWU5NDM2ZjBmMjEyYjkzZjAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_60f945e46e7f4ee1b21c86c30e1dfafe",
+      "statement": "Codec принимает JPEG/PNG с совпадающим MIME и размерами 200–4096 по каждой стороне, перекодирует изображение и заменяет прозрачность PNG белым фоном.",
+      "evidence": [
+        {
+          "resource": "repo://internal/user/adapters/avatar/codec.go#L45-L128",
+          "version": "repo-lines-v1:sha256:e628be9ef6ea50532fe3596257e9b59411114ac98a1737b57311340b4c7ef75d:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNhNTg2YzczMDlmNzdiNGRkZDA2MTYxYTA2Y2Y1MTcxNGI1ZWNiMDI5YTU4ZGVmMWE2YWEzN2ZiZTM4YmM2ZTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiY2MzYmZhMGI1OWQwY2M0ZDRjNzE2ODBiMzZhNTAyMDg4MzU4NzY1M2RmMmRhYzM1NjBmMzgzNDRjZDBlZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVhZmJkN2Y2MmY0MjIzYjI3NThhZGJmYzcxNGI3NWMzYzdmN2EwNDllYjdhMGE0ZGUxZGZlYWJmNTU0NWRkMTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY2YTZjMmY0YTMxMmY4OGMwMWRiNzE2NTBlOWRjZDVmOWM4NzFjODdiMWEyYzkyMGExMTlmN2RiN2VkZTlmODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_38cfe85b8bd54dd1a1bb05fe40623268",
+      "statement": "Новый аватар загружается до транзакционного переключения avatar_key; старый удаляется только после успеха, а ошибка переключения не удаляет потенциально опубликованный новый объект.",
+      "evidence": [
+        {
+          "resource": "repo://internal/user/adapters/postgres/user.go#L119-L147",
+          "version": "repo-lines-v1:sha256:60099057ab1ea10753853098e806571b384e3d67148026f3da5800ff6bd22fe8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyMmZjOGVkZGFjZjVjODRkZTgwYTM0YjNiNzk2ZWU4YzYyMjk0ZDhlZjA2YzU0ZDg4OGQ0ZjllMzMwMTcwY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1YzAzZjA1ZjhiYTQzZDNiNzg5MDZlYTE2YWQ4OTFjMmM0ZmViNDM3NzZjMmM0NDBiYmVjNGRmYzAzNjBhM2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyOThjM2JiNWYxZWRlZGJhODQzOTFjYjA5YzExOTQyOTM5ZTcyNjFlMmVjNDY5ZjNkMzQ4NGZkNmNkN2ZjNWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        },
+        {
+          "resource": "repo://internal/user/usecase/avatar.go#L50-L77",
+          "version": "repo-lines-v1:sha256:6be7ed0440da17956ca76dd3ad1980fb0902aab82348fb6eb7b52d166c521e6b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhYzMyOGU3YzMxM2JmYzE5YWE4YmJlYjNhMzlkYWU5ZGQ3OTM0YWY1NDBmNWI2MjVkZDUwM2I5ZTgzMTkwZDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmNTVmYTA2YzZhYWM2MzhmNDU3ZjE1MWYyZjM1NDk4Mzg4ZTNkYzFiNTg4NDFkNzE1ZmRiYjk3NjY3ZDg2MzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVkOGZjY2FmNWNkYzgwZmVhODlhZjQxNGI5NTdhYzg4MWRhNjliMWU1MjY2NjFhNjQ1MWJkYmYyMzU4NTgzMDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-11-02T21:58:51.903Z"
+  }
+}

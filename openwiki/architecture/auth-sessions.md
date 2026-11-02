@@ -5,7 +5,7 @@ description: "Порядок S2S и Bearer, ротация refresh и отзыв
 tags: [auth, redis, security]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-31T14:34:07.758Z
+    at: 2026-11-02T21:58:51.903Z
 sources:
   - id: openwiki-source-a009d602e55f848ea26930dd
     resource: repo://internal/app/app.go
@@ -19,7 +19,7 @@ sources:
     resource: repo://internal/user/adapters/redis/session.lua
   - id: openwiki-source-1f5edfaa55907e3a11216234
     resource: repo://internal/user/usecase/user.go
-generated: { by: "codex", at: "2026-10-31T14:34:07.758Z" }
+generated: { by: "codex", at: "2026-11-02T21:58:51.903Z" }
 ---
 
 # BFF, авторизация и Redis-сессии
@@ -28,13 +28,13 @@ generated: { by: "codex", at: "2026-10-31T14:34:07.758Z" }
 
 ## Два уровня доступа
 
-`NewRouter` требует непустой `BFF_API_KEY`. Внешние обёртки идут в порядке request ID → logging → recover → S2S → Bearer, затем роутер и Validator. S2S защищает `/api/v1` и вложенные пути: ровно один непустой `X-BFF-Key` сравнивается через SHA-256 и constant-time comparison. Неверный ключ даёт 403 до разбора пользовательского токена и тела. `GET /health` доступен отдельно. Request ID назначается также отказам S2S, 404 и 405.
+`NewRouter` требует непустой `BFF_API_KEY`. Внешние обёртки идут в порядке request ID → logging → recover → S2S → Bearer, затем ограничения тела блокнотов и аватаров, роутер и Validator. Для блокнотов предел тела — 512 КиБ; multipart-аватар разбирает отдельный middleware, см. [профиль и аватары](profiles-avatars.md). S2S защищает `/api/v1` и вложенные пути: ровно один непустой `X-BFF-Key` сравнивается через SHA-256 и constant-time comparison. Неверный ключ даёт 403 до разбора пользовательского токена и тела. `GET /health` доступен отдельно. Request ID назначается также отказам S2S, 404 и 405.
 
 Backend не читает browser cookies для Bearer. Он разбирает единственный `Authorization`, проверяет токен, затем сверяет claims с `SessionStore.ValidateAccess`. Только после этого principal попадает в context. Недействительная сессия даёт 401; ошибка хранилища идёт в обработчик серверных ошибок. Отсутствие пригодного Bearer оставляет запрос без principal, а обязательность авторизации конкретной операции определяет Validator. Клиент и cookie-сессия BFF принадлежат frontend; формы HTTP-запросов — Apidog, см. [контракт](../operations/startup-contract.md).
 
 ## Жизненный цикл
 
-Register хеширует пароль и создаёт пользователя в PostgreSQL перед созданием сессии. Это последовательность двух хранилищ: ошибка Redis после записи пользователя не откатывает регистрацию. Login проверяет пароль через порт PasswordHasher. Новая сессия получает UUID и текущую версию пользователя; наружу возвращаются access и refresh, хранилищу передаётся hash refresh.
+Register хеширует пароль и создаёт пользователя в PostgreSQL перед созданием сессии. Это последовательность двух хранилищ: ошибка Redis после записи пользователя не откатывает регистрацию. Register и Login сначала получают версию сессий, затем повторно читают текущие credentials и проверяют пароль через PasswordHasher. Создание сессии в Redis отвергает захваченную версию после конкурентного RevokeAll; гонки покрывает `internal/user/usecase/auth_race_test.go`. Новая сессия получает UUID и захваченную версию пользователя; наружу возвращаются access и refresh, хранилищу передаётся hash refresh.
 
 Refresh находит старую сессию по hash, проверяет срок, готовит новую пару и вызывает Rotate. Redis Lua перепроверяет состояние, записывает новый индекс refresh и auth-session, удаляет старый индекс. SID и версия сохраняются; access deadline берётся как максимум старого и нового. Поэтому ротация refresh сама по себе не является отзывом ранее выданного access. Logout удаляет связанные auth и refresh записи. RevokeAll меняет версию пользователя, вследствие чего старые claims перестают проходить проверку.
 
@@ -52,13 +52,15 @@ Refresh находит старую сессию по hash, проверяет �
 
 ## Источники
 
-- [internal/transport/http/router.go#L19-L56](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/transport/http/router.go#L19-L56)
-- [internal/transport/http/security/bff.go#L18-L44](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/transport/http/security/bff.go#L18-L44)
-- [internal/transport/http/security/bff.go#L47-L75](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/transport/http/security/bff.go#L47-L75)
-- [internal/user/usecase/user.go#L34-L57](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/usecase/user.go#L34-L57)
-- [internal/user/usecase/user.go#L84-L121](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/usecase/user.go#L84-L121)
-- [internal/user/adapters/redis/session.lua#L81-L107](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/adapters/redis/session.lua#L81-L107)
-- [internal/user/adapters/redis/session.go#L1-L25](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/adapters/redis/session.go#L1-L25)
-- [internal/user/adapters/redis/session.go#L64-L84](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/adapters/redis/session.go#L64-L84)
-- [internal/user/adapters/redis/session.lua#L1-L78](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/user/adapters/redis/session.lua#L1-L78)
-- [internal/app/app.go#L37-L38](https://github.com/Cringe-Driven-Development-Team/backend/blob/30d62561c9e2c067764239e4b68dd477c9abb982/internal/app/app.go#L37-L38)
+- [internal/transport/http/router.go#L20-L57](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/transport/http/router.go#L20-L57)
+- [internal/transport/http/security/bff.go#L17-L40](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/transport/http/security/bff.go#L17-L40)
+- [internal/transport/http/security/bff.go#L42-L75](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/transport/http/security/bff.go#L42-L75)
+- [internal/user/usecase/user.go#L30-L67](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/usecase/user.go#L30-L67)
+- [internal/user/usecase/user.go#L108-L145](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/usecase/user.go#L108-L145)
+- [internal/user/adapters/redis/session.lua#L81-L107](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/adapters/redis/session.lua#L81-L107)
+- [internal/user/adapters/redis/session.go#L1-L25](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/adapters/redis/session.go#L1-L25)
+- [internal/user/adapters/redis/session.go#L64-L84](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/adapters/redis/session.go#L64-L84)
+- [internal/user/adapters/redis/session.lua#L1-L78](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/adapters/redis/session.lua#L1-L78)
+- [internal/app/app.go#L53-L54](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/app/app.go#L53-L54)
+
+- [internal/user/usecase/user.go#L70-L105](https://github.com/Cringe-Driven-Development-Team/backend/blob/978bc2df36a71c796b95b14315f8e4d9b17a17b9/internal/user/usecase/user.go#L70-L105)
