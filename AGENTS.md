@@ -4,15 +4,15 @@
 
 ## Wiki и общий поиск
 
-При конкретном вопросе о Go API начни с собственной `openwiki/quickstart.md`; не читай wiki в начале каждой задачи.
-Корень checkout: `git rev-parse --show-toplevel`; проверь `origin`: `Cringe-Driven-Development-Team/backend`. Перед использованием: `bun scripts/openwiki-check.ts --against <полный актуальный SHA backend/main>`.
-При stale wiki — только указатель; утверждения сверь с актуальным кодом и Apidog. Без wiki читай README, docs и исходники.
-Для межрепозиторных вопросов используй общий workspace соседних `docs`, `frontend`, `backend`, `infra`: настройка — в README docs. При нескольких пространствах проверь `openwiki workspace current`, выбери через `openwiki workspace use`. В MCP используй `openwiki_search`, затем `openwiki_read` с ID wiki из результата; не считай чужую страницу локальной.
+Для поиска контекста начни с `openwiki_search`, затем `openwiki_read` с ID wiki из результата; если ответа достаточно и нет противоречий, остановись. Не загружай wiki при старте; для простой правки известного файла поиск не обязателен.
+Корень checkout: `git rev-parse --show-toplevel`; проверь `origin`: `Cringe-Driven-Development-Team/backend`. При обычном чтении опубликованная wiki считается актуальной; её актуальность обеспечивает процесс обновления и публикации. Не проверяй свежесть, не сравнивай SHA и не делай fetch или grep по исходникам ради перепроверки ответа.
+Конкретный исходник нужен при пробеле, противоречии или для правки; явные ошибки инструментов не игнорируй. Без wiki читай README, docs и исходники. Изменения HTTP-контракта сверяй с Apidog.
+Для межрепозиторных вопросов используй общий workspace соседних `docs`, `frontend`, `backend`, `infra`: настройка — в README docs. При нескольких пространствах проверь `openwiki workspace current`, выбери через `openwiki workspace use`. В `openwiki_read` передавай ID wiki из результата; не считай чужую страницу локальной.
 Карта владения — docs, клиент/BFF — frontend, выкладка — infra; внутренности `@cdd-team/*` — frontend-packages по карте docs.
-Без MCP читай Markdown quickstart нужного клона или GitHub: https://github.com/Cringe-Driven-Development-Team/backend/tree/main/openwiki. Соседний docs из worktree: `git -C "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../docs" rev-parse --show-toplevel`.
+Без MCP читай quickstart и нужную Markdown-страницу с тем же правилом остановки, локально или на GitHub: https://github.com/Cringe-Driven-Development-Team/backend/tree/main/openwiki. Соседний docs из worktree: `git -C "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../docs" rev-parse --show-toplevel`.
 Проверь его `origin`: `Cringe-Driven-Development-Team/docs`; без клона — https://github.com/Cringe-Driven-Development-Team/docs/tree/main/openwiki.
-В docs проверяй `bun run wiki:check --against <полный актуальный SHA docs/main>`, в платформах — их `bun scripts/openwiki-check.ts --against <SHA main>`.
-Пути определяй заново. SHA одной wiki не подтверждает соседний код; состояние прода проверяй по стенду, будущие фичи — в `/modules/` docs.
+Проверки свежести (`bun scripts/openwiki-check.ts --against <SHA>` у владельца) относятся к обслуживанию, генерации, CI и явной диагностике по запросу пользователя.
+Пути определяй заново. Состояние прода прямо сейчас требует соответствующего свидетельства или проверки стенда; будущие фичи — в `/modules/` docs.
 
 ## Учебный проект: совместимость и прод
 
@@ -99,7 +99,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 Общепроектный контекст, действующая архитектура и планы развития проекта — в [Контекст проекта](https://docs.cellestial.ru/project-context).
 Спеки и планы реализации конкретной задачи размещай в репозитории, где выполняется
 работа; общие для нескольких компонентов решения отражай в `docs`.
-Факты о реализации проверяй по актуальному коду и конфигурации.
+При внесении изменений проверяй реализацию по актуальному коду и конфигурации.
 
 - Backend отвечает за Go API, данные и бизнес-логику; местный Compose — для разработки.
 - Агент сам VPS не создаёт: создание, настройку (воркер запускает playbook) и удаление runtime-VPS выполняет
