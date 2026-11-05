@@ -35,7 +35,9 @@ PostgreSQL — единственный рабочий источник ipynb. `
 название, редакцию, даты, число ячеек, превью, размеры и верхнеуровневые поля.
 `notebook_cells` хранит ID, позицию, source, его версию, metadata и дополнительные
 поля. `notebook_cell_data` отдельно хранит outputs, execution_count, attachments
-и runtime-флаг усечения. Целая ячейка не дублируется в JSONB.
+и runtime-флаг усечения. При экспорте флаг восстанавливается в owned metadata
+`cellestial_runtime.output_truncated`; остальные поля namespace сохраняются.
+Целая ячейка не дублируется в JSONB.
 
 Каждая операция берёт `SELECT FOR UPDATE` строки блокнота, проверяет владельца
 и редакцию, меняет нужные строки и публикует редакцию, размеры, превью и дату
@@ -65,8 +67,9 @@ outputs, execution_count и output_truncated. Результат проверя�
 такой ячейки возвращается `""`. Поле содержит обычный текст.
 
 `has_active_session` вычисляется одним вызовом `ActiveSessions.ActiveNotebook`
-для пользователя на весь список. До подключения сервиса #13 app явно использует
-`NoActiveSessions`; в тестах порт заменяется состоянием сессии. Auth-сессии,
+для пользователя на весь список. App подключает `runtimesession.Store`, который
+читает авторитетную активную сессию #13; в изолированных тестах используется
+`NoActiveSessions` или управляемое состояние. Auth-сессии,
 provisioning VPS и история выполнения не являются источниками этого признака.
 Ошибка подключённого сервиса не превращается в `false`.
 
@@ -93,9 +96,14 @@ PostgreSQL числа отклоняются явно.
 
 ```text
 header_bytes + len(',"cells":[]')
-  + sum(edit_bytes + outputs_bytes + execution_bytes + attachments_bytes)
+  + sum(edit_bytes + outputs_bytes + execution_bytes + attachments_bytes + runtime_metadata_bytes)
   + max(cells_count - 1, 0)
 ```
+
+`runtime_metadata_overhead` хранит постоянную стоимость JSON-обрамления флага,
+`runtime_metadata_bytes` — его текущий вклад с true/false. Metadata JSONB при
+сбросе или записи результата не загружается и не переписывается. При коллизии
+owned namespace неизвестное значение сохраняется, а runtime-проекция отклоняется.
 
 При изменении source дельта равна разнице длин его JSON-строк плюс дельта сброса
 результата. Используются сохранённые счётчики, не размеры JSONB/TOAST.

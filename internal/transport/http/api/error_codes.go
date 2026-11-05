@@ -7,9 +7,9 @@ const (
 	S2sForbidden       = ErrorCodeS2sForbidden
 	Internal           = ErrorCodeInternal
 	InvalidCredentials = ErrorCodeInvalidCredentials
-	LoginTaken         = ErrorCodeLoginTaken
-	NotFound           = ErrorCodeNotFound
-	NotImplemented     = ErrorCodeNotImplemented
-	Unauthorized       = ErrorCodeUnauthorized
-	ValidationError    = ErrorCodeValidationError
+	// LoginTaken обозначает занятый логин в ответе API.
+	LoginTaken = ErrorCodeLoginTaken
+	// NotImplemented обозначает операцию, которая пока не реализована сервером.
+	NotImplemented  = ErrorCodeNotImplemented
+	ValidationError = ErrorCodeValidationError
 )

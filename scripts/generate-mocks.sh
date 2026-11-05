@@ -20,3 +20,6 @@ generate internal/transport/http/user_mock_test.go httptransport internal/user/u
 generate internal/transport/http/notebook_mock_test.go httptransport internal/notebook/usecase Usecase -mock_names=Usecase=MockNotebookUsecase
 generate internal/transport/http/notebook_ports_mock_test.go httptransport internal/notebook/usecase Repository
 generate internal/transport/http/security/dependencies_mock_test.go security internal/transport/http/security TokenParser
+
+# Моки портов пользовательских runtime-сессий для изолированных тестов сценариев.
+generate internal/runtimesession/usecase/dependencies_mock_test.go usecase internal/runtimesession/usecase Store,Environments,SessionAgent

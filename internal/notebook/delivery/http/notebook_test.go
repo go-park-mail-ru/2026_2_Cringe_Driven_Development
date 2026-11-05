@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
+	runtimedelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/middleware"
@@ -24,7 +25,12 @@ import (
 
 type notebookHandler = Handler
 
+// runtimeHandler позволяет встроить runtime-хендлер рядом с другими типами Handler без конфликта имён.
+type runtimeHandler = runtimedelivery.Handler
+
+// testServer объединяет обработчики API для тестового маршрутизатора.
 type testServer struct {
+	*runtimeHandler
 	*userdelivery.Handler
 	*notebookHandler
 }
@@ -36,7 +42,7 @@ func newRouter(t *testing.T, uc usecase.Usecase) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := testServer{userdelivery.NewHandler(nil), NewHandler(uc)}
+	srv := testServer{Handler: userdelivery.NewHandler(nil), notebookHandler: NewHandler(uc)}
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,
@@ -248,7 +254,7 @@ func TestDeleteCell(t *testing.T) {
 func testTokens(t *testing.T) *MockTokenParser {
 	t.Helper()
 	tokens := NewMockTokenParser(gomock.NewController(t))
-	// Routing helpers may receive requests with or without a cookie.
+	// Тестовый маршрутизатор принимает запросы как с cookie, так и без неё.
 	tokens.EXPECT().Parse("access-1").Return(testClaims(1), nil).AnyTimes()
 	return tokens
 }

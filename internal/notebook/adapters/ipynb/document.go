@@ -237,6 +237,9 @@ func DecodeDocument(raw []byte) (domain.Document, []domain.Cell, error) {
 				return doc, nil, e
 			}
 		}
+		if e = splitRuntimeMetadata(&c); e != nil {
+			return doc, nil, e
+		}
 		c.Outputs = take(cm, "outputs")
 		if len(c.Outputs) > 0 {
 			if e = ValidateOutputs(c.Outputs); e != nil {
@@ -315,6 +318,9 @@ func NormalizeFields(doc *domain.Document, cells []domain.Cell) error {
 	doc.Extra = m
 	for i := range cells {
 		c := &cells[i]
+		if e = splitRuntimeMetadata(c); e != nil {
+			return e
+		}
 		raw, e = json.Marshal(light(*c))
 		if e != nil {
 			return e
@@ -364,7 +370,10 @@ func DataSizes(c domain.Cell) (outputs, execution, attachments int64) {
 	}
 	return outputs, execution, attachments
 }
-func CellSize(c domain.Cell) int64 { o, e, a := DataSizes(c); return LightSize(c) + o + e + a }
+func CellSize(c domain.Cell) int64 {
+	o, e, a := DataSizes(c)
+	return LightSize(c) + o + e + a + RuntimeMetadataSize(c)
+}
 func DocumentSize(headerBytes int64, cellBytes []int64) int64 {
 	size := headerBytes + int64(len(`,"cells":[]`))
 	for _, b := range cellBytes {
@@ -381,7 +390,10 @@ func EncodeDocument(doc domain.Document, cells []domain.Cell) ([]byte, error) {
 	m := header(doc)
 	out := make([]map[string]json.RawMessage, 0, len(cells))
 	for _, c := range cells {
-		cm := light(c)
+		if (c.HasRuntimeMetadata || c.OutputTruncated) && RuntimeMetadataOverhead(c) < 0 {
+			return nil, errors.New("runtime metadata namespace is occupied")
+		}
+		cm := runtimeMetadata(c, light(c))
 		if len(c.Outputs) > 0 {
 			cm["outputs"] = c.Outputs
 		}
@@ -418,4 +430,85 @@ func ValidateOutputs(raw json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+// splitRuntimeMetadata separates the owned result flag from arbitrary metadata.
+// The original namespace and all its other fields remain in the lightweight row.
+func splitRuntimeMetadata(c *domain.Cell) error {
+	if len(c.Metadata) == 0 {
+		return nil
+	}
+	fields, err := object(c.Metadata)
+	if err != nil {
+		return err
+	}
+	raw, present := fields["cellestial_runtime"]
+	if !present {
+		return nil
+	}
+	marker, err := object(raw)
+	if err != nil {
+		return nil // Preserve unrelated metadata; projection detects a namespace collision.
+	}
+	flag, present := marker["output_truncated"]
+	if !present {
+		return nil
+	}
+	if string(flag) != "true" && string(flag) != "false" {
+		return nil // Preserve an unknown non-runtime value without coercion.
+	}
+	c.OutputTruncated = string(flag) == "true"
+	c.HasRuntimeMetadata = true
+	delete(marker, "output_truncated")
+	fields["cellestial_runtime"], _ = json.Marshal(marker)
+	c.Metadata, _ = json.Marshal(fields)
+	return nil
+}
+func runtimeMetadata(c domain.Cell, fields map[string]json.RawMessage) map[string]json.RawMessage {
+	if !c.HasRuntimeMetadata && !c.OutputTruncated {
+		return fields
+	}
+	metadata := map[string]json.RawMessage{}
+	if len(c.Metadata) > 0 {
+		_ = json.Unmarshal(c.Metadata, &metadata)
+	}
+	marker := map[string]json.RawMessage{}
+	if raw := metadata["cellestial_runtime"]; len(raw) > 0 {
+		_ = json.Unmarshal(raw, &marker)
+	}
+	put(marker, "output_truncated", c.OutputTruncated)
+	metadata["cellestial_runtime"], _ = json.Marshal(marker)
+	fields["metadata"], _ = json.Marshal(metadata)
+	return fields
+}
+
+// RuntimeMetadataOverhead is stored once so a flag change needs no metadata read.
+func RuntimeMetadataOverhead(c domain.Cell) int64 {
+	if len(c.Metadata) > 0 {
+		var metadata map[string]json.RawMessage
+		_ = json.Unmarshal(c.Metadata, &metadata)
+		if raw, present := metadata["cellestial_runtime"]; present {
+			marker, err := object(raw)
+			if err != nil {
+				return -1
+			}
+			if flag, present := marker["output_truncated"]; present && string(flag) != "true" && string(flag) != "false" {
+				return -1
+			}
+		}
+	}
+	c.HasRuntimeMetadata = true
+	c.OutputTruncated = false
+	raw, _ := json.Marshal(runtimeMetadata(c, light(c)))
+	return int64(len(raw)) - LightSize(c) - 5
+}
+func RuntimeMetadataSize(c domain.Cell) int64 {
+	if !c.HasRuntimeMetadata && !c.OutputTruncated {
+		return 0
+	}
+	size := RuntimeMetadataOverhead(c) + 5
+	if c.OutputTruncated {
+		size--
+	}
+	return size
 }

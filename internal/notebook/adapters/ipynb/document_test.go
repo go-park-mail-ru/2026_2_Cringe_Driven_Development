@@ -63,3 +63,42 @@ func TestDocumentDoesNotSilentlyDropNullSourceParts(t *testing.T) {
 		t.Fatal("null source part silently became empty text")
 	}
 }
+
+func TestRuntimeTruncationFlagSurvivesExportAndReset(t *testing.T) {
+	for _, metadata := range []string{`{}`, `{"cellestial_runtime":{"output_truncated":true,"custom":"keep"}}`} {
+		doc, cells, err := DecodeDocument([]byte(`{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[{"id":"a","cell_type":"code","source":"x","metadata":` + metadata + `,"outputs":[]}]}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, truncated := range []bool{true, false} {
+			cells[0].OutputTruncated = truncated
+			raw, encodeErr := EncodeDocument(doc, cells)
+			if encodeErr != nil {
+				t.Fatal(encodeErr)
+			}
+			_, again, decodeErr := DecodeDocument(raw)
+			if decodeErr != nil || again[0].OutputTruncated != truncated {
+				t.Fatalf("flag=%v export=%s err=%v", truncated, raw, decodeErr)
+			}
+			if int64(len(raw)) != DocumentSize(HeaderSize(doc), []int64{CellSize(cells[0])}) {
+				t.Fatal("runtime flag size mismatch")
+			}
+		}
+	}
+}
+
+func TestUnknownRuntimeNamespaceIsNotLost(t *testing.T) {
+	input := []byte(`{"nbformat":4,"nbformat_minor":5,"cells":[{"id":"a","cell_type":"code","source":"x","metadata":{"cellestial_runtime":"custom value"}}]}`)
+	doc, cells, err := DecodeDocument(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := EncodeDocument(doc, cells)
+	if err != nil || !bytes.Contains(encoded, []byte(`"cellestial_runtime":"custom value"`)) {
+		t.Fatalf("lost unknown metadata: %s %v", encoded, err)
+	}
+	cells[0].OutputTruncated = true
+	if _, err = EncodeDocument(doc, cells); err == nil {
+		t.Fatal("runtime flag silently overwrote unknown metadata")
+	}
+}

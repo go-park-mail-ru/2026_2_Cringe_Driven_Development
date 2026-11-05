@@ -433,18 +433,24 @@ class Journal:
             self.session_state(row[0], "STOPPED", "agent_restarted")
 
     def events(self, session_id, after):
-        """Read the next page of persisted events for one session.
+        """Возвращает до 100 событий после курсора с целевым размером страницы 16 МиБ.
 
-        Args:
-            session_id (str): Canonical UUID of the session.
-            after (int): Exclusive sequence cursor; zero starts from the first event.
-
-        Returns:
-            list[dict]: Up to 100 events ordered by increasing seq; sequence numbers may
-            have gaps.
+        Первое слишком большое событие возвращается целиком, чтобы курсор
+        мог продвинуться и следующие события оставались доступными.
         """
         rows = self.db.execute(
             "SELECT seq,body FROM events WHERE session_id=? AND seq>? ORDER BY seq LIMIT 100",
             (session_id, after),
-        ).fetchall()
-        return [{"seq": row["seq"], **json.loads(row["body"])} for row in rows]
+        )
+        page = []
+        size = 0
+        try:
+            for row in rows:
+                event_size = len(row["body"].encode("utf-8"))
+                if page and size + event_size > 16 * 1024 * 1024:
+                    break
+                page.append({"seq": row["seq"], **json.loads(row["body"])})
+                size += event_size
+        finally:
+            rows.close()
+        return page

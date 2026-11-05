@@ -17,6 +17,10 @@ import (
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	runtimemodule "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime"
 	runtimeusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
+	sessionenv "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/adapters/environment"
+	sessionpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/adapters/postgres"
+	sessiondelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/delivery/http"
+	sessionusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/storage/s3client"
 	httptransport "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http"
 	avatarcodec "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/avatar"
@@ -31,14 +35,20 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// application — собранное приложение. Environments пока не используется HTTP-слоем (задача #13).
+// application — HTTP-сервер, provisioning и пользовательские runtime-сессии.
 type application struct {
-	Server       *http.Server
+	// Server Общий HTTP-сервер приложения.
+	Server *http.Server
+	// Environments Сервис создания, чтения и удаления окружений.
 	Environments runtimeusecase.EnvironmentService
 	// RuntimeWorker nil, если RUNTIME_ENABLED=false.
 	RuntimeWorker *runtimeusecase.Worker
-	RuntimeMode   string
-	Close         func()
+	// SessionWorker Обработчик жизненного цикла пользовательских сессий.
+	SessionWorker *sessionusecase.Worker
+	// RuntimeMode Режим подключения сервиса окружений.
+	RuntimeMode string
+	// Close освобождает ресурс после завершения работы.
+	Close func()
 }
 
 // newServer собирает приложение; вызывающий закрывает ресурсы после остановки.
@@ -87,11 +97,7 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	if err = notebookRepo.Ready(ctx); err != nil {
 		return nil, startupError("notebook_migration", err)
 	}
-	notebookUsecase := notebookusecase.NewNotebookUsecase(
-		notebookRepo,
-		notebookusecase.NoActiveSessions{},
-	)
-	envs, worker, err := runtimemodule.Build(ctx, cfg.Runtime, pool)
+	runtimeModule, err := runtimemodule.Build(ctx, cfg.Runtime, pool)
 	if err != nil {
 		return nil, startupError("runtime_init", err)
 	}
@@ -108,8 +114,12 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 			return usecase.SanitizedAvatar{Body: file, Size: file.Size, ContentType: file.ContentType}, nil
 		}
 	})
+	sessionStore := sessionpostgres.New(pool)
+	notebookUsecase := notebookusecase.NewNotebookUsecase(notebookRepo, sessionStore)
+	sessionService := sessionusecase.NewService(sessionStore, sessionusecase.Settings{Enabled: cfg.Runtime.Enabled}, nil, runtimeModule.Agent)
+	sessionWorker := sessionusecase.NewWorker(sessionStore, sessionenv.New(runtimeModule.Environments), runtimeModule.Agent, nil)
 	userHandler := userdelivery.NewHandler(userUsecase, userdelivery.WithProfile(avatars, cfg.AvatarsPublicURL))
-	srv := httptransport.Server{UserHandler: userHandler, NotebookHandler: notebookdelivery.NewHandler(notebookUsecase)}
+	srv := httptransport.Server{UserHandler: userHandler, NotebookHandler: notebookdelivery.NewHandler(notebookUsecase), RuntimeHandler: sessiondelivery.NewHandler(sessionService)}
 	router, err := httptransport.NewRouter(srv, tokens, sessions, cfg.BFFAPIKey)
 	if err != nil {
 		return nil, err
@@ -126,7 +136,7 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 
 	ready = true
 	return &application{
-		Server: httpServer, Environments: envs, RuntimeWorker: worker,
-		RuntimeMode: cfg.Runtime.Provider, Close: closeResources,
+		Server: httpServer, Environments: runtimeModule.Environments, RuntimeWorker: runtimeModule.Worker,
+		SessionWorker: sessionWorker, RuntimeMode: cfg.Runtime.Provider, Close: closeResources,
 	}, nil
 }

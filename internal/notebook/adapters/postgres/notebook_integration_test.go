@@ -247,13 +247,16 @@ func TestLegacyMigrationAtomicAndRestartable(t *testing.T) {
 	if e := pool.QueryRow(ctx, `SELECT count(*) FROM notebook_cells WHERE notebook_id=$1`, id).Scan(&count); e != nil || count != 0 {
 		t.Fatalf("partial import: %d %v", count, e)
 	}
-	original := []byte(`{"nbformat":4,"nbformat_minor":5,"metadata":{"n":1e2},"unknown":[1,2],"cells":[{"id":"c","cell_type":"code","source":["  я","😀"],"metadata":{"x":"keep"},"attachments":{"a":{"image/png":"data"}},"outputs":[{"text":"old"}],"execution_count":9,"unknown":42}]}`)
+	original := []byte(`{"nbformat":4,"nbformat_minor":5,"metadata":{"n":1e2},"unknown":[1,2],"cells":[{"id":"c","cell_type":"code","source":["  я","😀"],"metadata":{"x":"keep","cellestial_runtime":{"output_truncated":true}},"attachments":{"a":{"image/png":"data"}},"outputs":[{"text":"old"}],"execution_count":9,"unknown":42}]}`)
 	if e := repo.ImportLegacy(ctx, src, original); e != nil {
 		t.Fatal(e)
 	}
 	got, e := repo.Get(ctx, id, 1)
 	if e != nil {
 		t.Fatal(e)
+	}
+	if !got.Cells[0].OutputTruncated {
+		t.Fatal("legacy truncation flag lost during migration")
 	}
 	before := got.Revision
 	if e = repo.ImportLegacy(ctx, src, original); e != nil {
@@ -273,7 +276,7 @@ func TestLegacyMigrationAtomicAndRestartable(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if string(got.Cells[0].Attachments) != `{"a":{"image/png":"data"}}` || string(got.Cells[0].Metadata) != `{"x":"keep"}` || string(got.Cells[0].Extra["unknown"]) != "42" {
+	if string(got.Cells[0].Attachments) != `{"a":{"image/png":"data"}}` || string(got.Cells[0].Metadata) != `{"cellestial_runtime":{},"x":"keep"}` || string(got.Cells[0].Extra["unknown"]) != "42" {
 		t.Fatalf("lost fields: %+v", got.Cells[0])
 	}
 }

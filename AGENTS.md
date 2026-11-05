@@ -84,7 +84,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 В `cmd/` размещай только точки входа в приложение; допустим README с описанием микросервиса. Тесты в `cmd/` запрещены: проверяемую логику и её тесты размещай в `internal/` (сборка и запуск API — `internal/app`).
 
 Карта кода: `cmd/main` → `internal/app` (сборка и запуск), `internal/config` — окружение.
-`internal/runtime` — VPS сессий (воркер, OpenStack, Ansible), `cmd/runtime-smoke` — ручная проверка;
+`internal/runtime` — provisioning VPS; `internal/runtimesession` — сессии, исполнение и результаты; `cmd/runtime-smoke` — ручная проверка;
 `internal/transport/http` — роутер, `/health`, API-генерация, middleware, security, principal, httperr; `internal/{user,notebook}/delivery/http`
 → `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,avatar,security,ipynb}`
 реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.

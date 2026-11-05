@@ -15,6 +15,7 @@ import (
 
 // target contains no JSONB values; even very large attachments stay in PostgreSQL.
 type target struct {
+	runtimeBytes, runtimeOverhead         int64
 	cell                                  domain.Cell
 	position                              int
 	edit, outputs, execution, attachments int64
@@ -28,7 +29,7 @@ func findTarget(ctx context.Context, tx pgx.Tx, id int64, op usecase.Operation) 
 		predicate = "c.position=$2"
 		value = *op.Index
 	}
-	err := tx.QueryRow(ctx, `SELECT c.cell_id,c.kind,c.source,c.source_version,c.position,c.edit_bytes,d.outputs_bytes,d.execution_bytes,d.attachments_bytes FROM notebook_cells c JOIN notebook_cell_data d USING(notebook_id,cell_id) WHERE c.notebook_id=$1 AND `+predicate, id, value).Scan(&t.cell.ID, &t.cell.Kind, &t.cell.Source, &t.cell.SourceVersion, &t.position, &t.edit, &t.outputs, &t.execution, &t.attachments)
+	err := tx.QueryRow(ctx, `SELECT c.cell_id,c.kind,c.source,c.source_version,c.position,c.edit_bytes,d.outputs_bytes,d.execution_bytes,d.attachments_bytes,d.runtime_metadata_bytes,c.runtime_metadata_overhead,d.has_runtime_metadata FROM notebook_cells c JOIN notebook_cell_data d USING(notebook_id,cell_id) WHERE c.notebook_id=$1 AND `+predicate, id, value).Scan(&t.cell.ID, &t.cell.Kind, &t.cell.Source, &t.cell.SourceVersion, &t.position, &t.edit, &t.outputs, &t.execution, &t.attachments, &t.runtimeBytes, &t.runtimeOverhead, &t.cell.HasRuntimeMetadata)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, usecase.ErrCellNotFound
 	}
@@ -118,8 +119,12 @@ func (r *NotebookRepository) Apply(ctx context.Context, id, ownerID int64, expec
 				t.cell.Outputs = json.RawMessage(`[]`)
 				t.cell.HasExecutionCount = true
 				o, e, _ := ipynb.DataSizes(t.cell)
-				delta += o + e - t.outputs - t.execution
-				_, err = tx.Exec(ctx, `UPDATE notebook_cell_data SET outputs='[]',output_truncated=false,execution_count=NULL,has_execution_count=true,outputs_bytes=$3,execution_bytes=$4 WHERE notebook_id=$1 AND cell_id=$2`, id, t.cell.ID, o, e)
+				runtimeBytes := int64(0)
+				if t.cell.HasRuntimeMetadata {
+					runtimeBytes = t.runtimeOverhead + 5
+				}
+				delta += o + e - t.outputs - t.execution + runtimeBytes - t.runtimeBytes
+				_, err = tx.Exec(ctx, `UPDATE notebook_cell_data SET outputs='[]',output_truncated=false,execution_count=NULL,has_execution_count=true,outputs_bytes=$3,execution_bytes=$4,runtime_metadata_bytes=$5 WHERE notebook_id=$1 AND cell_id=$2`, id, t.cell.ID, o, e, runtimeBytes)
 				if err != nil {
 					return result, err
 				}
@@ -149,7 +154,7 @@ func (r *NotebookRepository) Apply(ctx context.Context, id, ownerID int64, expec
 			if _, err = tx.Exec(ctx, `UPDATE notebook_cells SET position=position-1 WHERE notebook_id=$1 AND position>$2`, id, t.position); err != nil {
 				return result, err
 			}
-			n.SizeBytes -= t.edit + t.outputs + t.execution + t.attachments
+			n.SizeBytes -= t.edit + t.outputs + t.execution + t.attachments + t.runtimeBytes
 			if n.CellsCount > 1 {
 				n.SizeBytes--
 			}

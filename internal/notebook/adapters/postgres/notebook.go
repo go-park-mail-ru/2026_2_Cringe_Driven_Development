@@ -100,7 +100,10 @@ func prepare(n *domain.Notebook) error {
 		if c.Kind != domain.CellKindCode && c.Kind != domain.CellKindMarkdown && c.Kind != "raw" {
 			return usecase.ErrInvalidCellKind
 		}
-		sizes[i] = ipynb.CellSize(c)
+		if (c.HasRuntimeMetadata || c.OutputTruncated) && ipynb.RuntimeMetadataOverhead(c) < 0 {
+			return usecase.ErrInvalidDocument
+		}
+		sizes[i] = ipynb.CellSize(n.Cells[i])
 		if n.PreviewCode == "" && c.Kind == domain.CellKindCode {
 			n.PreviewCode = domain.Preview(c.Source)
 		}
@@ -115,12 +118,12 @@ func prepare(n *domain.Notebook) error {
 }
 func insertCell(ctx context.Context, tx pgx.Tx, id int64, pos int, c *domain.Cell) error {
 	c.SourceVersion = uuid.NewString()
-	_, err := tx.Exec(ctx, `INSERT INTO notebook_cells(notebook_id,cell_id,position,kind,source,source_version,metadata,extra,edit_bytes,preview_candidate) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id, c.ID, pos, c.Kind, c.Source, c.SourceVersion, optionalJSON(c.Metadata), rawMap(c.Extra), ipynb.LightSize(*c), domain.Preview(c.Source) != "")
+	_, err := tx.Exec(ctx, `INSERT INTO notebook_cells(notebook_id,cell_id,position,kind,source,source_version,metadata,extra,edit_bytes,preview_candidate,runtime_metadata_overhead) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, id, c.ID, pos, c.Kind, c.Source, c.SourceVersion, optionalJSON(c.Metadata), rawMap(c.Extra), ipynb.LightSize(*c), domain.Preview(c.Source) != "", ipynb.RuntimeMetadataOverhead(*c))
 	if err != nil {
 		return err
 	}
 	o, e, a := ipynb.DataSizes(*c)
-	_, err = tx.Exec(ctx, `INSERT INTO notebook_cell_data(notebook_id,cell_id,outputs,execution_count,has_execution_count,attachments,outputs_bytes,execution_bytes,attachments_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, id, c.ID, optionalJSON(c.Outputs), c.ExecutionCount, c.HasExecutionCount, optionalJSON(c.Attachments), o, e, a)
+	_, err = tx.Exec(ctx, `INSERT INTO notebook_cell_data(notebook_id,cell_id,outputs,execution_count,has_execution_count,attachments,outputs_bytes,execution_bytes,attachments_bytes,output_truncated,has_runtime_metadata,runtime_metadata_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, id, c.ID, optionalJSON(c.Outputs), c.ExecutionCount, c.HasExecutionCount, optionalJSON(c.Attachments), o, e, a, c.OutputTruncated, c.HasRuntimeMetadata || c.OutputTruncated, ipynb.RuntimeMetadataSize(*c))
 	return err
 }
 func (r *NotebookRepository) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
@@ -172,14 +175,14 @@ func readContent(ctx context.Context, tx pgx.Tx, n domain.Notebook) (domain.Note
 	if err != nil {
 		return n, err
 	}
-	rows, err := tx.Query(ctx, `SELECT c.cell_id,c.kind,c.source,c.source_version,c.metadata,c.extra,d.outputs,d.execution_count,d.has_execution_count,d.attachments,d.output_truncated FROM notebook_cells c JOIN notebook_cell_data d USING(notebook_id,cell_id) WHERE c.notebook_id=$1 ORDER BY c.position`, n.ID)
+	rows, err := tx.Query(ctx, `SELECT c.cell_id,c.kind,c.source,c.source_version,c.metadata,c.extra,d.outputs,d.execution_count,d.has_execution_count,d.attachments,d.output_truncated,d.has_runtime_metadata FROM notebook_cells c JOIN notebook_cell_data d USING(notebook_id,cell_id) WHERE c.notebook_id=$1 ORDER BY c.position`, n.ID)
 	if err != nil {
 		return n, err
 	}
 	n.Cells = []domain.Cell{}
 	for rows.Next() {
 		var c domain.Cell
-		if err = rows.Scan(&c.ID, &c.Kind, &c.Source, &c.SourceVersion, &c.Metadata, &c.Extra, &c.Outputs, &c.ExecutionCount, &c.HasExecutionCount, &c.Attachments, &c.OutputTruncated); err != nil {
+		if err = rows.Scan(&c.ID, &c.Kind, &c.Source, &c.SourceVersion, &c.Metadata, &c.Extra, &c.Outputs, &c.ExecutionCount, &c.HasExecutionCount, &c.Attachments, &c.OutputTruncated, &c.HasRuntimeMetadata); err != nil {
 			rows.Close()
 			return n, err
 		}

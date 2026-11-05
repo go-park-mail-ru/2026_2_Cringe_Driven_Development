@@ -28,6 +28,7 @@ CREATE TABLE notebook_cells (
  metadata jsonb,
  extra jsonb NOT NULL DEFAULT '{}',
  edit_bytes bigint NOT NULL CHECK(edit_bytes >= 0),
+ runtime_metadata_overhead bigint NOT NULL CHECK(runtime_metadata_overhead >= -1),
  PRIMARY KEY(notebook_id,cell_id),
  CONSTRAINT notebook_cells_position_key UNIQUE(notebook_id,position) DEFERRABLE INITIALLY DEFERRED
 );
@@ -37,6 +38,8 @@ CREATE TABLE notebook_cell_data (
  notebook_id bigint NOT NULL,
  cell_id text NOT NULL,
  output_truncated boolean NOT NULL DEFAULT false,
+ has_runtime_metadata boolean NOT NULL DEFAULT false,
+ runtime_metadata_bytes bigint NOT NULL DEFAULT 0 CHECK(runtime_metadata_bytes >= 0),
  outputs jsonb CHECK(outputs IS NULL OR jsonb_typeof(outputs)='array'),
  execution_count bigint,
  has_execution_count boolean NOT NULL DEFAULT false,

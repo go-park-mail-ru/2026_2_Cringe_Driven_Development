@@ -26,8 +26,9 @@ type Cell struct {
 	ExecutionCount *int64
 	Attachments    json.RawMessage
 	// Presence preserves optional fields during ipynb export.
-	OutputTruncated   bool
-	HasExecutionCount bool
+	OutputTruncated    bool
+	HasRuntimeMetadata bool
+	HasExecutionCount  bool
 }
 
 // Notebook is a consistent snapshot of metadata, document fields and ordered cells.

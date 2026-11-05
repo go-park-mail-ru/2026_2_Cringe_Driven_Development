@@ -19,6 +19,25 @@ func (r *NotebookRepository) ExecutionSource(ctx context.Context, id, ownerID in
 	return out, err
 }
 func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, result usecase.CellResult) (string, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	revision, err := r.SaveResultTx(ctx, tx, id, ownerID, result)
+	if err != nil {
+		return "", err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return revision, nil
+}
+
+// SaveResultTx applies a result within the caller's PostgreSQL transaction.
+// It uses the same notebook lock, source-version check and size accounting as SaveResult.
+func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ownerID int64, result usecase.CellResult) (string, error) {
+
 	if result.SourceVersion == "" {
 		return "", usecase.ErrStaleSource
 	}
@@ -32,11 +51,7 @@ func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, 
 	if err = ipynb.ValidateOutputs(outputs); err != nil {
 		return "", usecase.ErrInvalidDocument
 	}
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+
 	n, err := scanNotebook(tx.QueryRow(ctx, selectNotebook+` FOR UPDATE`, id, ownerID))
 	if err != nil {
 		return "", err
@@ -51,8 +66,11 @@ func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, 
 	if t.cell.Kind != domain.CellKindCode || t.cell.SourceVersion != result.SourceVersion {
 		return "", usecase.ErrStaleSource
 	}
+	if t.runtimeOverhead < 0 {
+		return "", usecase.ErrInvalidDocument
+	}
 	var same bool
-	err = tx.QueryRow(ctx, `SELECT COALESCE(outputs=$3::jsonb AND output_truncated=$5 AND has_execution_count AND execution_count IS NOT DISTINCT FROM $4::bigint,false) FROM notebook_cell_data WHERE notebook_id=$1 AND cell_id=$2`, id, result.CellID, []byte(outputs), result.ExecutionCount, result.OutputTruncated).Scan(&same)
+	err = tx.QueryRow(ctx, `SELECT COALESCE(outputs=$3::jsonb AND output_truncated=$5 AND has_runtime_metadata AND has_execution_count AND execution_count IS NOT DISTINCT FROM $4::bigint,false) FROM notebook_cell_data WHERE notebook_id=$1 AND cell_id=$2`, id, result.CellID, []byte(outputs), result.ExecutionCount, result.OutputTruncated).Scan(&same)
 	// SQL NULL outputs are distinct from an explicit empty result.
 	if err != nil {
 		return "", err
@@ -62,19 +80,20 @@ func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, 
 	}
 	c := domain.Cell{Outputs: outputs, ExecutionCount: result.ExecutionCount, HasExecutionCount: true}
 	o, e, _ := ipynb.DataSizes(c)
-	n.SizeBytes += o + e - t.outputs - t.execution
+	runtimeBytes := t.runtimeOverhead + 5
+	if result.OutputTruncated {
+		runtimeBytes--
+	}
+	n.SizeBytes += o + e - t.outputs - t.execution + runtimeBytes - t.runtimeBytes
 	if n.SizeBytes > usecase.MaxNotebookBytes {
 		return "", usecase.ErrTooLarge
 	}
-	_, err = tx.Exec(ctx, `UPDATE notebook_cell_data SET outputs=$3,execution_count=$4,output_truncated=$7,has_execution_count=true,outputs_bytes=$5,execution_bytes=$6 WHERE notebook_id=$1 AND cell_id=$2`, id, result.CellID, []byte(outputs), result.ExecutionCount, o, e, result.OutputTruncated)
+	_, err = tx.Exec(ctx, `UPDATE notebook_cell_data SET outputs=$3,execution_count=$4,output_truncated=$7,has_runtime_metadata=true,runtime_metadata_bytes=$8,has_execution_count=true,outputs_bytes=$5,execution_bytes=$6 WHERE notebook_id=$1 AND cell_id=$2`, id, result.CellID, []byte(outputs), result.ExecutionCount, o, e, result.OutputTruncated, runtimeBytes)
 	if err != nil {
 		return "", err
 	}
 	revision, err := publish(ctx, tx, n)
 	if err != nil {
-		return "", err
-	}
-	if err = tx.Commit(ctx); err != nil {
 		return "", err
 	}
 	return revision, nil

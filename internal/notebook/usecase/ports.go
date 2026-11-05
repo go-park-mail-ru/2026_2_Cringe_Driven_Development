@@ -48,7 +48,7 @@ type ActiveSessions interface {
 	ActiveNotebook(context.Context, int64) (int64, error)
 }
 
-// NoActiveSessions explicitly represents the not-yet-connected #13 service.
+// NoActiveSessions supports standalone notebook tests; app uses the runtime session store.
 type NoActiveSessions struct{}
 
 func (NoActiveSessions) ActiveNotebook(context.Context, int64) (int64, error) { return 0, nil }
