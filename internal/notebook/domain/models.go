@@ -1,7 +1,10 @@
 // Package models содержит типы, которые передаются между слоями блокнотов.
 package domain
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // CellKind совпадает с cell_type в файле .ipynb.
 type CellKind string
@@ -13,9 +16,14 @@ const (
 
 // Cell хранит блок; ID уникален внутри блокнота.
 type Cell struct {
-	ID     string
-	Kind   CellKind
+	// ID Идентификатор записи.
+	ID string
+	// Kind Вид команды, события или ячейки, определяющий обработку.
+	Kind CellKind
+	// Source Исходный текст ячейки.
 	Source string
+	// Result Результат команды в исходном JSON-представлении.
+	Result *CellResult
 }
 
 // Notebook собирается из строки в базе и блоков из файла.
@@ -48,4 +56,14 @@ type Content struct {
 type CellChange struct {
 	Hash string
 	Cell Cell
+}
+
+// CellResult содержит сохранённые выводы, счётчик и признак усечения, независимые от версии исходников.
+type CellResult struct {
+	// Outputs Сохранённые сообщения вывода в формате ipynb.
+	Outputs []json.RawMessage
+	// ExecutionCount Счётчик исполнения kernel; nil означает отсутствие известного номера.
+	ExecutionCount *int64
+	// Truncated Признак усечения данных из-за ограничения размера.
+	Truncated bool
 }

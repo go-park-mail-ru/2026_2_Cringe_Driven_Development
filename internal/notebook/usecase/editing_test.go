@@ -289,3 +289,17 @@ func TestMovePreservesRelativeOrderInBothDirections(t *testing.T) {
 		t.Fatalf("bad backward move: %+v", current.Cells)
 	}
 }
+
+// TestResultOnlyChangesDoNotInvalidateSourceHash проверяет, что результаты не меняют версию редактирования,
+// а изменение исходника её меняет.
+func TestResultOnlyChangesDoNotInvalidateSourceHash(t *testing.T) {
+	a := []byte(`{"cells":[{"id":"a","cell_type":"code","source":"print(1)","outputs":[],"execution_count":null}]}`)
+	b := []byte(`{"cells":[{"id":"a","cell_type":"code","source":["print(1)"],"outputs":[{"output_type":"stream","text":"1"}],"execution_count":2,"metadata":{"cellestial_runtime":{"output_truncated":true}}}]}`)
+	if contentHash(a) != contentHash(b) {
+		t.Fatal("result-only update invalidates editor revision")
+	}
+	c := []byte(`{"cells":[{"id":"a","cell_type":"code","source":"print(2)"}]}`)
+	if contentHash(a) == contentHash(c) {
+		t.Fatal("source update does not invalidate revision")
+	}
+}

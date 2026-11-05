@@ -27,3 +27,17 @@ output-options:
     - editNotebookCell
     - moveNotebookCell
     - removeNotebookCell
+    - startRuntimeSession
+    - getActiveRuntimeSession
+    - getRuntimeSession
+    - createRuntimeExecution
+    - getRuntimeExecution
+    - listRuntimeEvents
+    - touchRuntimeSession
+    - stopRuntimeSession
+    - getRuntimeQueue
+    - createRuntimeExecutionBatch
+    - inspectRuntimeVariables
+    - getRuntimeInspection
+    - interruptRuntimeKernel
+    - restartRuntimeKernel

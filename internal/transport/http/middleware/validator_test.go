@@ -34,14 +34,17 @@ func TestRequireUserRejectsUnsupportedSecurityScheme(t *testing.T) {
 		})
 	}
 }
+
+// TestContractOperationSecurityPolicy проверяет, что каждая операция контракта явно классифицирована как
+// публичная или требующая Bearer.
 func TestContractOperationSecurityPolicy(t *testing.T) {
 	spec, err := api.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
 	public := map[string]bool{"RegisterUser": true, "LoginUser": true, "RefreshToken": true}
-	// Both logout operations require Bearer; single-session logout also requires a refresh body.
-	protected := map[string]bool{"LogoutUser": true, "LogoutAllUserSessions": true, "GetCurrentUser": true, "UpdateCurrentUser": true, "ChangeCurrentUserPassword": true, "UploadCurrentUserAvatar": true, "ListNotebooks": true, "CreateNotebook": true, "GetNotebook": true, "CreateCell": true, "DeleteCell": true, "GetNotebookContent": true, "AddNotebookCell": true, "EditNotebookCell": true, "MoveNotebookCell": true, "RemoveNotebookCell": true}
+	// Обе операции выхода требуют Bearer; выход из одной сессии также требует refresh в теле.
+	protected := map[string]bool{"LogoutUser": true, "LogoutAllUserSessions": true, "GetCurrentUser": true, "UpdateCurrentUser": true, "ChangeCurrentUserPassword": true, "UploadCurrentUserAvatar": true, "ListNotebooks": true, "CreateNotebook": true, "GetNotebook": true, "CreateCell": true, "DeleteCell": true, "GetNotebookContent": true, "AddNotebookCell": true, "EditNotebookCell": true, "MoveNotebookCell": true, "RemoveNotebookCell": true, "StartRuntimeSession": true, "GetActiveRuntimeSession": true, "GetRuntimeSession": true, "CreateRuntimeExecution": true, "GetRuntimeExecution": true, "ListRuntimeEvents": true, "TouchRuntimeSession": true, "StopRuntimeSession": true, "GetRuntimeQueue": true, "CreateRuntimeExecutionBatch": true, "InspectRuntimeVariables": true, "GetRuntimeInspection": true, "InterruptRuntimeKernel": true, "RestartRuntimeKernel": true}
 	seen := 0
 	for path, item := range spec.Paths.Map() {
 		for method, op := range item.Operations() {

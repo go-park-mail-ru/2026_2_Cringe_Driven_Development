@@ -104,8 +104,18 @@ type AgentEndpoint struct{ BaseURL, Token string }
 
 // AgentHealth — ответ /health агента.
 type AgentHealth struct {
+	// SessionID UUID runtime-сессии.
 	SessionID, Language, State string
-	Ready                      bool
+	// Ready Готовность агента принимать команды.
+	Ready bool
+	// Reason Безопасная причина состояния без внутренних адресов и секретов.
+	Reason, Generation string
+	// ActiveExecutionID ID выполняющейся команды или nil при свободном kernel.
+	ActiveExecutionID *string
+	// Queued Число команд, ожидающих у агента.
+	Queued int
+	// Draining Запрет новых команд при завершении runtime.
+	Draining bool
 }
 
 // AgentClient — клиент управления агентом.
