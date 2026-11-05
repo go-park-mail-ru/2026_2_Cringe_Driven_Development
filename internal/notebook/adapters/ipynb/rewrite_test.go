@@ -2,6 +2,7 @@ package ipynb
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestRewriteAddsAndDeletesCells(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0] != cells[0] || !strings.Contains(string(data), `"outputs":[]`) {
+	if len(got) != 1 || !reflect.DeepEqual(got[0], cells[0]) || !strings.Contains(string(data), `"outputs":[]`) {
 		t.Fatalf("invalid new cell: %s", data)
 	}
 	data, err = (Codec{}).Rewrite(data, []domain.Cell{})

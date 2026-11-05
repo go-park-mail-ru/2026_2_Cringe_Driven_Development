@@ -159,7 +159,7 @@ func TestListNotebooks(t *testing.T) {
 		{
 			name: "один блокнот",
 			list: []domain.NotebookSummary{{ID: 3, Name: "a", CellsCount: 2, UpdatedAt: updated}},
-			want: `[{"cells_count":2,"id":3,"name":"a","updated_at":"2026-10-04T12:00:00Z"}]`,
+			want: `[{"cells_count":2,"has_active_session":false,"id":3,"name":"a","preview_code":"","updated_at":"2026-10-04T12:00:00Z"}]`,
 		},
 	}
 	for _, tt := range tests {

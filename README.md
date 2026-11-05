@@ -15,7 +15,7 @@ make health  # ожидается {"status": "alive"}
 make down    # volumes сохраняются
 ```
 
-`make up` ждёт healthcheck до 120 секунд. При отказе используйте `make logs` и `docker compose ps -a`. `/health` проверяет ответ API, но не все операции с БД и S3. Полный список команд, настройки портов и окружения — в [локальной разработке](docs/local-development.md).
+`make up` ждёт healthcheck до 120 секунд. При отказе используйте `make logs` и `docker compose ps -a`. `/health` проверяет ответ API, но не все операции с БД и S3. Полный список команд, настройки портов и окружения — в [локальной разработке](docs/local-development.md). Хранение блокнотов — [по ячейкам в PostgreSQL](docs/notebook-editing.md); [перенос старых ipynb](docs/notebook-migration.md).
 
 ## Агент исполнения Python/R
 

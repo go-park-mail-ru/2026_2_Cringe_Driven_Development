@@ -111,7 +111,7 @@ Apidog-токен нужен только для изменения контра
    Недоступный клиент отмечайте как непроверенный; запуск MCP сам по себе
    не подтверждает интеграцию с обоими клиентами. Правила ревью и исключение YarikMix — в [README](../README.md#как-работать-с-задачами).
 
-Go API требует `JWT_SECRET`, `BFF_API_KEY`, `S3_NOTEBOOKS_BUCKET`,
+Go API требует `JWT_SECRET`, `BFF_API_KEY`,
 `S3_AVATARS_BUCKET` и `S3_AVATARS_PUBLIC_URL`. Запросы к `/api/v1` передают
 `X-BFF-Key`, защищённые ручки — также Bearer. Контракт: [авторизация](authentication.md).
 
@@ -152,9 +152,9 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 
 ## S3 и аватары
 
-Локальный override запускает SeaweedFS 4.48 с двумя отдельными бакетами:
-`S3_NOTEBOOKS_BUCKET` (по умолчанию `cellestial-notebooks-0`) и
-`S3_AVATARS_BUCKET` (`cellestial-avatars-local`). Одноразовый сервис `s3-init`
+Локальный override запускает SeaweedFS 4.48 для аватаров с бакетом
+`S3_AVATARS_BUCKET` (`cellestial-avatars-local`). Блокноты хранятся по ячейкам
+в PostgreSQL; перенос старых ipynb описан в [notebook-migration.md](notebook-migration.md). Одноразовый сервис `s3-init`
 выдаёт `anonymous` только `Read` на бакет аватаров; API ждёт его успешного
 завершения. Чтение блокнотов и список объектов остаются закрытыми.
 Инициализация повторяется при `make up`, существующие данные сохраняются.

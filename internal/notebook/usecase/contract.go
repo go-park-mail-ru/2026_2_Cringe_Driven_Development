@@ -41,7 +41,7 @@ type Usecase interface {
 	DeleteCell(ctx context.Context, id, ownerID int64, hash string, index int) error
 }
 
-// Editing проверяет хеш всей редакции перед каждой операцией изменения.
+// Editing checks the opaque notebook revision before each operation.
 type Editing interface {
 	Content(ctx context.Context, id, ownerID int64) (domain.Content, error)
 	AddCell(ctx context.Context, id, ownerID int64, hash string, kind domain.CellKind, source string, index *int) (domain.CellChange, error)

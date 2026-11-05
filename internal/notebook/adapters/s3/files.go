@@ -1,4 +1,4 @@
-// Package s3 хранит файлы блокнотов в S3-совместимом хранилище.
+// Package s3 provides access to legacy S3 objects for offline notebook migration.
 package s3
 
 import (
@@ -10,28 +10,17 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 )
 
-// NewClient берёт регион, ключи и адрес из переменных AWS_*.
-func NewClient(ctx context.Context) (*awss3.Client, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("load aws config: %w", err)
-	}
-	return awss3.NewFromConfig(cfg, func(o *awss3.Options) {
-		o.UsePathStyle = true
-	}), nil
-}
+// Offline transfer may read a full 128 MiB object over a remote S3 connection.
+// Ordinary API requests use PostgreSQL and never use this adapter.
+const opTimeout = 2 * time.Minute
 
-// opTimeout меньше WRITE_TIMEOUT сервера, чтобы при недоступном S3 клиент получил 500.
-const opTimeout = 5 * time.Second
-
-// FileStorage реализует usecase.Files на одном бакете.
+// FileStorage reads the legacy bucket for migration; it is not wired into the API.
 type FileStorage struct {
 	client *awss3.Client
 	bucket string

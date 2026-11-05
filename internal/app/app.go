@@ -12,13 +12,12 @@ import (
 	"strconv"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
-	notebooks3 "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/s3"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	runtimemodule "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime"
 	runtimeusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/storage/s3client"
 	httptransport "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http"
 	avatarcodec "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/avatar"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/postgres"
@@ -80,14 +79,17 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	userRepo := postgres.NewUserRepository(pool)
 	userUsecase := usecase.NewUserUsecase(userRepo, sessions, tokens, usersecurity.PasswordHasher{}, usersecurity.RefreshTokens{}, cfg.RefreshTTL)
 
-	s3Client, err := notebooks3.NewClient(ctx)
+	s3Client, err := s3client.NewClient(ctx)
 	if err != nil {
 		return nil, startupError("s3_client", err)
 	}
+	notebookRepo := notebookpostgres.NewNotebookRepository(pool)
+	if err = notebookRepo.Ready(ctx); err != nil {
+		return nil, startupError("notebook_migration", err)
+	}
 	notebookUsecase := notebookusecase.NewNotebookUsecase(
-		notebookpostgres.NewNotebookRepository(pool),
-		notebooks3.NewFileStorage(s3Client, cfg.NotebooksBucket),
-		ipynb.Codec{},
+		notebookRepo,
+		notebookusecase.NoActiveSessions{},
 	)
 	envs, worker, err := runtimemodule.Build(ctx, cfg.Runtime, pool)
 	if err != nil {

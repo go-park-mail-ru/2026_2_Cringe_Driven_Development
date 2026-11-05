@@ -1,7 +1,9 @@
 package delivery
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -19,9 +21,30 @@ func (h *Handler) GetNotebookContent(ctx context.Context, req api.GetNotebookCon
 	if err != nil {
 		return nil, err
 	}
-	cells := make([]api.Cell, 0, len(result.Cells))
+	cells := make([]api.NotebookContent_Cells_Item, 0, len(result.Cells))
 	for _, cell := range result.Cells {
-		cells = append(cells, toAPICell(cell))
+		var item api.NotebookContent_Cells_Item
+		if cell.Kind == domain.CellKindCode {
+			outputs := []map[string]interface{}{}
+			if len(cell.Outputs) > 0 {
+				decoder := json.NewDecoder(bytes.NewReader(cell.Outputs))
+				decoder.UseNumber()
+				if err := decoder.Decode(&outputs); err != nil {
+					return nil, err
+				}
+			}
+			if outputs == nil {
+				outputs = []map[string]interface{}{}
+			}
+			if err := item.FromNotebookContentCells1(api.NotebookContentCells1{Id: cell.ID, Kind: api.NotebookContentCells1Kind(cell.Kind), Source: cell.Source, Outputs: outputs, ExecutionCount: cell.ExecutionCount, OutputTruncated: cell.OutputTruncated}); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := item.FromNotebookContentCells0(api.NotebookContentCells0{Id: cell.ID, Kind: api.NotebookContentCells0Kind(cell.Kind), Source: cell.Source}); err != nil {
+				return nil, err
+			}
+		}
+		cells = append(cells, item)
 	}
 	return api.GetNotebookContent200JSONResponse{Body: api.NotebookContent{Hash: result.Hash, Cells: cells}, Headers: api.GetNotebookContent200ResponseHeaders{ETag: quotedETag(result.Hash)}}, nil
 }
@@ -59,7 +82,7 @@ func editingError(err error) (int, api.NotebookEditingError) {
 	case errors.Is(err, usecase.ErrNotebookNotFound), errors.Is(err, usecase.ErrCellNotFound):
 		status = http.StatusNotFound
 		code = api.NotebookEditingErrorCodeNotFound
-	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidCellKind), errors.Is(err, usecase.ErrInvalidHash):
+	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidCellKind), errors.Is(err, usecase.ErrInvalidHash), errors.Is(err, usecase.ErrInvalidDocument):
 	default:
 		return 0, api.NotebookEditingError{}
 	}

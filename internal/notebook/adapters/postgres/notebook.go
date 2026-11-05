@@ -1,130 +1,197 @@
-// Package postgres хранит метаданные блокнотов в PostgreSQL.
+// Package postgres stores notebooks and individual cells transactionally.
 package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// DB описывает нужное от *pgxpool.Pool: запросы и транзакции.
 type DB interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Begin(context.Context) (pgx.Tx, error)
 }
+type NotebookRepository struct{ db DB }
 
-const selectNotebook = `SELECT id, owner_id, name, file_key, cells_count, created_at, updated_at
-	FROM notebooks WHERE id = $1 AND owner_id = $2`
+func NewNotebookRepository(db DB) *NotebookRepository { return &NotebookRepository{db: db} }
 
-// NotebookRepository реализует usecase.Metadata на таблице notebooks.
-type NotebookRepository struct {
-	db DB
-}
-
-// NewNotebookRepository принимает пул соединений.
-func NewNotebookRepository(db DB) *NotebookRepository {
-	return &NotebookRepository{db: db}
-}
-
-// Create вставляет строку; id и время создания выдаёт база.
-func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (domain.Notebook, error) {
-	started := time.Now()
-	err := r.db.QueryRow(ctx,
-		`INSERT INTO notebooks (owner_id, name, file_key, cells_count) VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at, updated_at`,
-		n.OwnerID, n.Name, n.FileKey, n.CellsCount,
-	).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt)
-	observability.LogStorage(ctx, "notebook.create", started, err)
-	if err != nil {
-		return domain.Notebook{}, fmt.Errorf("insert notebook: %w", err)
-	}
-	return n, nil
-}
-
-// List отдаёт блокноты владельца, сначала недавно изменённые.
-func (r *NotebookRepository) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
-	started := time.Now()
-	rows, err := r.db.Query(ctx,
-		`SELECT id, name, cells_count, updated_at FROM notebooks
-		WHERE owner_id = $1 ORDER BY updated_at DESC`,
-		ownerID,
-	)
-	if err != nil {
-		observability.LogStorage(ctx, "notebook.list", started, err)
-		return nil, fmt.Errorf("select notebooks: %w", err)
-	}
-	list, err := pgx.CollectRows(rows, scanSummary)
-	observability.LogStorage(ctx, "notebook.list", started, err)
-	if err != nil {
-		return nil, fmt.Errorf("scan notebooks: %w", err)
-	}
-	return list, nil
-}
-
-// Get ищет блокнот по id только среди блокнотов владельца.
-func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
-	started := time.Now()
-	n, err := scanNotebook(r.db.QueryRow(ctx, selectNotebook, id, ownerID))
-	observability.LogStorage(ctx, "notebook.get", started, err)
-	return n, err
-}
-
-// Modify выполняет fn под SELECT ... FOR UPDATE и атомарно публикует новую редакцию.
-func (r *NotebookRepository) Modify(ctx context.Context, id, ownerID int64, fn func(domain.Notebook) (usecase.MetadataUpdate, error)) (err error) {
-	started := time.Now()
-	defer func() { observability.LogStorage(ctx, "notebook.modify", started, err) }()
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	n, err := scanNotebook(tx.QueryRow(ctx, selectNotebook+` FOR UPDATE`, id, ownerID))
-	if err != nil {
-		return err
-	}
-	update, err := fn(n)
-	if err != nil {
-		return err
-	}
-	if update.Changed {
-		_, err = tx.Exec(ctx,
-			`UPDATE notebooks SET file_key = $2, cells_count = $3, updated_at = now() WHERE id = $1`,
-			id, update.FileKey, update.CellsCount,
-		)
-		if err != nil {
-			return fmt.Errorf("update notebook: %w", err)
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	return nil
-}
+const selectNotebook = `SELECT id,owner_id,name,revision,cells_count,preview_code,size_bytes,created_at,updated_at FROM notebooks WHERE id=$1 AND owner_id=$2`
 
 func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 	var n domain.Notebook
-	err := row.Scan(&n.ID, &n.OwnerID, &n.Name, &n.FileKey, &n.CellsCount, &n.CreatedAt, &n.UpdatedAt)
+	var revision *string
+	err := row.Scan(&n.ID, &n.OwnerID, &n.Name, &revision, &n.CellsCount, &n.PreviewCode, &n.SizeBytes, &n.CreatedAt, &n.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Notebook{}, usecase.ErrNotebookNotFound
+		return n, usecase.ErrNotebookNotFound
 	}
 	if err != nil {
-		return domain.Notebook{}, fmt.Errorf("select notebook: %w", err)
+		return n, err
+	}
+	if revision == nil {
+		return n, usecase.ErrMigrationRequired
+	}
+	n.Revision = *revision
+	return n, nil
+}
+func rawMap(m map[string]json.RawMessage) []byte {
+	if m == nil {
+		return []byte(`{}`)
+	}
+	b, _ := json.Marshal(m)
+	return b
+}
+func optionalJSON(b json.RawMessage) any {
+	if len(b) == 0 {
+		return nil
+	}
+	return []byte(b)
+}
+func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (domain.Notebook, error) {
+	if err := prepare(&n); err != nil {
+		return domain.Notebook{}, err
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	err = tx.QueryRow(ctx, `INSERT INTO notebooks(owner_id,name,revision,cells_count,preview_code,size_bytes,header_bytes,nbformat,nbformat_minor,metadata,extra) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,created_at,updated_at`, n.OwnerID, n.Name, n.Revision, n.CellsCount, n.PreviewCode, n.SizeBytes, ipynb.HeaderSize(n.Document), n.Document.NBFormat, n.Document.NBFormatMinor, optionalJSON(n.Document.Metadata), rawMap(n.Document.Extra)).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt)
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	for i := range n.Cells {
+		if err = insertCell(ctx, tx, n.ID, i, &n.Cells[i]); err != nil {
+			return domain.Notebook{}, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.Notebook{}, err
+	}
+	return n, nil
+}
+func prepare(n *domain.Notebook) error {
+	if len(n.Cells) > usecase.MaxCells {
+		return usecase.ErrTooManyCells
+	}
+	if err := ipynb.NormalizeFields(&n.Document, n.Cells); err != nil {
+		return fmt.Errorf("%w: %w", usecase.ErrInvalidDocument, err)
+	}
+	seen := map[string]bool{}
+	sizes := make([]int64, len(n.Cells))
+	n.PreviewCode = ""
+	for i, c := range n.Cells {
+		if c.ID == "" || seen[c.ID] {
+			return usecase.ErrInvalidDocument
+		}
+		seen[c.ID] = true
+		if err := usecase.ValidateSource(c.Source); err != nil {
+			return err
+		}
+		if c.Kind != domain.CellKindCode && c.Kind != domain.CellKindMarkdown && c.Kind != "raw" {
+			return usecase.ErrInvalidCellKind
+		}
+		sizes[i] = ipynb.CellSize(c)
+		if n.PreviewCode == "" && c.Kind == domain.CellKindCode {
+			n.PreviewCode = domain.Preview(c.Source)
+		}
+	}
+	n.SizeBytes = ipynb.DocumentSize(ipynb.HeaderSize(n.Document), sizes)
+	if n.SizeBytes > usecase.MaxNotebookBytes {
+		return usecase.ErrTooLarge
+	}
+	n.CellsCount = len(n.Cells)
+	n.Revision = uuid.NewString()
+	return nil
+}
+func insertCell(ctx context.Context, tx pgx.Tx, id int64, pos int, c *domain.Cell) error {
+	c.SourceVersion = uuid.NewString()
+	_, err := tx.Exec(ctx, `INSERT INTO notebook_cells(notebook_id,cell_id,position,kind,source,source_version,metadata,extra,edit_bytes,preview_candidate) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id, c.ID, pos, c.Kind, c.Source, c.SourceVersion, optionalJSON(c.Metadata), rawMap(c.Extra), ipynb.LightSize(*c), domain.Preview(c.Source) != "")
+	if err != nil {
+		return err
+	}
+	o, e, a := ipynb.DataSizes(*c)
+	_, err = tx.Exec(ctx, `INSERT INTO notebook_cell_data(notebook_id,cell_id,outputs,execution_count,has_execution_count,attachments,outputs_bytes,execution_bytes,attachments_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, id, c.ID, optionalJSON(c.Outputs), c.ExecutionCount, c.HasExecutionCount, optionalJSON(c.Attachments), o, e, a)
+	return err
+}
+func (r *NotebookRepository) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
+	rows, err := r.db.Query(ctx, `SELECT id,name,cells_count,preview_code,updated_at FROM notebooks WHERE owner_id=$1 ORDER BY updated_at DESC,id DESC`, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := []domain.NotebookSummary{}
+	for rows.Next() {
+		var n domain.NotebookSummary
+		if err = rows.Scan(&n.ID, &n.Name, &n.CellsCount, &n.PreviewCode, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, n)
+	}
+	return list, rows.Err()
+}
+func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`); err != nil {
+		return domain.Notebook{}, err
+	}
+	n, err := scanNotebook(tx.QueryRow(ctx, selectNotebook, id, ownerID))
+	if err != nil {
+		return n, err
+	}
+	n, err = readContent(ctx, tx, n)
+	if err != nil {
+		return n, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return n, err
 	}
 	return n, nil
 }
 
-func scanSummary(row pgx.CollectableRow) (domain.NotebookSummary, error) {
-	var s domain.NotebookSummary
-	err := row.Scan(&s.ID, &s.Name, &s.CellsCount, &s.UpdatedAt)
-	return s, err
+var _ usecase.Repository = (*NotebookRepository)(nil)
+var _ usecase.Results = (*NotebookRepository)(nil)
+
+func readContent(ctx context.Context, tx pgx.Tx, n domain.Notebook) (domain.Notebook, error) {
+	var err error
+
+	err = tx.QueryRow(ctx, `SELECT nbformat,nbformat_minor,metadata,extra FROM notebooks WHERE id=$1`, n.ID).Scan(&n.Document.NBFormat, &n.Document.NBFormatMinor, &n.Document.Metadata, &n.Document.Extra)
+	if err != nil {
+		return n, err
+	}
+	rows, err := tx.Query(ctx, `SELECT c.cell_id,c.kind,c.source,c.source_version,c.metadata,c.extra,d.outputs,d.execution_count,d.has_execution_count,d.attachments,d.output_truncated FROM notebook_cells c JOIN notebook_cell_data d USING(notebook_id,cell_id) WHERE c.notebook_id=$1 ORDER BY c.position`, n.ID)
+	if err != nil {
+		return n, err
+	}
+	n.Cells = []domain.Cell{}
+	for rows.Next() {
+		var c domain.Cell
+		if err = rows.Scan(&c.ID, &c.Kind, &c.Source, &c.SourceVersion, &c.Metadata, &c.Extra, &c.Outputs, &c.ExecutionCount, &c.HasExecutionCount, &c.Attachments, &c.OutputTruncated); err != nil {
+			rows.Close()
+			return n, err
+		}
+		n.Cells = append(n.Cells, c)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return n, err
+	}
+	if err = ipynb.NormalizeFields(&n.Document, n.Cells); err != nil {
+		return n, err
+	}
+	return n, nil
 }

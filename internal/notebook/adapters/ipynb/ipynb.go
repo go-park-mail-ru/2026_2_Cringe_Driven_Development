@@ -35,17 +35,28 @@ type source string
 
 // UnmarshalJSON склеивает массив строк в одну строку.
 func (s *source) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*s = source(str)
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	switch v := value.(type) {
+	case string:
+		*s = source(v)
 		return nil
+	case []any:
+		var text strings.Builder
+		for _, part := range v {
+			line, ok := part.(string)
+			if !ok {
+				return errors.New("source array must contain only strings")
+			}
+			text.WriteString(line)
+		}
+		*s = source(text.String())
+		return nil
+	default:
+		return errors.New("source must be a string or an array of strings")
 	}
-	var lines []string
-	if err := json.Unmarshal(data, &lines); err != nil {
-		return fmt.Errorf("source is neither a string nor an array of strings: %w", err)
-	}
-	*s = source(strings.Join(lines, ""))
-	return nil
 }
 
 // Parse разбирает файл в блоки; без блоков возвращает пустой срез, а не nil.
