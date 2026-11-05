@@ -15,6 +15,7 @@ import (
 
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
+	runtimedelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/httperr"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/middleware"
@@ -28,7 +29,12 @@ import (
 // Встроить два типа с именем Handler нельзя, поэтому псевдоним.
 type userHandler = Handler
 
+// runtimeHandler позволяет встроить runtime-хендлер рядом с другими типами Handler без конфликта имён.
+type runtimeHandler = runtimedelivery.Handler
+
+// testServer объединяет обработчики API для тестового маршрутизатора.
 type testServer struct {
+	*runtimeHandler
 	*userHandler
 	*notebookdelivery.Handler
 }
@@ -42,9 +48,11 @@ func newRouter(t *testing.T, uc usecase.Usecase) http.Handler {
 	strict := api.NewStrictHandlerWithOptions(testServer{userHandler: NewHandler(uc)}, nil, api.StrictHTTPServerOptions{RequestErrorHandlerFunc: httperr.RequestError, ResponseErrorHandlerFunc: httperr.ResponseError})
 	return security.AuthenticateBearer(testTokens(t), allowSessions{})(api.HandlerWithOptions(strict, api.GorillaServerOptions{BaseURL: "/api/v1", Middlewares: []api.MiddlewareFunc{middleware.Validator(spec, "/api/v1")}}))
 }
+
+// newSession создаёт тестовую сессию авторизации с ID пользователя и сроками действия токенов.
 func newSession(userID int64) usecase.Session {
 	return usecase.Session{
-		UserID:          userID,
+		SessionClaims:   usecase.SessionClaims{UserID: userID},
 		AccessToken:     "access-" + strconv.FormatInt(userID, 10),
 		RefreshToken:    "new-refresh",
 		ExpiresAt:       time.Now().Add(time.Hour),

@@ -62,6 +62,25 @@ func (Codec) Rewrite(data []byte, cells []domain.Cell) ([]byte, error) {
 		if c.Kind == domain.CellKindCode && changed {
 			original["outputs"] = json.RawMessage(`[]`)
 			original["execution_count"] = json.RawMessage(`null`)
+			var metadata map[string]json.RawMessage
+			if raw := original["metadata"]; len(raw) > 0 {
+				if err := json.Unmarshal(raw, &metadata); err != nil {
+					return nil, fmt.Errorf("decode cell metadata: %w", err)
+				}
+				if marker := metadata["cellestial_runtime"]; len(marker) > 0 {
+					var runtime map[string]json.RawMessage
+					if err := json.Unmarshal(marker, &runtime); err != nil {
+						return nil, fmt.Errorf("decode runtime metadata: %w", err)
+					}
+					if runtime != nil {
+						runtime["output_truncated"] = json.RawMessage(`false`)
+						delete(runtime, "execution_id")
+						delete(runtime, "session_id")
+						metadata["cellestial_runtime"], _ = json.Marshal(runtime)
+						original["metadata"], _ = json.Marshal(metadata)
+					}
+				}
+			}
 		}
 		out = append(out, original)
 	}

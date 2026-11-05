@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -33,23 +34,16 @@ func Run(cfg config.Config) error {
 	defer app.Close()
 	server := app.Server
 
-	workerCtx, stopWorker := context.WithCancel(ctx)
-	workerDone := make(chan struct{})
+	var workers []workerRunner
 	if app.RuntimeWorker != nil {
 		slog.Info("runtime worker started", slog.String("provider", app.RuntimeMode))
-		go func() {
-			defer close(workerDone)
-			if err := app.RuntimeWorker.Run(workerCtx); err != nil {
-				slog.Error("runtime worker stopped", slog.String("error", err.Error()))
-			}
-		}()
-	} else {
-		close(workerDone)
+		workers = append(workers, app.RuntimeWorker)
 	}
-	defer func() {
-		stopWorker()
-		<-workerDone
-	}()
+	if app.SessionWorker != nil {
+		workers = append(workers, app.SessionWorker)
+	}
+	stopWorkers := startWorkers(ctx, workers...)
+	defer stopWorkers()
 
 	slog.Info("starting server", slog.String("addr", server.Addr), slog.String("write_timeout", server.WriteTimeout.String()), slog.String("read_timeout", server.ReadTimeout.String()))
 	done := make(chan error, 1)
@@ -69,4 +63,21 @@ func Run(cfg config.Config) error {
 		}
 		return nil
 	}
+}
+
+// workerRunner задаёт общий способ запуска и остановки фоновых обработчиков приложения.
+type workerRunner interface{ Run(context.Context) error }
+
+// startWorkers отменяет и дожидается всех воркеров до закрытия зависимостей.
+func startWorkers(parent context.Context, workers ...workerRunner) func() {
+	ctx, cancel := context.WithCancel(parent)
+	var wg sync.WaitGroup
+	for _, worker := range workers {
+		wg.Go(func() {
+			if err := worker.Run(ctx); err != nil && ctx.Err() == nil {
+				slog.ErrorContext(ctx, "runtime worker stopped", "error_code", "runtime_worker_failed")
+			}
+		})
+	}
+	return func() { cancel(); wg.Wait() }
 }

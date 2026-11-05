@@ -2,7 +2,6 @@ package httptransport
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// TestS2SRejectionDoesNotTouchNotebookStorage проверяет, что отказ по X-BFF-Key не вызывает чтение или
+// запись блокнотов.
 func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 	for _, op := range []struct {
 		method, path string
@@ -60,8 +61,9 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 				if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"s2s_forbidden"`) {
 					t.Fatalf("rejection: %d %s", rec.Code, rec.Body)
 				}
-				// No expectations existed during rejection: any storage/session call fails.
-				// Positive control grants exact calls only after the rejected request.
+				// При отказе ожиданий нет: любой вызов хранилища или сервиса сессий нарушит тест.
+				// Разрешённые вызовы задаём только после отклонённого запроса для проверки успешного пути.
+				var revision string
 				if op.path == BaseURL+"/notebooks" {
 					var key string
 					put := files.EXPECT().Put(gomock.Any(), gomock.Cond(func(k string) bool { return strings.HasPrefix(k, "notebooks/") && strings.HasSuffix(k, ".ipynb") }), gomock.Cond(func(b []byte) bool {
@@ -72,6 +74,13 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 						return n.OwnerID == 1 && n.Name == "Notebook" && n.FileKey == key && n.CellsCount == 1
 					})).After(put).DoAndReturn(func(_ context.Context, n domain.Notebook) (domain.Notebook, error) { n.ID = 1; return n, nil })
 				} else {
+					meta.EXPECT().Get(gomock.Any(), int64(1), int64(1)).Return(domain.Notebook{ID: 1, OwnerID: 1, FileKey: "fixture.ipynb"}, nil)
+					files.EXPECT().Get(gomock.Any(), "fixture.ipynb").Return(data, nil)
+					snapshot, err := uc.Content(context.Background(), 1, 1)
+					if err != nil {
+						t.Fatal(err)
+					}
+					revision = snapshot.Hash
 					wantCount := 2
 					if op.method == http.MethodDelete {
 						wantCount = 0
@@ -95,7 +104,7 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 					})).Return(nil))
 				}
 				positive := notebookMutationRequest(op.method, op.path, access)
-				positive.Header.Set("If-Match", fmt.Sprintf("\"%x\"", sha256.Sum256(data)))
+				positive.Header.Set("If-Match", fmt.Sprintf("%q", revision))
 				rec = serveRouter(handler, positive)
 				if rec.Code != op.status {
 					t.Fatalf("valid request failed: status=%d body=%s", rec.Code, rec.Body)

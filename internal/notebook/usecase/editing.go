@@ -4,13 +4,48 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"slices"
+	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/google/uuid"
 )
 
+// contentHash вычисляет версию исходников и порядка ячеек; выводы, счётчики исполнения и метаданные на неё
+// не влияют.
 func contentHash(data []byte) string {
+	// От конфликтов редактирования защищают только устойчивый ID, тип, исходник и порядок ячеек.
+	// Выводы, счётчики исполнения и метаданные не изменяют версию для If-Match.
+	var doc struct {
+		Cells []struct {
+			ID     string          `json:"id"`
+			Kind   string          `json:"cell_type"`
+			Source json.RawMessage `json:"source"`
+		} `json:"cells"`
+	}
+	if json.Unmarshal(data, &doc) == nil {
+		type editable struct{ ID, Kind, Source string }
+		cells := make([]editable, 0, len(doc.Cells))
+		valid := true
+		for _, c := range doc.Cells {
+			var source string
+			if json.Unmarshal(c.Source, &source) != nil {
+				var lines []string
+				if json.Unmarshal(c.Source, &lines) != nil {
+					valid = false
+					break
+				}
+				source = strings.Join(lines, "")
+			}
+			cells = append(cells, editable{c.ID, c.Kind, source})
+		}
+		if valid {
+			if canonical, err := json.Marshal(cells); err == nil {
+				data = canonical
+			}
+		}
+	}
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }

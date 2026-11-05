@@ -19,7 +19,9 @@ import (
 )
 
 const (
-	maxBody = 4 << 20
+	// maxBody ограничивает размер ответа агента; остальные константы ограничивают установку и ожидание
+	// соединения.
+	maxBody = 64 << 20
 	// dialTimeout и tlsTimeout ограничивают установку соединения с VPS.
 	dialTimeout = 10 * time.Second
 	tlsTimeout  = 10 * time.Second
@@ -58,14 +60,20 @@ func New(caPEM, clientCertPEM, clientKeyPEM []byte) (*Client, error) {
 	tr.TLSHandshakeTimeout = tlsTimeout
 	tr.DialContext = (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext
 	tr.IdleConnTimeout = idleTimeout
-	return &Client{http: &http.Client{Transport: tr}, healthTimeout: defaultHealthTimeout}, nil
+	return &Client{http: &http.Client{Transport: tr, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, healthTimeout: defaultHealthTimeout}, nil
 }
 
 // do выполняет запрос; ошибки не содержат токена.
 func (c *Client) do(ctx context.Context, ep usecase.AgentEndpoint, method, path string, body any) (int, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	var rd io.Reader
 	if body != nil {
-		b, err := json.Marshal(body)
+		var buf bytes.Buffer
+		encoder := json.NewEncoder(&buf)
+		encoder.SetEscapeHTML(false)
+		err := encoder.Encode(body)
+		b := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
 		if err != nil {
 			return 0, nil, err
 		}
@@ -88,9 +96,12 @@ func (c *Client) do(ctx context.Context, ep usecase.AgentEndpoint, method, path 
 		return 0, nil, fmt.Errorf("agent %s %s: %w", method, path, err)
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
 		return 0, nil, fmt.Errorf("agent %s %s: read body: %w", method, path, err)
+	}
+	if len(data) > maxBody {
+		return 0, nil, errors.New("agent response exceeds limit")
 	}
 	return resp.StatusCode, data, nil
 }
@@ -112,15 +123,20 @@ func (c *Client) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.
 		return usecase.AgentHealth{}, status, nil
 	}
 	var v struct {
-		SessionID string `json:"session_id"`
-		Language  string `json:"language"`
-		State     string `json:"state"`
-		Ready     bool   `json:"ready"`
+		SessionID         string  `json:"session_id"`
+		Language          string  `json:"language"`
+		State             string  `json:"state"`
+		Ready             bool    `json:"ready"`
+		Reason            string  `json:"reason"`
+		Generation        string  `json:"generation"`
+		ActiveExecutionID *string `json:"active_execution_id"`
+		Queued            int     `json:"queued"`
+		Draining          bool    `json:"draining"`
 	}
 	if err := json.Unmarshal(data, &v); err != nil {
 		return usecase.AgentHealth{}, status, fmt.Errorf("agent GET /health: decode: %w", err)
 	}
-	return usecase.AgentHealth{SessionID: v.SessionID, Language: v.Language, State: v.State, Ready: v.Ready}, status, nil
+	return usecase.AgentHealth{SessionID: v.SessionID, Language: v.Language, State: v.State, Ready: v.Ready, Reason: v.Reason, Generation: v.Generation, ActiveExecutionID: v.ActiveExecutionID, Queued: v.Queued, Draining: v.Draining}, status, nil
 }
 
 func (c *Client) post(ctx context.Context, ep usecase.AgentEndpoint, path string, want int) error {

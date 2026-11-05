@@ -28,3 +28,20 @@ def test_recovery_does_not_replay_and_lock_is_exclusive(tmp_path):
         assert reopened.existing("session", command())
     finally:
         reopened.close()
+
+
+def test_event_page_limits_bytes_without_losing_large_first_event(tmp_path):
+    """Проверяет целостность большого первого события и чтение следующей страницы."""
+    journal = Journal(tmp_path)
+    try:
+        journal.create("session", "python")
+        journal.event("session", "large", text="x" * (17 * 1024 * 1024))
+        journal.event("session", "tail", text="tail")
+        initial = journal.events("session", 0)
+        page = journal.events("session", initial[-1]["seq"])
+        assert len(page) == 1
+        assert page[0]["kind"] == "large"
+        tail = journal.events("session", page[-1]["seq"])
+        assert tail[0]["kind"] == "tail"
+    finally:
+        journal.close()

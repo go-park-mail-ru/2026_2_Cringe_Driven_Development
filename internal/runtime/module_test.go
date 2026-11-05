@@ -12,19 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
+// TestRuntimeDisabledDoesNotStartWorker проверяет, что отключённый provisioning не запускает обработчик
+// создания VPS.
 func TestRuntimeDisabledDoesNotStartWorker(t *testing.T) {
-	svc, w, err := Build(context.Background(), config.RuntimeConfig{}, nil)
+	m, err := Build(context.Background(), config.RuntimeConfig{}, nil)
+	svc, w := m.Environments, m.Worker
 	if err != nil || w != nil || svc == nil {
 		t.Fatalf("svc=%v worker=%v err=%v", svc, w, err)
+	}
+	if m.Agent == nil {
+		t.Fatal("missing disabled session agent")
+	}
+	if _, err := m.Agent.Health(context.Background(), uuid.New()); err == nil {
+		t.Fatal("disabled agent unexpectedly available")
 	}
 	if _, err := svc.RequestCreate(context.Background(), usecase.CreateEnvironment{SessionID: uuid.New(), Language: "python"}); !errors.Is(err, usecase.ErrDisabled) {
 		t.Fatalf("err=%v", err)
 	}
 }
 
+// TestRuntimeFakeBuilds проверяет сборку тестового окружения без настоящего облака.
 func TestRuntimeFakeBuilds(t *testing.T) {
 	cfg := config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 1, MaxConcurrentOps: 1}
-	svc, w, err := Build(context.Background(), cfg, nil)
+	m, err := Build(context.Background(), cfg, nil)
+	svc, w := m.Environments, m.Worker
 	if err != nil || svc == nil || w == nil {
 		t.Fatalf("svc=%v worker=%v err=%v", svc, w, err)
 	}
@@ -55,6 +66,7 @@ func TestSmokeDepsUseOwnWorkSubdir(t *testing.T) {
 	}
 }
 
+// TestRuntimeInitErrorOnBadCA проверяет отказ запуска runtime с некорректным доверенным сертификатом.
 func TestRuntimeInitErrorOnBadCA(t *testing.T) {
 	bad := filepath.Join(t.TempDir(), "bad.pem")
 	if err := os.WriteFile(bad, []byte("not pem SECRET"), 0o600); err != nil {
@@ -64,7 +76,8 @@ func TestRuntimeInitErrorOnBadCA(t *testing.T) {
 		Enabled: true, Provider: "openstack", SecretsKey: make([]byte, 32),
 		TLSCACertFile: bad, TLSCAKeyFile: bad, TLSClientCertFile: bad, TLSClientKeyFile: bad,
 	}
-	if _, w, err := Build(context.Background(), cfg, nil); err == nil || w != nil {
+	if m, err := Build(context.Background(), cfg, nil); err == nil || m.Worker != nil {
+		w := m.Worker
 		t.Fatalf("expected error, got worker=%v err=%v", w, err)
 	}
 }

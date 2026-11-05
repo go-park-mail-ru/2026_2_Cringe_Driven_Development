@@ -18,13 +18,26 @@ var ErrUnreachable = errors.New("fake agent: connection refused")
 
 var printCall = regexp.MustCompile(`^\s*print\((.*)\)\s*$`)
 
+// agentState хранит состояние тестового агента в памяти; настоящую VPS и kernel не создаёт.
 type agentState struct {
+	// token Секретный токен только для внутреннего обращения к агенту.
 	token, language string
-	session         uuid.UUID
-	state           string
-	status          int // 0 — по состоянию
-	executions      map[string]string
-	events          []json.RawMessage
+	// generation Текущее поколение тестового kernel.
+	generation string
+	// results Подготовленные результаты тестового агента.
+	results map[string]json.RawMessage
+	// session Снимок тестовой сессии.
+	session uuid.UUID
+	// state Состояние тестового агента.
+	state string
+	// status Состояние, подставляемое HTTP-тестом.
+	status int // Значение 0 выбирает ответ по текущему состоянию.
+	// executions Состояния команд тестового агента.
+	executions map[string]string
+	// commands Команды, сохранённые тестовым агентом.
+	commands map[string]string
+	// events Журнал событий тестового агента.
+	events []json.RawMessage
 }
 
 // Agent — in-memory usecase.AgentClient. Агенты адресуются по AgentEndpoint.BaseURL.
@@ -96,7 +109,7 @@ func (a *Agent) call(ctx context.Context, method string, ep usecase.AgentEndpoin
 	return s, http.StatusOK, nil
 }
 
-// Health возвращает состояние агента.
+// Health возвращает готовность, язык и поколение тестового агента из памяти.
 func (a *Agent) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.AgentHealth, int, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -104,7 +117,7 @@ func (a *Agent) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.A
 	if s == nil {
 		return usecase.AgentHealth{}, status, err
 	}
-	h := usecase.AgentHealth{SessionID: s.session.String(), Language: s.language, State: s.state, Ready: s.state == "READY"}
+	h := usecase.AgentHealth{SessionID: s.session.String(), Language: s.language, State: s.state, Ready: s.state == "READY", Generation: s.generation}
 	switch {
 	case s.status != 0:
 		status = s.status

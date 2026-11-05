@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -116,6 +117,36 @@ func (e ErrorCode) Valid() bool {
 	}
 }
 
+// Defines values for NotebookContentCells0Kind.
+const (
+	NotebookContentCells0KindMarkdown NotebookContentCells0Kind = "markdown"
+)
+
+// Valid indicates whether the value is a known member of the NotebookContentCells0Kind enum.
+func (e NotebookContentCells0Kind) Valid() bool {
+	switch e {
+	case NotebookContentCells0KindMarkdown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotebookContentCells1Kind.
+const (
+	NotebookContentCells1KindCode NotebookContentCells1Kind = "code"
+)
+
+// Valid indicates whether the value is a known member of the NotebookContentCells1Kind enum.
+func (e NotebookContentCells1Kind) Valid() bool {
+	switch e {
+	case NotebookContentCells1KindCode:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotebookEditingErrorCode.
 const (
 	NotebookEditingErrorCodeCsrfInvalid      NotebookEditingErrorCode = "csrf_invalid"
@@ -146,6 +177,288 @@ func (e NotebookEditingErrorCode) Valid() bool {
 	case NotebookEditingErrorCodeUnauthorized:
 		return true
 	case NotebookEditingErrorCodeValidationError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeActiveSessionConflictCode.
+const (
+	ActiveSessionExists RuntimeActiveSessionConflictCode = "active_session_exists"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeActiveSessionConflictCode enum.
+func (e RuntimeActiveSessionConflictCode) Valid() bool {
+	switch e {
+	case ActiveSessionExists:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeErrorCode.
+const (
+	RuntimeErrorCodeConflict           RuntimeErrorCode = "conflict"
+	RuntimeErrorCodeInternal           RuntimeErrorCode = "internal"
+	RuntimeErrorCodeNotFound           RuntimeErrorCode = "not_found"
+	RuntimeErrorCodeQueueFull          RuntimeErrorCode = "queue_full"
+	RuntimeErrorCodeRuntimeUnavailable RuntimeErrorCode = "runtime_unavailable"
+	RuntimeErrorCodeS2sForbidden       RuntimeErrorCode = "s2s_forbidden"
+	RuntimeErrorCodeUnauthorized       RuntimeErrorCode = "unauthorized"
+	RuntimeErrorCodeValidationError    RuntimeErrorCode = "validation_error"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeErrorCode enum.
+func (e RuntimeErrorCode) Valid() bool {
+	switch e {
+	case RuntimeErrorCodeConflict:
+		return true
+	case RuntimeErrorCodeInternal:
+		return true
+	case RuntimeErrorCodeNotFound:
+		return true
+	case RuntimeErrorCodeQueueFull:
+		return true
+	case RuntimeErrorCodeRuntimeUnavailable:
+		return true
+	case RuntimeErrorCodeS2sForbidden:
+		return true
+	case RuntimeErrorCodeUnauthorized:
+		return true
+	case RuntimeErrorCodeValidationError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeExecutionProjection.
+const (
+	RuntimeExecutionProjectionApplied  RuntimeExecutionProjection = "applied"
+	RuntimeExecutionProjectionConflict RuntimeExecutionProjection = "conflict"
+	RuntimeExecutionProjectionPending  RuntimeExecutionProjection = "pending"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeExecutionProjection enum.
+func (e RuntimeExecutionProjection) Valid() bool {
+	switch e {
+	case RuntimeExecutionProjectionApplied:
+		return true
+	case RuntimeExecutionProjectionConflict:
+		return true
+	case RuntimeExecutionProjectionPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeExecutionState.
+const (
+	RuntimeExecutionStateCANCELLED   RuntimeExecutionState = "CANCELLED"
+	RuntimeExecutionStateFAILED      RuntimeExecutionState = "FAILED"
+	RuntimeExecutionStateINTERRUPTED RuntimeExecutionState = "INTERRUPTED"
+	RuntimeExecutionStateQUEUED      RuntimeExecutionState = "QUEUED"
+	RuntimeExecutionStateREJECTED    RuntimeExecutionState = "REJECTED"
+	RuntimeExecutionStateRUNNING     RuntimeExecutionState = "RUNNING"
+	RuntimeExecutionStateSUCCEEDED   RuntimeExecutionState = "SUCCEEDED"
+	RuntimeExecutionStateTIMEDOUT    RuntimeExecutionState = "TIMED_OUT"
+	RuntimeExecutionStateUNKNOWN     RuntimeExecutionState = "UNKNOWN"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeExecutionState enum.
+func (e RuntimeExecutionState) Valid() bool {
+	switch e {
+	case RuntimeExecutionStateCANCELLED:
+		return true
+	case RuntimeExecutionStateFAILED:
+		return true
+	case RuntimeExecutionStateINTERRUPTED:
+		return true
+	case RuntimeExecutionStateQUEUED:
+		return true
+	case RuntimeExecutionStateREJECTED:
+		return true
+	case RuntimeExecutionStateRUNNING:
+		return true
+	case RuntimeExecutionStateSUCCEEDED:
+		return true
+	case RuntimeExecutionStateTIMEDOUT:
+		return true
+	case RuntimeExecutionStateUNKNOWN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeInspectionState.
+const (
+	RuntimeInspectionStateCANCELLED   RuntimeInspectionState = "CANCELLED"
+	RuntimeInspectionStateFAILED      RuntimeInspectionState = "FAILED"
+	RuntimeInspectionStateINTERRUPTED RuntimeInspectionState = "INTERRUPTED"
+	RuntimeInspectionStateQUEUED      RuntimeInspectionState = "QUEUED"
+	RuntimeInspectionStateREJECTED    RuntimeInspectionState = "REJECTED"
+	RuntimeInspectionStateRUNNING     RuntimeInspectionState = "RUNNING"
+	RuntimeInspectionStateSUCCEEDED   RuntimeInspectionState = "SUCCEEDED"
+	RuntimeInspectionStateTIMEDOUT    RuntimeInspectionState = "TIMED_OUT"
+	RuntimeInspectionStateUNKNOWN     RuntimeInspectionState = "UNKNOWN"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeInspectionState enum.
+func (e RuntimeInspectionState) Valid() bool {
+	switch e {
+	case RuntimeInspectionStateCANCELLED:
+		return true
+	case RuntimeInspectionStateFAILED:
+		return true
+	case RuntimeInspectionStateINTERRUPTED:
+		return true
+	case RuntimeInspectionStateQUEUED:
+		return true
+	case RuntimeInspectionStateREJECTED:
+		return true
+	case RuntimeInspectionStateRUNNING:
+		return true
+	case RuntimeInspectionStateSUCCEEDED:
+		return true
+	case RuntimeInspectionStateTIMEDOUT:
+		return true
+	case RuntimeInspectionStateUNKNOWN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeQueueSnapshotItemsState.
+const (
+	RuntimeQueueSnapshotItemsStateQUEUED  RuntimeQueueSnapshotItemsState = "QUEUED"
+	RuntimeQueueSnapshotItemsStateRUNNING RuntimeQueueSnapshotItemsState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeQueueSnapshotItemsState enum.
+func (e RuntimeQueueSnapshotItemsState) Valid() bool {
+	switch e {
+	case RuntimeQueueSnapshotItemsStateQUEUED:
+		return true
+	case RuntimeQueueSnapshotItemsStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeSessionLanguage.
+const (
+	RuntimeSessionLanguagePython RuntimeSessionLanguage = "python"
+	RuntimeSessionLanguageR      RuntimeSessionLanguage = "r"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeSessionLanguage enum.
+func (e RuntimeSessionLanguage) Valid() bool {
+	switch e {
+	case RuntimeSessionLanguagePython:
+		return true
+	case RuntimeSessionLanguageR:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeSessionStage.
+const (
+	CleanupPending      RuntimeSessionStage = "cleanup_pending"
+	ConfiguringAgent    RuntimeSessionStage = "configuring_agent"
+	CreatingVps         RuntimeSessionStage = "creating_vps"
+	DeletingEnvironment RuntimeSessionStage = "deleting_environment"
+	Failed              RuntimeSessionStage = "failed"
+	Queued              RuntimeSessionStage = "queued"
+	Ready               RuntimeSessionStage = "ready"
+	Reconnecting        RuntimeSessionStage = "reconnecting"
+	Stopped             RuntimeSessionStage = "stopped"
+	Stopping            RuntimeSessionStage = "stopping"
+	VerifyingAgent      RuntimeSessionStage = "verifying_agent"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeSessionStage enum.
+func (e RuntimeSessionStage) Valid() bool {
+	switch e {
+	case CleanupPending:
+		return true
+	case ConfiguringAgent:
+		return true
+	case CreatingVps:
+		return true
+	case DeletingEnvironment:
+		return true
+	case Failed:
+		return true
+	case Queued:
+		return true
+	case Ready:
+		return true
+	case Reconnecting:
+		return true
+	case Stopped:
+		return true
+	case Stopping:
+		return true
+	case VerifyingAgent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeSessionState.
+const (
+	RuntimeSessionStateFAILED       RuntimeSessionState = "FAILED"
+	RuntimeSessionStatePROVISIONING RuntimeSessionState = "PROVISIONING"
+	RuntimeSessionStateREADY        RuntimeSessionState = "READY"
+	RuntimeSessionStateRECONNECTING RuntimeSessionState = "RECONNECTING"
+	RuntimeSessionStateSTARTING     RuntimeSessionState = "STARTING"
+	RuntimeSessionStateSTOPPED      RuntimeSessionState = "STOPPED"
+	RuntimeSessionStateSTOPPING     RuntimeSessionState = "STOPPING"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeSessionState enum.
+func (e RuntimeSessionState) Valid() bool {
+	switch e {
+	case RuntimeSessionStateFAILED:
+		return true
+	case RuntimeSessionStatePROVISIONING:
+		return true
+	case RuntimeSessionStateREADY:
+		return true
+	case RuntimeSessionStateRECONNECTING:
+		return true
+	case RuntimeSessionStateSTARTING:
+		return true
+	case RuntimeSessionStateSTOPPED:
+		return true
+	case RuntimeSessionStateSTOPPING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeStartRequestLanguage.
+const (
+	RuntimeStartRequestLanguagePython RuntimeStartRequestLanguage = "python"
+	RuntimeStartRequestLanguageR      RuntimeStartRequestLanguage = "r"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeStartRequestLanguage enum.
+func (e RuntimeStartRequestLanguage) Valid() bool {
+	switch e {
+	case RuntimeStartRequestLanguagePython:
+		return true
+	case RuntimeStartRequestLanguageR:
 		return true
 	default:
 		return false
@@ -188,14 +501,57 @@ func (e UserProfileErrorCode) Valid() bool {
 	}
 }
 
+// Defines values for TouchRuntimeSession200JSONResponseBodyAccepted.
+const (
+	TouchRuntimeSession200JSONResponseBodyAcceptedTrue TouchRuntimeSession200JSONResponseBodyAccepted = true
+)
+
+// Valid indicates whether the value is a known member of the TouchRuntimeSession200JSONResponseBodyAccepted enum.
+func (e TouchRuntimeSession200JSONResponseBodyAccepted) Valid() bool {
+	switch e {
+	case TouchRuntimeSession200JSONResponseBodyAcceptedTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InterruptRuntimeKernel200JSONResponseBodyInterruptRequested.
+const (
+	InterruptRuntimeKernel200JSONResponseBodyInterruptRequestedTrue InterruptRuntimeKernel200JSONResponseBodyInterruptRequested = true
+)
+
+// Valid indicates whether the value is a known member of the InterruptRuntimeKernel200JSONResponseBodyInterruptRequested enum.
+func (e InterruptRuntimeKernel200JSONResponseBodyInterruptRequested) Valid() bool {
+	switch e {
+	case InterruptRuntimeKernel200JSONResponseBodyInterruptRequestedTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StopRuntimeSession202JSONResponseBodyAccepted.
+const (
+	StopRuntimeSession202JSONResponseBodyAcceptedTrue StopRuntimeSession202JSONResponseBodyAccepted = true
+)
+
+// Valid indicates whether the value is a known member of the StopRuntimeSession202JSONResponseBodyAccepted enum.
+func (e StopRuntimeSession202JSONResponseBodyAccepted) Valid() bool {
+	switch e {
+	case StopRuntimeSession202JSONResponseBodyAcceptedTrue:
+		return true
+	default:
+		return false
+	}
+}
+
 // AddNotebookCellRequest defines model for AddNotebookCellRequest.
 type AddNotebookCellRequest struct {
 	// Index Индекс вставки от 0 до текущего числа блоков включительно. Без поля — в конец.
-	Index *int                       `json:"index,omitempty"`
-	Kind  AddNotebookCellRequestKind `json:"kind"`
-
-	// Source  Максимум 65536 байт UTF-8 (64 КиБ); превышение даёт 413.
-	Source string `json:"source"`
+	Index  *int                       `json:"index,omitempty"`
+	Kind   AddNotebookCellRequestKind `json:"kind"`
+	Source string                     `json:"source"`
 }
 
 // AddNotebookCellRequestKind defines model for AddNotebookCellRequest.Kind.
@@ -217,7 +573,7 @@ type Cell struct {
 	// Kind Вид блока
 	Kind CellKind `json:"kind"`
 
-	// Source Содержимое блока Максимум 65536 байт UTF-8 (64 КиБ); превышение даёт 413.
+	// Source Содержимое блока
 	Source string `json:"source"`
 }
 
@@ -258,7 +614,7 @@ type Credentials struct {
 
 // EditNotebookCellRequest defines model for EditNotebookCellRequest.
 type EditNotebookCellRequest struct {
-	// Source Новое полное содержимое блока; пустая строка допустима. Тип и ID блока сохраняются. Максимум 65536 байт UTF-8 (64 КиБ); превышение даёт 413.
+	// Source Новое полное содержимое блока; пустая строка допустима. Тип и ID блока сохраняются.
 	Source string `json:"source"`
 }
 
@@ -302,14 +658,58 @@ type NotebookCellChange struct {
 	Hash NotebookHash `json:"hash"`
 }
 
-// NotebookContent defines model for NotebookContent.
+// NotebookContent Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
 type NotebookContent struct {
-	Cells []Cell `json:"cells"`
+	Cells []NotebookContent_Cells_Item `json:"cells"`
 
 	// Hash Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".
 	//
 	// Examples: h123
 	Hash NotebookHash `json:"hash"`
+}
+
+// NotebookContentCells0 defines model for NotebookContent.Cells.0.
+type NotebookContentCells0 struct {
+	// Id ID блока внутри блокнота
+	Id string `json:"id"`
+
+	// Kind Вид блока
+	Kind NotebookContentCells0Kind `json:"kind"`
+
+	// Source Содержимое блока
+	Source string `json:"source"`
+}
+
+// NotebookContentCells0Kind Вид блока
+type NotebookContentCells0Kind string
+
+// NotebookContentCells1 defines model for NotebookContent.Cells.1.
+type NotebookContentCells1 struct {
+	// ExecutionCount Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
+	ExecutionCount *int64 `json:"execution_count"`
+
+	// Id ID блока внутри блокнота
+	Id string `json:"id"`
+
+	// Kind Вид блока
+	Kind NotebookContentCells1Kind `json:"kind"`
+
+	// OutputTruncated Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется.
+	OutputTruncated bool `json:"output_truncated"`
+
+	// Outputs Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение.
+	Outputs []map[string]interface{} `json:"outputs"`
+
+	// Source Содержимое блока
+	Source string `json:"source"`
+}
+
+// NotebookContentCells1Kind Вид блока
+type NotebookContentCells1Kind string
+
+// NotebookContent_Cells_Item defines model for NotebookContent.cells.Item.
+type NotebookContent_Cells_Item struct {
+	union json.RawMessage
 }
 
 // NotebookContentChange defines model for NotebookContentChange.
@@ -348,6 +748,199 @@ type RefreshTokenRequest struct {
 	// RefreshToken Refresh-токен текущей сессии.
 	RefreshToken string `json:"refresh_token"`
 }
+
+// RuntimeActiveSessionConflict defines model for RuntimeActiveSessionConflict.
+type RuntimeActiveSessionConflict struct {
+	// ActiveSession Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.
+	ActiveSession RuntimeSession                   `json:"active_session"`
+	Code          RuntimeActiveSessionConflictCode `json:"code"`
+	Message       string                           `json:"message"`
+}
+
+// RuntimeActiveSessionConflictCode defines model for RuntimeActiveSessionConflict.Code.
+type RuntimeActiveSessionConflictCode string
+
+// RuntimeBatchExecuteRequest defines model for RuntimeBatchExecuteRequest.
+type RuntimeBatchExecuteRequest struct {
+	// Cells Фиксированный список всех сохранённых code-ячеек в порядке блокнота на момент нажатия. Backend проверяет принадлежность, уникальность cell_id, порядок и SHA-256 source перед атомарным принятием. Позднее добавленные ячейки не включаются.
+	Cells []struct {
+		CellId     string `json:"cell_id"`
+		SourceHash string `json:"source_hash"`
+	} `json:"cells"`
+
+	// RequestId Ключ идемпотентности массового запуска в пределах runtime-сессии.
+	RequestId string `json:"request_id"`
+
+	// TimeoutSeconds Общий для элементов пакета конечный таймаут одной команды в секундах; не длительность всего пакета.
+	TimeoutSeconds *float32 `json:"timeout_seconds,omitempty"`
+}
+
+// RuntimeBatchExecution defines model for RuntimeBatchExecution.
+type RuntimeBatchExecution struct {
+	// ExecutionIds Полный неизменный список IDs всех принятых исполнений в порядке cells запроса, включая уже завершённые. При повторе возвращается тот же список; текущая очередь его не заменяет.
+	ExecutionIds []string           `json:"execution_ids"`
+	RequestId    string             `json:"request_id"`
+	SessionId    openapi_types.UUID `json:"session_id"`
+}
+
+// RuntimeConflictResponse active_session_exists содержит текущую сессию; обычный conflict обозначает несовместимый повтор request_id.
+type RuntimeConflictResponse struct {
+	union json.RawMessage
+}
+
+// RuntimeError defines model for RuntimeError.
+type RuntimeError struct {
+	Code RuntimeErrorCode `json:"code"`
+
+	// Message Безопасное описание без секретов и сырых ошибок внешних сервисов.
+	Message string `json:"message"`
+}
+
+// RuntimeErrorCode defines model for RuntimeError.Code.
+type RuntimeErrorCode string
+
+// RuntimeEvent defines model for RuntimeEvent.
+type RuntimeEvent struct {
+	// Body Публичные данные события. События кодовой команды содержат body.execution_id — ID для GET executions/{execution_id}; ID стабилен при поздних событиях. События инспекции содержат body.inspection_id и не содержат body.execution_id; результат читается через GET variables/{execution_id}. События сессии могут не иметь обоих полей. Не выводить IDs из parent_msg_id или порядка ячеек. Не содержат токены, endpoint или ID облачных ресурсов.
+	Body map[string]interface{} `json:"body"`
+	Kind string                 `json:"kind"`
+	Seq  int64                  `json:"seq"`
+}
+
+// RuntimeEventsResponse defines model for RuntimeEventsResponse.
+type RuntimeEventsResponse struct {
+	Events  []RuntimeEvent `json:"events"`
+	HasMore bool           `json:"has_more"`
+
+	// NextCursor Последний действительно отданный public seq; при пустой странице равен входному after.
+	NextCursor int64 `json:"next_cursor"`
+}
+
+// RuntimeExecuteRequest defines model for RuntimeExecuteRequest.
+type RuntimeExecuteRequest struct {
+	// CellId ID существующей кодовой ячейки этого блокнота.
+	CellId string `json:"cell_id"`
+
+	// ExecutionId Ключ идемпотентности в пределах runtime-сессии.
+	ExecutionId string `json:"execution_id"`
+
+	// SourceHash SHA-256 UTF-8 сохранённого source конкретной ячейки. Код читает backend из PostgreSQL; исходный код в запросе не передаётся. Не путать с непрозрачной редакцией всего блокнота.
+	SourceHash string `json:"source_hash"`
+
+	// TimeoutSeconds Конечное число секунд. По умолчанию 300, NaN и Infinity недопустимы.
+	TimeoutSeconds *float32 `json:"timeout_seconds,omitempty"`
+}
+
+// RuntimeExecution defines model for RuntimeExecution.
+type RuntimeExecution struct {
+	Attempt        int64  `json:"attempt"`
+	CellId         string `json:"cell_id"`
+	ExecutionCount *int64 `json:"execution_count"`
+	ExecutionId    string `json:"execution_id"`
+
+	// OutputTruncated Достигнут лимит вывода; код мог продолжить работу.
+	OutputTruncated bool `json:"output_truncated"`
+
+	// Outputs Выводы ячейки в формате nbformat. MIME/HTML — недоверенные данные, frontend отображает их безопасно.
+	Outputs []map[string]interface{} `json:"outputs"`
+
+	// Projection Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения.
+	Projection     RuntimeExecutionProjection `json:"projection"`
+	SessionId      openapi_types.UUID         `json:"session_id"`
+	SourceHash     string                     `json:"source_hash"`
+	State          RuntimeExecutionState      `json:"state"`
+	TimeoutSeconds float32                    `json:"timeout_seconds"`
+}
+
+// RuntimeExecutionProjection Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения.
+type RuntimeExecutionProjection string
+
+// RuntimeExecutionState defines model for RuntimeExecution.State.
+type RuntimeExecutionState string
+
+// RuntimeInspection defines model for RuntimeInspection.
+type RuntimeInspection struct {
+	ExecutionId     string `json:"execution_id"`
+	OutputTruncated bool   `json:"output_truncated"`
+
+	// Reason Безопасный код причины ошибки/недостоверного результата; без raw-ошибок и секретов, null при отсутствии.
+	Reason    *string                `json:"reason"`
+	SessionId openapi_types.UUID     `json:"session_id"`
+	State     RuntimeInspectionState `json:"state"`
+
+	// Variables Дескрипторы переменных от агента; до успешного результата пустой массив. Не использовать текст preview как HTML или исполняемый код.
+	Variables []struct {
+		Name    string  `json:"name"`
+		Preview *string `json:"preview"`
+		Type    string  `json:"type"`
+	} `json:"variables"`
+}
+
+// RuntimeInspectionState defines model for RuntimeInspection.State.
+type RuntimeInspectionState string
+
+// RuntimeQueueSnapshot Снимок только незавершённых исполнений code-ячеек. Инспекции переменных не входят в items и отслеживаются через /runtime-sessions/{id}/variables. Пустой items не подтверждает свободу kernel для restart.
+type RuntimeQueueSnapshot struct {
+	// Items Только команды исполнения code-ячеек с настоящим cell_id: RUNNING первым, затем QUEUED в порядке принятия. Инспекции переменных исключены; их состояние и результаты доступны через /variables. Пустая очередь ячеек — [].
+	Items []struct {
+		CellId      string                         `json:"cell_id"`
+		ExecutionId string                         `json:"execution_id"`
+		State       RuntimeQueueSnapshotItemsState `json:"state"`
+	} `json:"items"`
+	SessionId openapi_types.UUID `json:"session_id"`
+}
+
+// RuntimeQueueSnapshotItemsState defines model for RuntimeQueueSnapshot.Items.State.
+type RuntimeQueueSnapshotItemsState string
+
+// RuntimeSession Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.
+type RuntimeSession struct {
+	// CleanupError Безопасный код ошибки очистки; null при её отсутствии.
+	CleanupError *string   `json:"cleanup_error"`
+	CreatedAt    time.Time `json:"created_at"`
+
+	// Generation Поколение kernel; null до его появления.
+	Generation *openapi_types.UUID `json:"generation"`
+	Id         openapi_types.UUID  `json:"id"`
+
+	// JournalIncomplete Часть журнала агента недоступна и не была подтверждённо сохранена.
+	JournalIncomplete bool                   `json:"journal_incomplete"`
+	Language          RuntimeSessionLanguage `json:"language"`
+	LastActivityAt    time.Time              `json:"last_activity_at"`
+	NotebookId        int64                  `json:"notebook_id"`
+
+	// PublicSeq Последний публичный курсор событий #13; отличается от seq агента.
+	PublicSeq int64 `json:"public_seq"`
+
+	// Reason Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.
+	Reason *string `json:"reason"`
+
+	// Stage Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.
+	Stage RuntimeSessionStage `json:"stage"`
+
+	// State Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.
+	State RuntimeSessionState `json:"state"`
+}
+
+// RuntimeSessionLanguage defines model for RuntimeSession.Language.
+type RuntimeSessionLanguage string
+
+// RuntimeSessionStage Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.
+type RuntimeSessionStage string
+
+// RuntimeSessionState Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.
+type RuntimeSessionState string
+
+// RuntimeStartRequest defines model for RuntimeStartRequest.
+type RuntimeStartRequest struct {
+	Language RuntimeStartRequestLanguage `json:"language"`
+
+	// RequestId Ключ идемпотентности в пределах пользователя. Повтор с теми же параметрами возвращает прежнюю сессию.
+	RequestId string `json:"request_id"`
+}
+
+// RuntimeStartRequestLanguage defines model for RuntimeStartRequest.Language.
+type RuntimeStartRequestLanguage string
 
 // TokenPair defines model for TokenPair.
 type TokenPair struct {
@@ -393,6 +986,33 @@ type UserProfileError struct {
 
 // UserProfileErrorCode defines model for UserProfileError.Code.
 type UserProfileErrorCode string
+
+// BadRequest defines model for BadRequest.
+type BadRequest = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// InternalError defines model for InternalError.
+type InternalError = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
+
+// RuntimeConflict defines model for RuntimeConflict.
+type RuntimeConflict = RuntimeError
+
+// RuntimeQueueFull defines model for RuntimeQueueFull.
+type RuntimeQueueFull = RuntimeError
+
+// RuntimeSessionConflict active_session_exists содержит текущую сессию; обычный conflict обозначает несовместимый повтор request_id.
+type RuntimeSessionConflict = RuntimeConflictResponse
+
+// RuntimeUnavailable defines model for RuntimeUnavailable.
+type RuntimeUnavailable = RuntimeError
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
 
 // LoginUserParams defines parameters for LoginUser.
 type LoginUserParams struct {
@@ -502,6 +1122,106 @@ type MoveNotebookCellParams struct {
 	IfMatch string `json:"If-Match"`
 }
 
+// StartRuntimeSessionParams defines parameters for StartRuntimeSession.
+type StartRuntimeSessionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// GetActiveRuntimeSessionParams defines parameters for GetActiveRuntimeSession.
+type GetActiveRuntimeSessionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// GetRuntimeSessionParams defines parameters for GetRuntimeSession.
+type GetRuntimeSessionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// TouchRuntimeSessionParams defines parameters for TouchRuntimeSession.
+type TouchRuntimeSessionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// TouchRuntimeSession200JSONResponseBodyAccepted defines parameters for TouchRuntimeSession.
+type TouchRuntimeSession200JSONResponseBodyAccepted bool
+
+// ListRuntimeEventsParams defines parameters for ListRuntimeEvents.
+type ListRuntimeEventsParams struct {
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// CreateRuntimeExecutionParams defines parameters for CreateRuntimeExecution.
+type CreateRuntimeExecutionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// CreateRuntimeExecutionBatchParams defines parameters for CreateRuntimeExecutionBatch.
+type CreateRuntimeExecutionBatchParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// GetRuntimeExecutionParams defines parameters for GetRuntimeExecution.
+type GetRuntimeExecutionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// InterruptRuntimeKernelParams defines parameters for InterruptRuntimeKernel.
+type InterruptRuntimeKernelParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// InterruptRuntimeKernel200JSONResponseBodyInterruptRequested defines parameters for InterruptRuntimeKernel.
+type InterruptRuntimeKernel200JSONResponseBodyInterruptRequested bool
+
+// RestartRuntimeKernelParams defines parameters for RestartRuntimeKernel.
+type RestartRuntimeKernelParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// GetRuntimeQueueParams defines parameters for GetRuntimeQueue.
+type GetRuntimeQueueParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// StopRuntimeSessionParams defines parameters for StopRuntimeSession.
+type StopRuntimeSessionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// StopRuntimeSession202JSONResponseBodyAccepted defines parameters for StopRuntimeSession.
+type StopRuntimeSession202JSONResponseBodyAccepted bool
+
+// InspectRuntimeVariablesJSONBody defines parameters for InspectRuntimeVariables.
+type InspectRuntimeVariablesJSONBody struct {
+	ExecutionId string `json:"execution_id"`
+}
+
+// InspectRuntimeVariablesParams defines parameters for InspectRuntimeVariables.
+type InspectRuntimeVariablesParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
+// GetRuntimeInspectionParams defines parameters for GetRuntimeInspection.
+type GetRuntimeInspectionParams struct {
+	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
+	XBFFKey string `json:"X-BFF-Key"`
+}
+
 // GetCurrentUserParams defines parameters for GetCurrentUser.
 type GetCurrentUserParams struct {
 	// XBFFKey Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.
@@ -559,6 +1279,18 @@ type EditNotebookCellJSONRequestBody = EditNotebookCellRequest
 // MoveNotebookCellJSONRequestBody defines body for MoveNotebookCell for application/json ContentType.
 type MoveNotebookCellJSONRequestBody = MoveNotebookCellRequest
 
+// StartRuntimeSessionJSONRequestBody defines body for StartRuntimeSession for application/json ContentType.
+type StartRuntimeSessionJSONRequestBody = RuntimeStartRequest
+
+// CreateRuntimeExecutionJSONRequestBody defines body for CreateRuntimeExecution for application/json ContentType.
+type CreateRuntimeExecutionJSONRequestBody = RuntimeExecuteRequest
+
+// CreateRuntimeExecutionBatchJSONRequestBody defines body for CreateRuntimeExecutionBatch for application/json ContentType.
+type CreateRuntimeExecutionBatchJSONRequestBody = RuntimeBatchExecuteRequest
+
+// InspectRuntimeVariablesJSONRequestBody defines body for InspectRuntimeVariables for application/json ContentType.
+type InspectRuntimeVariablesJSONRequestBody InspectRuntimeVariablesJSONBody
+
 // UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
 type UpdateCurrentUserJSONRequestBody = UpdateCurrentUserRequest
 
@@ -567,6 +1299,130 @@ type UploadCurrentUserAvatarMultipartRequestBody UploadCurrentUserAvatarMultipar
 
 // ChangeCurrentUserPasswordJSONRequestBody defines body for ChangeCurrentUserPassword for application/json ContentType.
 type ChangeCurrentUserPasswordJSONRequestBody = ChangeCurrentUserPasswordRequest
+
+// AsNotebookContentCells0 returns the union data inside the NotebookContent_Cells_Item as a NotebookContentCells0
+func (t NotebookContent_Cells_Item) AsNotebookContentCells0() (NotebookContentCells0, error) {
+	var body NotebookContentCells0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNotebookContentCells0 overwrites any union data inside the NotebookContent_Cells_Item as the provided NotebookContentCells0
+func (t *NotebookContent_Cells_Item) FromNotebookContentCells0(v NotebookContentCells0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNotebookContentCells0 performs a merge with any union data inside the NotebookContent_Cells_Item, using the provided NotebookContentCells0
+func (t *NotebookContent_Cells_Item) MergeNotebookContentCells0(v NotebookContentCells0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNotebookContentCells1 returns the union data inside the NotebookContent_Cells_Item as a NotebookContentCells1
+func (t NotebookContent_Cells_Item) AsNotebookContentCells1() (NotebookContentCells1, error) {
+	var body NotebookContentCells1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNotebookContentCells1 overwrites any union data inside the NotebookContent_Cells_Item as the provided NotebookContentCells1
+func (t *NotebookContent_Cells_Item) FromNotebookContentCells1(v NotebookContentCells1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNotebookContentCells1 performs a merge with any union data inside the NotebookContent_Cells_Item, using the provided NotebookContentCells1
+func (t *NotebookContent_Cells_Item) MergeNotebookContentCells1(v NotebookContentCells1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t NotebookContent_Cells_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *NotebookContent_Cells_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRuntimeActiveSessionConflict returns the union data inside the RuntimeConflictResponse as a RuntimeActiveSessionConflict
+func (t RuntimeConflictResponse) AsRuntimeActiveSessionConflict() (RuntimeActiveSessionConflict, error) {
+	var body RuntimeActiveSessionConflict
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeActiveSessionConflict overwrites any union data inside the RuntimeConflictResponse as the provided RuntimeActiveSessionConflict
+func (t *RuntimeConflictResponse) FromRuntimeActiveSessionConflict(v RuntimeActiveSessionConflict) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeActiveSessionConflict performs a merge with any union data inside the RuntimeConflictResponse, using the provided RuntimeActiveSessionConflict
+func (t *RuntimeConflictResponse) MergeRuntimeActiveSessionConflict(v RuntimeActiveSessionConflict) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeError returns the union data inside the RuntimeConflictResponse as a RuntimeError
+func (t RuntimeConflictResponse) AsRuntimeError() (RuntimeError, error) {
+	var body RuntimeError
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeError overwrites any union data inside the RuntimeConflictResponse as the provided RuntimeError
+func (t *RuntimeConflictResponse) FromRuntimeError(v RuntimeError) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeError performs a merge with any union data inside the RuntimeConflictResponse, using the provided RuntimeError
+func (t *RuntimeConflictResponse) MergeRuntimeError(v RuntimeError) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RuntimeConflictResponse) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RuntimeConflictResponse) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -615,6 +1471,48 @@ type ServerInterface interface {
 	// MoveNotebookCell Перемещение блока с проверкой хеша
 	// (POST /notebooks/{id}/content/cells/{cell_id}/move)
 	MoveNotebookCell(w http.ResponseWriter, r *http.Request, id int64, cellId string, params MoveNotebookCellParams)
+	// StartRuntimeSession Запустить runtime-сессию блокнота
+	// (POST /notebooks/{id}/runtime-sessions)
+	StartRuntimeSession(w http.ResponseWriter, r *http.Request, id int64, params StartRuntimeSessionParams)
+	// GetActiveRuntimeSession Получить активную runtime-сессию пользователя
+	// (GET /runtime-sessions/active)
+	GetActiveRuntimeSession(w http.ResponseWriter, r *http.Request, params GetActiveRuntimeSessionParams)
+	// GetRuntimeSession Получить состояние runtime-сессии
+	// (GET /runtime-sessions/{id})
+	GetRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetRuntimeSessionParams)
+	// TouchRuntimeSession Сообщить о действиях пользователя в редакторе
+	// (POST /runtime-sessions/{id}/activity)
+	TouchRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params TouchRuntimeSessionParams)
+	// ListRuntimeEvents Получить события runtime-сессии
+	// (GET /runtime-sessions/{id}/events)
+	ListRuntimeEvents(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListRuntimeEventsParams)
+	// CreateRuntimeExecution Выполнить сохранённую ячейку
+	// (POST /runtime-sessions/{id}/executions)
+	CreateRuntimeExecution(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateRuntimeExecutionParams)
+	// CreateRuntimeExecutionBatch Выполнить все сохранённые кодовые ячейки
+	// (POST /runtime-sessions/{id}/executions/batch)
+	CreateRuntimeExecutionBatch(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateRuntimeExecutionBatchParams)
+	// GetRuntimeExecution Получить состояние и вывод выполнения
+	// (GET /runtime-sessions/{id}/executions/{execution_id})
+	GetRuntimeExecution(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, executionId string, params GetRuntimeExecutionParams)
+	// InterruptRuntimeKernel Прервать текущее выполнение kernel
+	// (POST /runtime-sessions/{id}/kernel/interrupt)
+	InterruptRuntimeKernel(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params InterruptRuntimeKernelParams)
+	// RestartRuntimeKernel Перезапустить свободный kernel
+	// (POST /runtime-sessions/{id}/kernel/restart)
+	RestartRuntimeKernel(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params RestartRuntimeKernelParams)
+	// GetRuntimeQueue Получить очередь выполнения
+	// (GET /runtime-sessions/{id}/queue)
+	GetRuntimeQueue(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetRuntimeQueueParams)
+	// StopRuntimeSession Завершить runtime-сессию
+	// (POST /runtime-sessions/{id}/stop)
+	StopRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params StopRuntimeSessionParams)
+	// InspectRuntimeVariables Запросить инспекцию переменных
+	// (POST /runtime-sessions/{id}/variables)
+	InspectRuntimeVariables(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params InspectRuntimeVariablesParams)
+	// GetRuntimeInspection Получить результат инспекции переменных
+	// (GET /runtime-sessions/{id}/variables/{execution_id})
+	GetRuntimeInspection(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, executionId string, params GetRuntimeInspectionParams)
 	// GetCurrentUser Текущий пользователь
 	// (GET /users/me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams)
@@ -1559,6 +2457,784 @@ func (siw *ServerInterfaceWrapper) MoveNotebookCell(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// StartRuntimeSession operation middleware
+func (siw *ServerInterfaceWrapper) StartRuntimeSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartRuntimeSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartRuntimeSession(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetActiveRuntimeSession operation middleware
+func (siw *ServerInterfaceWrapper) GetActiveRuntimeSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetActiveRuntimeSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActiveRuntimeSession(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRuntimeSession operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRuntimeSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuntimeSession(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TouchRuntimeSession operation middleware
+func (siw *ServerInterfaceWrapper) TouchRuntimeSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TouchRuntimeSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TouchRuntimeSession(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRuntimeEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListRuntimeEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRuntimeEventsParams
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRuntimeEvents(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRuntimeExecution operation middleware
+func (siw *ServerInterfaceWrapper) CreateRuntimeExecution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRuntimeExecutionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRuntimeExecution(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRuntimeExecutionBatch operation middleware
+func (siw *ServerInterfaceWrapper) CreateRuntimeExecutionBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRuntimeExecutionBatchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRuntimeExecutionBatch(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRuntimeExecution operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeExecution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "execution_id" -------------
+	var executionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "execution_id", mux.Vars(r)["execution_id"], &executionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "execution_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRuntimeExecutionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuntimeExecution(w, r, id, executionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// InterruptRuntimeKernel operation middleware
+func (siw *ServerInterfaceWrapper) InterruptRuntimeKernel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params InterruptRuntimeKernelParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.InterruptRuntimeKernel(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestartRuntimeKernel operation middleware
+func (siw *ServerInterfaceWrapper) RestartRuntimeKernel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RestartRuntimeKernelParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestartRuntimeKernel(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRuntimeQueue operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeQueue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRuntimeQueueParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuntimeQueue(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StopRuntimeSession operation middleware
+func (siw *ServerInterfaceWrapper) StopRuntimeSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StopRuntimeSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StopRuntimeSession(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// InspectRuntimeVariables operation middleware
+func (siw *ServerInterfaceWrapper) InspectRuntimeVariables(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params InspectRuntimeVariablesParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.InspectRuntimeVariables(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRuntimeInspection operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeInspection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "execution_id" -------------
+	var executionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "execution_id", mux.Vars(r)["execution_id"], &executionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "execution_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRuntimeInspectionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-BFF-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-BFF-Key")]; found {
+		var XBFFKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-BFF-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-BFF-Key", valueList[0], &XBFFKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-BFF-Key", Err: err})
+			return
+		}
+
+		params.XBFFKey = XBFFKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-BFF-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-BFF-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuntimeInspection(w, r, id, executionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCurrentUser operation middleware
 func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 
@@ -1852,25 +3528,25 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	r.HandleFunc(options.BaseURL+"/auth/login", wrapper.LoginUser).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/users/me", wrapper.GetCurrentUser).Methods(http.MethodGet)
 
-	r.HandleFunc(options.BaseURL+"/auth/logout", wrapper.LogoutUser).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/users/me", wrapper.UpdateCurrentUser).Methods(http.MethodPatch)
+
+	r.HandleFunc(options.BaseURL+"/users/me/password", wrapper.ChangeCurrentUserPassword).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/users/me/avatar", wrapper.UploadCurrentUserAvatar).Methods(http.MethodPut)
 
 	r.HandleFunc(options.BaseURL+"/auth/logout-all", wrapper.LogoutAllUserSessions).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/auth/refresh", wrapper.RefreshToken).Methods(http.MethodPost)
-
 	r.HandleFunc(options.BaseURL+"/auth/register", wrapper.RegisterUser).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.ListNotebooks).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/auth/refresh", wrapper.RefreshToken).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.CreateNotebook).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/auth/logout", wrapper.LogoutUser).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.GetNotebook).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/auth/login", wrapper.LoginUser).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells", wrapper.CreateCell).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells/{index}", wrapper.DeleteCell).Methods(http.MethodDelete)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content", wrapper.GetNotebookContent).Methods(http.MethodGet)
 
@@ -1880,18 +3556,72 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content/cells/{cell_id}", wrapper.EditNotebookCell).Methods(http.MethodPatch)
 
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells/{index}", wrapper.DeleteCell).Methods(http.MethodDelete)
+
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content/cells/{cell_id}/move", wrapper.MoveNotebookCell).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/users/me", wrapper.GetCurrentUser).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.GetNotebook).Methods(http.MethodGet)
 
-	r.HandleFunc(options.BaseURL+"/users/me", wrapper.UpdateCurrentUser).Methods(http.MethodPatch)
+	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.ListNotebooks).Methods(http.MethodGet)
 
-	r.HandleFunc(options.BaseURL+"/users/me/avatar", wrapper.UploadCurrentUserAvatar).Methods(http.MethodPut)
+	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.CreateNotebook).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/users/me/password", wrapper.ChangeCurrentUserPassword).Methods(http.MethodPut)
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/queue", wrapper.GetRuntimeQueue).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions/batch", wrapper.CreateRuntimeExecutionBatch).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables/{execution_id}", wrapper.GetRuntimeInspection).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables", wrapper.InspectRuntimeVariables).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/kernel/interrupt", wrapper.InterruptRuntimeKernel).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/kernel/restart", wrapper.RestartRuntimeKernel).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/active", wrapper.GetActiveRuntimeSession).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/runtime-sessions", wrapper.StartRuntimeSession).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}", wrapper.GetRuntimeSession).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions", wrapper.CreateRuntimeExecution).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions/{execution_id}", wrapper.GetRuntimeExecution).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/events", wrapper.ListRuntimeEvents).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/activity", wrapper.TouchRuntimeSession).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/stop", wrapper.StopRuntimeSession).Methods(http.MethodPost)
 
 	return r
 }
+
+type BadRequestJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
+type InternalErrorJSONResponse Error
+
+type NotFoundJSONResponse Error
+
+type RuntimeConflictJSONResponse RuntimeError
+
+type RuntimeQueueFullJSONResponse RuntimeError
+
+type RuntimeSessionConflictJSONResponse RuntimeConflictResponse
+
+func (t RuntimeSessionConflictJSONResponse) MarshalJSON() ([]byte, error) {
+	return RuntimeConflictResponse(t).MarshalJSON()
+}
+
+func (t *RuntimeSessionConflictJSONResponse) UnmarshalJSON(b []byte) error {
+	return (*RuntimeConflictResponse)(t).UnmarshalJSON(b)
+}
+
+type RuntimeUnavailableJSONResponse RuntimeError
+
+type UnauthorizedJSONResponse Error
 
 type LoginUserRequestObject struct {
 	Params LoginUserParams
@@ -2311,20 +4041,6 @@ func (response ListNotebooks403JSONResponse) VisitListNotebooksResponse(w http.R
 	return err
 }
 
-type ListNotebooks413JSONResponse Error
-
-func (response ListNotebooks413JSONResponse) VisitListNotebooksResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type ListNotebooks500JSONResponse Error
 
 func (response ListNotebooks500JSONResponse) VisitListNotebooksResponse(w http.ResponseWriter) error {
@@ -2400,20 +4116,6 @@ func (response CreateNotebook403JSONResponse) VisitCreateNotebookResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type CreateNotebook413JSONResponse Error
-
-func (response CreateNotebook413JSONResponse) VisitCreateNotebookResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2507,20 +4209,6 @@ func (response GetNotebook404JSONResponse) VisitGetNotebookResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetNotebook413JSONResponse Error
-
-func (response GetNotebook413JSONResponse) VisitGetNotebookResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2633,20 +4321,6 @@ func (response CreateCell409JSONResponse) VisitCreateCellResponse(w http.Respons
 	return err
 }
 
-type CreateCell413JSONResponse Error
-
-func (response CreateCell413JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type CreateCell500JSONResponse Error
 
 func (response CreateCell500JSONResponse) VisitCreateCellResponse(w http.ResponseWriter) error {
@@ -2745,20 +4419,6 @@ func (response DeleteCell409JSONResponse) VisitDeleteCellResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteCell413JSONResponse Error
-
-func (response DeleteCell413JSONResponse) VisitDeleteCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2862,20 +4522,6 @@ func (response GetNotebookContent404JSONResponse) VisitGetNotebookContentRespons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetNotebookContent413JSONResponse Error
-
-func (response GetNotebookContent413JSONResponse) VisitGetNotebookContentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2998,20 +4644,6 @@ func (response AddNotebookCell409JSONResponse) VisitAddNotebookCellResponse(w ht
 	return err
 }
 
-type AddNotebookCell413JSONResponse Error
-
-func (response AddNotebookCell413JSONResponse) VisitAddNotebookCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type AddNotebookCell500JSONResponse NotebookEditingError
 
 func (response AddNotebookCell500JSONResponse) VisitAddNotebookCellResponse(w http.ResponseWriter) error {
@@ -3126,20 +4758,6 @@ func (response RemoveNotebookCell409JSONResponse) VisitRemoveNotebookCellRespons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RemoveNotebookCell413JSONResponse Error
-
-func (response RemoveNotebookCell413JSONResponse) VisitRemoveNotebookCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3263,20 +4881,6 @@ func (response EditNotebookCell409JSONResponse) VisitEditNotebookCellResponse(w 
 	return err
 }
 
-type EditNotebookCell413JSONResponse Error
-
-func (response EditNotebookCell413JSONResponse) VisitEditNotebookCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type EditNotebookCell500JSONResponse NotebookEditingError
 
 func (response EditNotebookCell500JSONResponse) VisitEditNotebookCellResponse(w http.ResponseWriter) error {
@@ -3396,20 +5000,6 @@ func (response MoveNotebookCell409JSONResponse) VisitMoveNotebookCellResponse(w 
 	return err
 }
 
-type MoveNotebookCell413JSONResponse Error
-
-func (response MoveNotebookCell413JSONResponse) VisitMoveNotebookCellResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(413)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type MoveNotebookCell500JSONResponse NotebookEditingError
 
 func (response MoveNotebookCell500JSONResponse) VisitMoveNotebookCellResponse(w http.ResponseWriter) error {
@@ -3420,6 +5010,1662 @@ func (response MoveNotebookCell500JSONResponse) VisitMoveNotebookCellResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSessionRequestObject struct {
+	Id     int64 `json:"id"`
+	Params StartRuntimeSessionParams
+	Body   *StartRuntimeSessionJSONRequestBody
+}
+
+type StartRuntimeSessionResponseObject interface {
+	VisitStartRuntimeSessionResponse(w http.ResponseWriter) error
+}
+
+type StartRuntimeSession202JSONResponse RuntimeSession
+
+func (response StartRuntimeSession202JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response StartRuntimeSession400JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response StartRuntimeSession401JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response StartRuntimeSession403JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartRuntimeSession404JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession409JSONResponse struct {
+	RuntimeSessionConflictJSONResponse
+}
+
+func (response StartRuntimeSession409JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response StartRuntimeSession500JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartRuntimeSession503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response StartRuntimeSession503JSONResponse) VisitStartRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSessionRequestObject struct {
+	Params GetActiveRuntimeSessionParams
+}
+
+type GetActiveRuntimeSessionResponseObject interface {
+	VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error
+}
+
+type GetActiveRuntimeSession200JSONResponse struct {
+	// ActiveSession Единственная активная сессия пользователя; null, если её нет.
+	ActiveSession *RuntimeSession `json:"active_session"`
+}
+
+func (response GetActiveRuntimeSession200JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetActiveRuntimeSession400JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetActiveRuntimeSession401JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetActiveRuntimeSession403JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetActiveRuntimeSession404JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetActiveRuntimeSession500JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveRuntimeSession503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response GetActiveRuntimeSession503JSONResponse) VisitGetActiveRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSessionRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params GetRuntimeSessionParams
+}
+
+type GetRuntimeSessionResponseObject interface {
+	VisitGetRuntimeSessionResponse(w http.ResponseWriter) error
+}
+
+type GetRuntimeSession200JSONResponse RuntimeSession
+
+func (response GetRuntimeSession200JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRuntimeSession400JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetRuntimeSession401JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRuntimeSession403JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRuntimeSession404JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetRuntimeSession500JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeSession503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response GetRuntimeSession503JSONResponse) VisitGetRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSessionRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params TouchRuntimeSessionParams
+}
+
+type TouchRuntimeSessionResponseObject interface {
+	VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error
+}
+
+type TouchRuntimeSession200JSONResponse struct {
+	Accepted TouchRuntimeSession200JSONResponseBodyAccepted `json:"accepted"`
+}
+
+func (response TouchRuntimeSession200JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response TouchRuntimeSession400JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response TouchRuntimeSession401JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TouchRuntimeSession403JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response TouchRuntimeSession404JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response TouchRuntimeSession409JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response TouchRuntimeSession500JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TouchRuntimeSession503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response TouchRuntimeSession503JSONResponse) VisitTouchRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEventsRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params ListRuntimeEventsParams
+}
+
+type ListRuntimeEventsResponseObject interface {
+	VisitListRuntimeEventsResponse(w http.ResponseWriter) error
+}
+
+type ListRuntimeEvents200JSONResponse RuntimeEventsResponse
+
+func (response ListRuntimeEvents200JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListRuntimeEvents400JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListRuntimeEvents401JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListRuntimeEvents403JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListRuntimeEvents404JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListRuntimeEvents500JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuntimeEvents503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response ListRuntimeEvents503JSONResponse) VisitListRuntimeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params CreateRuntimeExecutionParams
+	Body   *CreateRuntimeExecutionJSONRequestBody
+}
+
+type CreateRuntimeExecutionResponseObject interface {
+	VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error
+}
+
+type CreateRuntimeExecution202JSONResponse RuntimeExecution
+
+func (response CreateRuntimeExecution202JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateRuntimeExecution400JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRuntimeExecution401JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateRuntimeExecution403JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateRuntimeExecution404JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response CreateRuntimeExecution409JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution429JSONResponse struct{ RuntimeQueueFullJSONResponse }
+
+func (response CreateRuntimeExecution429JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateRuntimeExecution500JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecution503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response CreateRuntimeExecution503JSONResponse) VisitCreateRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatchRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params CreateRuntimeExecutionBatchParams
+	Body   *CreateRuntimeExecutionBatchJSONRequestBody
+}
+
+type CreateRuntimeExecutionBatchResponseObject interface {
+	VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error
+}
+
+type CreateRuntimeExecutionBatch202JSONResponse RuntimeBatchExecution
+
+func (response CreateRuntimeExecutionBatch202JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateRuntimeExecutionBatch400JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRuntimeExecutionBatch401JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateRuntimeExecutionBatch403JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateRuntimeExecutionBatch404JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response CreateRuntimeExecutionBatch409JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch429JSONResponse struct{ RuntimeQueueFullJSONResponse }
+
+func (response CreateRuntimeExecutionBatch429JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateRuntimeExecutionBatch500JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRuntimeExecutionBatch503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response CreateRuntimeExecutionBatch503JSONResponse) VisitCreateRuntimeExecutionBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecutionRequestObject struct {
+	Id          openapi_types.UUID `json:"id"`
+	ExecutionId string             `json:"execution_id"`
+	Params      GetRuntimeExecutionParams
+}
+
+type GetRuntimeExecutionResponseObject interface {
+	VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error
+}
+
+type GetRuntimeExecution200JSONResponse RuntimeExecution
+
+func (response GetRuntimeExecution200JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRuntimeExecution400JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetRuntimeExecution401JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRuntimeExecution403JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRuntimeExecution404JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetRuntimeExecution500JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeExecution503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response GetRuntimeExecution503JSONResponse) VisitGetRuntimeExecutionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernelRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params InterruptRuntimeKernelParams
+}
+
+type InterruptRuntimeKernelResponseObject interface {
+	VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error
+}
+
+type InterruptRuntimeKernel200JSONResponse struct {
+	InterruptRequested InterruptRuntimeKernel200JSONResponseBodyInterruptRequested `json:"interrupt_requested"`
+}
+
+func (response InterruptRuntimeKernel200JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response InterruptRuntimeKernel400JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response InterruptRuntimeKernel401JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response InterruptRuntimeKernel403JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response InterruptRuntimeKernel404JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response InterruptRuntimeKernel409JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response InterruptRuntimeKernel500JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InterruptRuntimeKernel503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response InterruptRuntimeKernel503JSONResponse) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernelRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params RestartRuntimeKernelParams
+}
+
+type RestartRuntimeKernelResponseObject interface {
+	VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error
+}
+
+type RestartRuntimeKernel200JSONResponse struct {
+	Generation openapi_types.UUID `json:"generation"`
+}
+
+func (response RestartRuntimeKernel200JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RestartRuntimeKernel400JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RestartRuntimeKernel401JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RestartRuntimeKernel403JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RestartRuntimeKernel404JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response RestartRuntimeKernel409JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RestartRuntimeKernel500JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestartRuntimeKernel503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response RestartRuntimeKernel503JSONResponse) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueueRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params GetRuntimeQueueParams
+}
+
+type GetRuntimeQueueResponseObject interface {
+	VisitGetRuntimeQueueResponse(w http.ResponseWriter) error
+}
+
+type GetRuntimeQueue200JSONResponse RuntimeQueueSnapshot
+
+func (response GetRuntimeQueue200JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRuntimeQueue400JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetRuntimeQueue401JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRuntimeQueue403JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRuntimeQueue404JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetRuntimeQueue500JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeQueue503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response GetRuntimeQueue503JSONResponse) VisitGetRuntimeQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSessionRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params StopRuntimeSessionParams
+}
+
+type StopRuntimeSessionResponseObject interface {
+	VisitStopRuntimeSessionResponse(w http.ResponseWriter) error
+}
+
+type StopRuntimeSession202JSONResponse struct {
+	Accepted StopRuntimeSession202JSONResponseBodyAccepted `json:"accepted"`
+}
+
+func (response StopRuntimeSession202JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response StopRuntimeSession400JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response StopRuntimeSession401JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response StopRuntimeSession403JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StopRuntimeSession404JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response StopRuntimeSession500JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRuntimeSession503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response StopRuntimeSession503JSONResponse) VisitStopRuntimeSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariablesRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params InspectRuntimeVariablesParams
+	Body   *InspectRuntimeVariablesJSONRequestBody
+}
+
+type InspectRuntimeVariablesResponseObject interface {
+	VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error
+}
+
+type InspectRuntimeVariables202JSONResponse RuntimeInspection
+
+func (response InspectRuntimeVariables202JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response InspectRuntimeVariables400JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response InspectRuntimeVariables401JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response InspectRuntimeVariables403JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response InspectRuntimeVariables404JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables409JSONResponse struct{ RuntimeConflictJSONResponse }
+
+func (response InspectRuntimeVariables409JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables429JSONResponse struct{ RuntimeQueueFullJSONResponse }
+
+func (response InspectRuntimeVariables429JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response InspectRuntimeVariables500JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InspectRuntimeVariables503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response InspectRuntimeVariables503JSONResponse) VisitInspectRuntimeVariablesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspectionRequestObject struct {
+	Id          openapi_types.UUID `json:"id"`
+	ExecutionId string             `json:"execution_id"`
+	Params      GetRuntimeInspectionParams
+}
+
+type GetRuntimeInspectionResponseObject interface {
+	VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error
+}
+
+type GetRuntimeInspection200JSONResponse RuntimeInspection
+
+func (response GetRuntimeInspection200JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRuntimeInspection400JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetRuntimeInspection401JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRuntimeInspection403JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRuntimeInspection404JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetRuntimeInspection500JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuntimeInspection503JSONResponse struct{ RuntimeUnavailableJSONResponse }
+
+func (response GetRuntimeInspection503JSONResponse) VisitGetRuntimeInspectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3808,6 +7054,48 @@ type StrictServerInterface interface {
 	// MoveNotebookCell Перемещение блока с проверкой хеша
 	// (POST /notebooks/{id}/content/cells/{cell_id}/move)
 	MoveNotebookCell(ctx context.Context, request MoveNotebookCellRequestObject) (MoveNotebookCellResponseObject, error)
+	// StartRuntimeSession Запустить runtime-сессию блокнота
+	// (POST /notebooks/{id}/runtime-sessions)
+	StartRuntimeSession(ctx context.Context, request StartRuntimeSessionRequestObject) (StartRuntimeSessionResponseObject, error)
+	// GetActiveRuntimeSession Получить активную runtime-сессию пользователя
+	// (GET /runtime-sessions/active)
+	GetActiveRuntimeSession(ctx context.Context, request GetActiveRuntimeSessionRequestObject) (GetActiveRuntimeSessionResponseObject, error)
+	// GetRuntimeSession Получить состояние runtime-сессии
+	// (GET /runtime-sessions/{id})
+	GetRuntimeSession(ctx context.Context, request GetRuntimeSessionRequestObject) (GetRuntimeSessionResponseObject, error)
+	// TouchRuntimeSession Сообщить о действиях пользователя в редакторе
+	// (POST /runtime-sessions/{id}/activity)
+	TouchRuntimeSession(ctx context.Context, request TouchRuntimeSessionRequestObject) (TouchRuntimeSessionResponseObject, error)
+	// ListRuntimeEvents Получить события runtime-сессии
+	// (GET /runtime-sessions/{id}/events)
+	ListRuntimeEvents(ctx context.Context, request ListRuntimeEventsRequestObject) (ListRuntimeEventsResponseObject, error)
+	// CreateRuntimeExecution Выполнить сохранённую ячейку
+	// (POST /runtime-sessions/{id}/executions)
+	CreateRuntimeExecution(ctx context.Context, request CreateRuntimeExecutionRequestObject) (CreateRuntimeExecutionResponseObject, error)
+	// CreateRuntimeExecutionBatch Выполнить все сохранённые кодовые ячейки
+	// (POST /runtime-sessions/{id}/executions/batch)
+	CreateRuntimeExecutionBatch(ctx context.Context, request CreateRuntimeExecutionBatchRequestObject) (CreateRuntimeExecutionBatchResponseObject, error)
+	// GetRuntimeExecution Получить состояние и вывод выполнения
+	// (GET /runtime-sessions/{id}/executions/{execution_id})
+	GetRuntimeExecution(ctx context.Context, request GetRuntimeExecutionRequestObject) (GetRuntimeExecutionResponseObject, error)
+	// InterruptRuntimeKernel Прервать текущее выполнение kernel
+	// (POST /runtime-sessions/{id}/kernel/interrupt)
+	InterruptRuntimeKernel(ctx context.Context, request InterruptRuntimeKernelRequestObject) (InterruptRuntimeKernelResponseObject, error)
+	// RestartRuntimeKernel Перезапустить свободный kernel
+	// (POST /runtime-sessions/{id}/kernel/restart)
+	RestartRuntimeKernel(ctx context.Context, request RestartRuntimeKernelRequestObject) (RestartRuntimeKernelResponseObject, error)
+	// GetRuntimeQueue Получить очередь выполнения
+	// (GET /runtime-sessions/{id}/queue)
+	GetRuntimeQueue(ctx context.Context, request GetRuntimeQueueRequestObject) (GetRuntimeQueueResponseObject, error)
+	// StopRuntimeSession Завершить runtime-сессию
+	// (POST /runtime-sessions/{id}/stop)
+	StopRuntimeSession(ctx context.Context, request StopRuntimeSessionRequestObject) (StopRuntimeSessionResponseObject, error)
+	// InspectRuntimeVariables Запросить инспекцию переменных
+	// (POST /runtime-sessions/{id}/variables)
+	InspectRuntimeVariables(ctx context.Context, request InspectRuntimeVariablesRequestObject) (InspectRuntimeVariablesResponseObject, error)
+	// GetRuntimeInspection Получить результат инспекции переменных
+	// (GET /runtime-sessions/{id}/variables/{execution_id})
+	GetRuntimeInspection(ctx context.Context, request GetRuntimeInspectionRequestObject) (GetRuntimeInspectionResponseObject, error)
 	// GetCurrentUser Текущий пользователь
 	// (GET /users/me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
@@ -4326,6 +7614,413 @@ func (sh *strictHandler) MoveNotebookCell(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// StartRuntimeSession operation middleware
+func (sh *strictHandler) StartRuntimeSession(w http.ResponseWriter, r *http.Request, id int64, params StartRuntimeSessionParams) {
+	var request StartRuntimeSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body StartRuntimeSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartRuntimeSession(ctx, request.(StartRuntimeSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartRuntimeSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartRuntimeSessionResponseObject); ok {
+		if err := validResponse.VisitStartRuntimeSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetActiveRuntimeSession operation middleware
+func (sh *strictHandler) GetActiveRuntimeSession(w http.ResponseWriter, r *http.Request, params GetActiveRuntimeSessionParams) {
+	var request GetActiveRuntimeSessionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActiveRuntimeSession(ctx, request.(GetActiveRuntimeSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActiveRuntimeSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActiveRuntimeSessionResponseObject); ok {
+		if err := validResponse.VisitGetActiveRuntimeSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRuntimeSession operation middleware
+func (sh *strictHandler) GetRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetRuntimeSessionParams) {
+	var request GetRuntimeSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeSession(ctx, request.(GetRuntimeSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuntimeSessionResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TouchRuntimeSession operation middleware
+func (sh *strictHandler) TouchRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params TouchRuntimeSessionParams) {
+	var request TouchRuntimeSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TouchRuntimeSession(ctx, request.(TouchRuntimeSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TouchRuntimeSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TouchRuntimeSessionResponseObject); ok {
+		if err := validResponse.VisitTouchRuntimeSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRuntimeEvents operation middleware
+func (sh *strictHandler) ListRuntimeEvents(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListRuntimeEventsParams) {
+	var request ListRuntimeEventsRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRuntimeEvents(ctx, request.(ListRuntimeEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRuntimeEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRuntimeEventsResponseObject); ok {
+		if err := validResponse.VisitListRuntimeEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRuntimeExecution operation middleware
+func (sh *strictHandler) CreateRuntimeExecution(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateRuntimeExecutionParams) {
+	var request CreateRuntimeExecutionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body CreateRuntimeExecutionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRuntimeExecution(ctx, request.(CreateRuntimeExecutionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRuntimeExecution")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRuntimeExecutionResponseObject); ok {
+		if err := validResponse.VisitCreateRuntimeExecutionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRuntimeExecutionBatch operation middleware
+func (sh *strictHandler) CreateRuntimeExecutionBatch(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateRuntimeExecutionBatchParams) {
+	var request CreateRuntimeExecutionBatchRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body CreateRuntimeExecutionBatchJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRuntimeExecutionBatch(ctx, request.(CreateRuntimeExecutionBatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRuntimeExecutionBatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRuntimeExecutionBatchResponseObject); ok {
+		if err := validResponse.VisitCreateRuntimeExecutionBatchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRuntimeExecution operation middleware
+func (sh *strictHandler) GetRuntimeExecution(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, executionId string, params GetRuntimeExecutionParams) {
+	var request GetRuntimeExecutionRequestObject
+
+	request.Id = id
+	request.ExecutionId = executionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeExecution(ctx, request.(GetRuntimeExecutionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeExecution")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuntimeExecutionResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeExecutionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// InterruptRuntimeKernel operation middleware
+func (sh *strictHandler) InterruptRuntimeKernel(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params InterruptRuntimeKernelParams) {
+	var request InterruptRuntimeKernelRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.InterruptRuntimeKernel(ctx, request.(InterruptRuntimeKernelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "InterruptRuntimeKernel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(InterruptRuntimeKernelResponseObject); ok {
+		if err := validResponse.VisitInterruptRuntimeKernelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RestartRuntimeKernel operation middleware
+func (sh *strictHandler) RestartRuntimeKernel(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params RestartRuntimeKernelParams) {
+	var request RestartRuntimeKernelRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RestartRuntimeKernel(ctx, request.(RestartRuntimeKernelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RestartRuntimeKernel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RestartRuntimeKernelResponseObject); ok {
+		if err := validResponse.VisitRestartRuntimeKernelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRuntimeQueue operation middleware
+func (sh *strictHandler) GetRuntimeQueue(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetRuntimeQueueParams) {
+	var request GetRuntimeQueueRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeQueue(ctx, request.(GetRuntimeQueueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeQueue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuntimeQueueResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StopRuntimeSession operation middleware
+func (sh *strictHandler) StopRuntimeSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params StopRuntimeSessionParams) {
+	var request StopRuntimeSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StopRuntimeSession(ctx, request.(StopRuntimeSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StopRuntimeSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StopRuntimeSessionResponseObject); ok {
+		if err := validResponse.VisitStopRuntimeSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// InspectRuntimeVariables operation middleware
+func (sh *strictHandler) InspectRuntimeVariables(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params InspectRuntimeVariablesParams) {
+	var request InspectRuntimeVariablesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body InspectRuntimeVariablesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.InspectRuntimeVariables(ctx, request.(InspectRuntimeVariablesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "InspectRuntimeVariables")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(InspectRuntimeVariablesResponseObject); ok {
+		if err := validResponse.VisitInspectRuntimeVariablesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRuntimeInspection operation middleware
+func (sh *strictHandler) GetRuntimeInspection(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, executionId string, params GetRuntimeInspectionParams) {
+	var request GetRuntimeInspectionRequestObject
+
+	request.Id = id
+	request.ExecutionId = executionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeInspection(ctx, request.(GetRuntimeInspectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeInspection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuntimeInspectionResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeInspectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCurrentUser operation middleware
 func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request, params GetCurrentUserParams) {
 	var request GetCurrentUserRequestObject
@@ -4456,159 +8151,307 @@ func (sh *strictHandler) ChangeCurrentUserPassword(w http.ResponseWriter, r *htt
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"DD/za5Uvoj2V1m6u/f8BAA==",
+	"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",
+	"8eD/HwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

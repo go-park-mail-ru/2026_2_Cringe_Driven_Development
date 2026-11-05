@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -22,8 +23,10 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/adapters/openstack"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/adapters/pki"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/adapters/postgres"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/adapters/sessionagent"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/smoke"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
+	sessionusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -103,21 +106,30 @@ func ownerName() string {
 	return fmt.Sprintf("%s-%x", name, suffix)
 }
 
-// Build собирает сервис и воркер. При cfg.Enabled=false возвращает сервис, отвечающий
-// ErrDisabled, и nil-воркер; адаптеры не создаются. cfg содержит секреты и не логируется.
-func Build(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (usecase.EnvironmentService, *usecase.Worker, error) { //nolint:ireturn // contract for #13 consumers
-	// Репозиторий — тонкая обёртка над пулом (без внешних соединений), нужна и выключенному
-	// сервису: Get/RequestDelete читают только БД.
+// Module использует одни и те же адаптеры и секреты для provisioning и сессий.
+type Module struct {
+	// Environments Сервис создания, чтения и удаления окружений.
+	Environments usecase.EnvironmentService
+	// Worker Фоновый обработчик сервиса окружений.
+	Worker *usecase.Worker
+	// Agent Внутренний доступ к агенту подготовленного окружения.
+	Agent sessionusecase.SessionAgent
+}
+
+// Build не создаёт облачные адаптеры, если runtime выключен.
+func Build(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (Module, error) {
 	if !cfg.Enabled {
-		return usecase.NewService(postgres.NewRepository(pool), usecase.Settings{
-			Enabled: false, Profiles: map[string]bool{"default": true},
-		}), nil, nil
+		return Module{Environments: usecase.NewService(postgres.NewRepository(pool), usecase.Settings{Enabled: false, Profiles: map[string]bool{"default": true}}), Agent: sessionagent.New(nil, nil, nil)}, nil
 	}
 	p, err := assemble(ctx, cfg, pool)
 	if err != nil {
-		return nil, nil, err
+		return Module{}, err
 	}
-	return newService(p.repo, cfg), p.worker(ownerName(), workerLease), nil
+	client, ok := p.ag.(sessionagent.Client)
+	if !ok {
+		return Module{}, errors.New("runtime: session agent client unavailable")
+	}
+	return Module{Environments: newService(p.repo, cfg), Worker: p.worker(ownerName(), workerLease), Agent: sessionagent.New(p.repo, p.sec, client)}, nil
 }
 
 // BuildSmokeDeps собирает зависимости runtime-smoke (cfg.Enabled должен быть true); cleanup удаляет
