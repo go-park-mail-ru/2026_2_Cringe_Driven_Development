@@ -32,24 +32,6 @@ func (s *Store) CommitEvents(ctx context.Context, l domain.Lease, batch []domain
 	if e != nil {
 		return e
 	}
-	rows, e := tx.Query(ctx, "SELECT data FROM runtime_executions WHERE session_id=$1 FOR UPDATE", v.ID)
-	if e != nil {
-		return e
-	}
-	var xs []domain.Execution
-	for rows.Next() {
-		x, err := readExecution(rows)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		xs = append(xs, x)
-	}
-	rows.Close()
-	if e = rows.Err(); e != nil {
-		return e
-	}
-	changed := map[int]bool{}
 	for _, ev := range batch {
 		if ev.SessionID != v.ID || ev.Seq <= 0 {
 			return domain.ErrProtocol
@@ -57,18 +39,23 @@ func (s *Store) CommitEvents(ctx context.Context, l domain.Lease, batch []domain
 		if ev.Seq <= v.AgentSeq {
 			continue
 		}
-		publicEvent := any(ev)
+		var command *domain.Execution
 		if ev.ExecutionID != "" {
-			for _, x := range xs {
-				if x.ID == ev.ExecutionID && x.Kind == "inspect" {
-					publicEvent = struct {
-						domain.AgentEvent
-						ExecutionID  string `json:"execution_id,omitempty"`
-						InspectionID string `json:"inspection_id"`
-					}{AgentEvent: ev, InspectionID: ev.ExecutionID}
-					break
-				}
+			x, err := readExecution(tx.QueryRow(ctx, "SELECT data FROM runtime_executions WHERE session_id=$1 AND id=$2 FOR UPDATE", v.ID, ev.ExecutionID))
+			if err != nil && !errors.Is(err, domain.ErrNotFound) {
+				return err
 			}
+			if err == nil {
+				command = &x
+			}
+		}
+		publicEvent := any(ev)
+		if command != nil && command.Kind == "inspect" {
+			publicEvent = struct {
+				domain.AgentEvent
+				ExecutionID  string `json:"execution_id,omitempty"`
+				InspectionID string `json:"inspection_id"`
+			}{AgentEvent: ev, InspectionID: ev.ExecutionID}
 		}
 		body, err := json.Marshal(publicEvent)
 		if err != nil {
@@ -88,32 +75,13 @@ func (s *Store) CommitEvents(ctx context.Context, l domain.Lease, batch []domain
 		if ev.Generation != "" {
 			v.Generation = ev.Generation
 		}
-		for i := range xs {
-			if xs[i].Kind == "inspect" && xs[i].ID != ev.ExecutionID {
-				continue
-			}
-			if xs[i].ID != ev.ExecutionID && (ev.Kind != "kernel_message" || ev.MsgType != "update_display_data" || xs[i].Generation != ev.Generation) {
-				continue
-			}
-			if e = xs[i].Apply(ev); e != nil {
+		if command != nil {
+			if e = applyExecution(ctx, tx, *command, ev); e != nil {
 				return e
 			}
-			changed[i] = true
 		}
-	}
-	for i := range changed {
-		x := xs[i]
-		b, err := encodeExecution(x)
-		if err != nil {
-			return err
-		}
-		_, e = tx.Exec(ctx, "UPDATE runtime_executions SET data=$3 WHERE session_id=$1 AND id=$2", v.ID, x.ID, b)
-		if e != nil {
-			return e
-		}
-		if x.Projection == "pending" {
-			_, e = tx.Exec(ctx, "INSERT INTO runtime_projections(session_id,execution_id,version) VALUES($1,$2,$3) ON CONFLICT(session_id,execution_id) DO UPDATE SET version=EXCLUDED.version,next_attempt=now()", v.ID, x.ID, x.Version)
-			if e != nil {
+		if ev.Kind == "kernel_message" && ev.MsgType == "update_display_data" {
+			if e = updateDisplays(ctx, tx, ev); e != nil {
 				return e
 			}
 		}

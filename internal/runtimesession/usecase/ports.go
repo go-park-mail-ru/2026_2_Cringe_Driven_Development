@@ -36,8 +36,10 @@ type Store interface {
 	Admit(context.Context, int64, uuid.UUID, domain.ExecuteRequest) (domain.Execution, error)
 	// Execution читает сохранённое исполнение, проверяя принадлежность сессии владельцу.
 	Execution(context.Context, int64, uuid.UUID, string) (domain.Execution, error)
-	// Executions читает команды сессии в устойчивом порядке принятия из базы, а не по ID или номеру ячейки.
-	Executions(context.Context, uuid.UUID) ([]domain.Execution, error)
+	// NextPending читает следующую ожидающую команду без завершённой истории.
+	NextPending(context.Context, uuid.UUID) (domain.Execution, error)
+	// MarkUnknown сохраняет недостоверный исход незавершённых команд без чтения их выводов.
+	MarkUnknown(context.Context, domain.Lease) error
 	// Claim выбирает готовую к обработке сессию и временно закрепляет её за одним фоновым обработчиком.
 	Claim(context.Context, string) (domain.Lease, error)
 	// CheckLease проверяет, что фоновый обработчик ещё владеет задачей и может выполнять внешние действия.

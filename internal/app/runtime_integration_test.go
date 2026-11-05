@@ -326,7 +326,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		if snapshotErr != nil {
 			t.Fatal(snapshotErr)
 		}
-		for i, source := range []string{"answer = 42", "print(answer)"} {
+		for i, source := range []string{"answer = 42", "print(answer)", "print(chr(0))"} {
 			added, addErr := notebooks.AddCell(ctx, first.ID, user.ID, snapshot.Hash, "code", source, nil)
 			if addErr != nil {
 				t.Fatal(addErr)
@@ -342,6 +342,26 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 				x, e := store.Execution(ctx, user.ID, session.ID, id)
 				if e != nil || x.ExecutionCount == nil || len(x.Outputs) == 0 || !strings.Contains(string(x.Outputs[0]), "42") {
 					t.Fatal("kernel memory/count not preserved", x, e)
+				}
+			}
+			if i == 2 {
+				response := call("GET", base+"/executions/"+id, "", 200)
+				var execution D.Execution
+				if e := json.Unmarshal(response.Body.Bytes(), &execution); e != nil {
+					t.Fatal(e)
+				}
+				var text strings.Builder
+				for _, raw := range execution.Outputs {
+					var output struct {
+						Text string `json:"text"`
+					}
+					if e := json.Unmarshal(raw, &output); e != nil {
+						t.Fatal(e)
+					}
+					text.WriteString(output.Text)
+				}
+				if text.String() != "\x00\n" {
+					t.Fatalf("NUL output changed: %q", text.String())
 				}
 			}
 			snapshot, snapshotErr = notebooks.Content(ctx, first.ID, user.ID)
@@ -370,6 +390,11 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal("results lost after stop", w.Body.String())
 	}
+	if os.Getenv("RUNTIME_TEST_REAL_AGENT") == "1" && !strings.Contains(w.Body.String(), `\u0000`) {
+		t.Fatal("NUL output missing from notebook after stop", w.Body.String())
+	}
+	// Пользовательская сессия уже завершена, но тест также дожидается реальной очистки тестового окружения.
+	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && !v.CleanupError })
 	call("GET", "/runtime-sessions/active", "", 200)
 	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"r-session","language":"r"}`, 202)
 	var rSession struct {

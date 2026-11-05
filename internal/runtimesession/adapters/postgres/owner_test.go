@@ -113,10 +113,10 @@ func TestPublicCursorPaginationKeepsLargeFirstEvent(t *testing.T) {
 	}
 }
 
-// TestExecutionsDispatchInAdmissionOrderAcrossCells проверяет порядок отправки по факту принятия, а не по
+// TestPendingDispatchInAdmissionOrderAcrossCells проверяет порядок отправки по факту принятия, а не по
 // ячейке или её номеру попытки.
-func TestExecutionsDispatchInAdmissionOrderAcrossCells(t *testing.T) {
-	s, _, owner, nb := integrationStore(t)
+func TestPendingDispatchInAdmissionOrderAcrossCells(t *testing.T) {
+	s, p, owner, nb := integrationStore(t)
 	ctx := context.Background()
 	v, err := s.Start(ctx, newSession(owner, nb))
 	if err != nil {
@@ -129,13 +129,13 @@ func TestExecutionsDispatchInAdmissionOrderAcrossCells(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	xs, err := s.Executions(ctx, v.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for i, want := range []string{"z", "a", "repeat", "b"} {
-		if xs[i].ID != want {
-			t.Fatalf("dispatch[%d]=%s, want %s", i, xs[i].ID, want)
+		x, err := s.NextPending(ctx, v.ID)
+		if err != nil || x.ID != want {
+			t.Fatalf("dispatch[%d]=%s, want %s: %v", i, x.ID, want, err)
+		}
+		if _, err = p.Exec(ctx, `UPDATE runtime_executions SET data=jsonb_set(data,'{Dispatch}','"ACCEPTED"') WHERE session_id=$1 AND id=$2`, v.ID, x.ID); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

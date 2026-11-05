@@ -204,19 +204,18 @@ func (mr *MockStoreMockRecorder) Execution(arg0, arg1, arg2, arg3 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execution", reflect.TypeOf((*MockStore)(nil).Execution), arg0, arg1, arg2, arg3)
 }
 
-// Executions mocks base method.
-func (m *MockStore) Executions(arg0 context.Context, arg1 uuid.UUID) ([]domain.Execution, error) {
+// MarkUnknown mocks base method.
+func (m *MockStore) MarkUnknown(arg0 context.Context, arg1 domain.Lease) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Executions", arg0, arg1)
-	ret0, _ := ret[0].([]domain.Execution)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "MarkUnknown", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Executions indicates an expected call of Executions.
-func (mr *MockStoreMockRecorder) Executions(arg0, arg1 any) *gomock.Call {
+// MarkUnknown indicates an expected call of MarkUnknown.
+func (mr *MockStoreMockRecorder) MarkUnknown(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Executions", reflect.TypeOf((*MockStore)(nil).Executions), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUnknown", reflect.TypeOf((*MockStore)(nil).MarkUnknown), arg0, arg1)
 }
 
 // Mutate mocks base method.
@@ -231,6 +230,21 @@ func (m *MockStore) Mutate(arg0 context.Context, arg1 int64, arg2 uuid.UUID, arg
 func (mr *MockStoreMockRecorder) Mutate(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mutate", reflect.TypeOf((*MockStore)(nil).Mutate), arg0, arg1, arg2, arg3)
+}
+
+// NextPending mocks base method.
+func (m *MockStore) NextPending(arg0 context.Context, arg1 uuid.UUID) (domain.Execution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextPending", arg0, arg1)
+	ret0, _ := ret[0].(domain.Execution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NextPending indicates an expected call of NextPending.
+func (mr *MockStoreMockRecorder) NextPending(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextPending", reflect.TypeOf((*MockStore)(nil).NextPending), arg0, arg1)
 }
 
 // Owned mocks base method.

@@ -21,7 +21,7 @@ type executionRecord struct {
 	// OwnerID ID владельца для проверки доступа.
 	OwnerID, NotebookID int64
 	// Code Снимок исходника, который должен выполнить агент.
-	Code string
+	Code []byte
 	// TimeoutSeconds Допустимое время выполнения команды в секундах.
 	TimeoutSeconds float64
 	// Dispatch Служебное состояние доставки команды агенту.
@@ -34,12 +34,34 @@ type executionRecord struct {
 	ClearPending bool
 	// Kind Вид команды, события или ячейки, определяющий обработку.
 	Kind string
+	// OutputJSON хранит JSON выводов как base64, чтобы JSONB не декодировал запрещённый NUL.
+	OutputJSON []byte
+	// ResultJSON сохраняет произвольный результат команды без изменения его содержимого.
+	ResultJSON []byte
+	// DisplayIDs содержит хэши display_id для адресного обновления без чтения всей истории.
+	DisplayIDs []string
 }
 
 // encodeExecution сериализует публичный результат и внутренние параметры исполнения для хранения в
 // PostgreSQL.
 func encodeExecution(x domain.Execution) ([]byte, error) {
-	return json.Marshal(executionRecord{x, x.OwnerID, x.NotebookID, x.Code, x.TimeoutSeconds, x.Dispatch, x.Version, x.Generation, x.ClearPending, x.Kind})
+	outputs, err := json.Marshal(x.Outputs)
+	if err != nil {
+		return nil, err
+	}
+	r := executionRecord{Public: x, OwnerID: x.OwnerID, NotebookID: x.NotebookID, Code: []byte(x.Code), TimeoutSeconds: x.TimeoutSeconds, Dispatch: x.Dispatch, Version: x.Version, Generation: x.Generation, ClearPending: x.ClearPending, Kind: x.Kind, OutputJSON: outputs, ResultJSON: []byte(x.Result)}
+	for _, raw := range x.Outputs {
+		key, err := displayKey(raw)
+		if err != nil {
+			return nil, err
+		}
+		if key != "" {
+			r.DisplayIDs = append(r.DisplayIDs, key)
+		}
+	}
+	r.Public.Outputs = nil
+	r.Public.Result = nil
+	return json.Marshal(r)
 }
 
 // decodeExecution восстанавливает исполнение вместе с внутренними полями, которые не выдаются клиенту.
@@ -49,14 +71,21 @@ func decodeExecution(b []byte) (domain.Execution, error) {
 	x := r.Public
 	x.OwnerID = r.OwnerID
 	x.NotebookID = r.NotebookID
-	x.Code = r.Code
+	x.Code = string(r.Code)
 	x.TimeoutSeconds = r.TimeoutSeconds
 	x.Dispatch = r.Dispatch
 	x.Version = r.Version
 	x.Generation = r.Generation
 	x.ClearPending = r.ClearPending
 	x.Kind = r.Kind
-	return x, e
+	if e != nil {
+		return x, e
+	}
+	if e = json.Unmarshal(r.OutputJSON, &x.Outputs); e != nil {
+		return x, e
+	}
+	x.Result = json.RawMessage(r.ResultJSON)
+	return x, nil
 }
 
 // readExecution читает одну запись исполнения и отличает отсутствие записи от ошибки базы.
@@ -160,22 +189,38 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 	return x, tx.Commit(ctx)
 }
 
-// Executions читает команды сессии в устойчивом порядке принятия из базы, а не по ID или номеру ячейки.
-func (s *Store) Executions(ctx context.Context, sid uuid.UUID) ([]domain.Execution, error) {
-	rows, e := s.db.Query(ctx, "SELECT data FROM runtime_executions WHERE session_id=$1 ORDER BY admission_order", sid)
-	if e != nil {
-		return nil, e
+// NextPending читает только следующую неотправленную команду без завершённой истории.
+func (s *Store) NextPending(ctx context.Context, sid uuid.UUID) (domain.Execution, error) {
+	return readExecution(s.db.QueryRow(ctx, "SELECT data FROM runtime_executions WHERE session_id=$1 AND data->>'Dispatch'='PENDING' ORDER BY admission_order LIMIT 1", sid))
+}
+
+// MarkUnknown завершает недостоверные попытки в базе, не загружая их тяжёлые результаты в Go.
+func (s *Store) MarkUnknown(ctx context.Context, l domain.Lease) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
 	}
-	defer rows.Close()
-	var xs []domain.Execution
-	for rows.Next() {
-		x, e := readExecution(rows)
-		if e != nil {
-			return nil, e
-		}
-		xs = append(xs, x)
+	defer func() { _ = tx.Rollback(ctx) }()
+	var valid bool
+	err = tx.QueryRow(ctx, "SELECT lease_version=$2 AND lease_until>now() FROM runtime_sessions WHERE id=$1 FOR UPDATE", l.Session.ID, l.Version).Scan(&valid)
+	if err != nil {
+		return err
 	}
-	return xs, rows.Err()
+	if !valid {
+		return domain.ErrLeaseLost
+	}
+	_, err = tx.Exec(ctx, `WITH changed AS (
+ UPDATE runtime_executions SET data=jsonb_set(jsonb_set(data,'{Public,state}','"UNKNOWN"'),'{Dispatch}','"ACCEPTED"')
+ WHERE session_id=$1 AND data->'Public'->>'state' NOT IN ('SUCCEEDED','FAILED','INTERRUPTED','TIMED_OUT','CANCELLED','UNKNOWN','REJECTED')
+ RETURNING session_id,id,data
+) INSERT INTO runtime_projections(session_id,execution_id,version)
+ SELECT session_id,id,(data->>'Version')::bigint FROM changed
+ WHERE COALESCE(data->>'Kind','')!='inspect' AND data->'Public'->>'projection'='pending'
+ ON CONFLICT(session_id,execution_id) DO UPDATE SET version=EXCLUDED.version,next_attempt=now()`, l.Session.ID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // SaveExecution сохраняет состояние команды только при действующем владении фоновой задачей и ставит

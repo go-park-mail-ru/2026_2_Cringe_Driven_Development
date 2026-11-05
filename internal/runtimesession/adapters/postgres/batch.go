@@ -26,21 +26,23 @@ func (s *Store) Queue(ctx context.Context, owner int64, sid uuid.UUID) (D.Queue,
 	if _, err := s.Owned(ctx, owner, sid); err != nil {
 		return q, err
 	}
-	xs, err := s.Executions(ctx, sid)
+	rows, err := s.db.Query(ctx, `SELECT id,cell_id,CASE WHEN data->'Public'->>'state'='RUNNING' THEN 'RUNNING' ELSE 'QUEUED' END
+ FROM runtime_executions WHERE session_id=$1 AND cell_id!=''
+ AND data->'Public'->>'state' NOT IN ('SUCCEEDED','FAILED','INTERRUPTED','TIMED_OUT','CANCELLED','UNKNOWN','REJECTED')
+ ORDER BY (data->'Public'->>'state'='RUNNING') DESC,admission_order`, sid)
 	if err != nil {
 		return q, err
 	}
-	for _, running := range []bool{true, false} {
-		for _, x := range xs {
-			if x.CellID == "" || x.Terminal() || (x.State == "RUNNING") != running {
-				continue
-			}
-			state := "QUEUED"
-			if running {
-				state = "RUNNING"
-			}
-			q.Items = append(q.Items, D.QueueItem{ExecutionID: x.ID, CellID: x.CellID, State: state})
+	defer rows.Close()
+	for rows.Next() {
+		var item D.QueueItem
+		if err = rows.Scan(&item.ExecutionID, &item.CellID, &item.State); err != nil {
+			return q, err
 		}
+		q.Items = append(q.Items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return q, err
 	}
 	return q, nil
 }

@@ -56,12 +56,12 @@ func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
 		}
 	}
 	current, err := uc.GetSession(ctx, owner, v.ID)
-	if err != nil || current.State != D.Stopping || !current.JournalIncomplete || !current.DeleteSent {
+	if err != nil || current.State != D.Stopped || !current.CleanupError || !current.JournalIncomplete || !current.DeleteSent {
 		t.Fatal(current, err)
 	}
 	active, err := uc.GetActive(ctx, owner)
-	if err != nil || active == nil {
-		t.Fatal("disabled provisioning freed slot without cleanup", active, err)
+	if err != nil || active != nil {
+		t.Fatal("stopped runtime still occupies user slot", active, err)
 	}
 	var desired string
 	if err = p.QueryRow(ctx, "SELECT desired_state FROM runtime_environments WHERE session_id=$1", v.ID).Scan(&desired); err != nil || desired != "DELETED" {

@@ -14,7 +14,7 @@ CREATE TABLE runtime_sessions (
  next_check timestamptz NOT NULL DEFAULT now(),
  UNIQUE(owner_id,request_id)
 );
--- Пользователь занимает один слот до подтверждённого завершения и очистки сессии.
+-- Пользователь занимает один слот до завершения сессии; очистка облака отслеживается отдельно.
 CREATE UNIQUE INDEX runtime_active_owner ON runtime_sessions(owner_id) WHERE state NOT IN ('STOPPED','FAILED');
 -- Команды и их исходники сохраняются до отправки агенту; admission_order задаёт общую очередь.
 CREATE TABLE runtime_executions (
@@ -29,12 +29,18 @@ CREATE TABLE runtime_executions (
  UNIQUE(notebook_id,cell_id,attempt)
 );
 -- Публичный курсор отделён от seq агента; уникальность agent_seq предотвращает повтор событий.
+-- Индексы позволяют выбирать ожидающую команду и связанные display_id без декодирования истории.
+CREATE INDEX runtime_pending_command ON runtime_executions(session_id,admission_order) WHERE data->>'Dispatch'='PENDING';
+CREATE INDEX runtime_unfinished_command ON runtime_executions(session_id,admission_order)
+ WHERE data->'Public'->>'state' NOT IN ('SUCCEEDED','FAILED','INTERRUPTED','TIMED_OUT','CANCELLED','UNKNOWN','REJECTED');
+CREATE INDEX runtime_display_ids ON runtime_executions USING gin ((data->'DisplayIDs'));
 CREATE TABLE runtime_events (
  session_id uuid NOT NULL REFERENCES runtime_sessions(id),
  public_seq bigint NOT NULL,
  agent_seq bigint,
  kind text NOT NULL,
- body jsonb NOT NULL,
+ -- JSON-байты сохраняют NUL внутри escape-последовательностей без ограничений JSONB.
+ body bytea NOT NULL,
  PRIMARY KEY(session_id,public_seq),
  UNIQUE(session_id,agent_seq)
 );

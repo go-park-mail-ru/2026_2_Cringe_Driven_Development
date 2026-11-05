@@ -71,15 +71,15 @@ func TestArchiveCommitsBeforeRequestDelete(t *testing.T) {
 	l.Session.AgentStarted = true
 	l.Session.Reason = "requested"
 	e.EXPECT().Get(gomock.Any(), l.Session.ID).Return(D.Environment{SessionID: l.Session.ID, State: "READY"}, nil)
-	gomock.InOrder(a.EXPECT().Drain(gomock.Any(), l.Session.ID).Return(nil), a.EXPECT().Stop(gomock.Any(), l.Session.ID).Return(nil), a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return([]D.AgentEvent{}, nil), s.EXPECT().Executions(gomock.Any(), l.Session.ID).Return(nil, nil), s.EXPECT().Checkpoint(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
+	gomock.InOrder(a.EXPECT().Drain(gomock.Any(), l.Session.ID).Return(nil), a.EXPECT().Stop(gomock.Any(), l.Session.ID).Return(nil), a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return([]D.AgentEvent{}, nil), s.EXPECT().MarkUnknown(gomock.Any(), l).Return(nil), s.EXPECT().Checkpoint(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
 		if !v.JournalArchived {
 			t.Fatal("delete without archive")
 		}
 		return nil
 	}), e.EXPECT().RequestDelete(gomock.Any(), l.Session.ID, "requested").Return(nil))
 	s.EXPECT().Save(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
-		if v.State != D.Stopping {
-			t.Fatal("cleanup falsely reported terminal")
+		if v.State != D.Stopped || !v.CleanupError {
+			t.Fatal("session completion and cloud cleanup must be separate")
 		}
 		return nil
 	})
@@ -97,7 +97,7 @@ func TestReconnectRecoversAfterCompleteFlow(t *testing.T) {
 	e.EXPECT().Get(gomock.Any(), l.Session.ID).Return(D.Environment{SessionID: l.Session.ID, State: "READY"}, nil)
 	a.EXPECT().Health(gomock.Any(), l.Session.ID).Return(D.Health{SessionID: l.Session.ID, Language: "python", State: "READY", Ready: true}, nil)
 	a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return([]D.AgentEvent{}, nil)
-	s.EXPECT().Executions(gomock.Any(), l.Session.ID).Return(nil, nil)
+	s.EXPECT().NextPending(gomock.Any(), l.Session.ID).Return(D.Execution{}, D.ErrNotFound)
 	s.EXPECT().Save(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
 		if v.State != D.Ready || v.Retry != 0 {
 			t.Fatalf("successful reconnect not recovered: %+v", v)
@@ -141,7 +141,7 @@ func TestSixJournalFailuresAllowIncompleteDelete(t *testing.T) {
 	a.EXPECT().Drain(gomock.Any(), l.Session.ID).Return(D.ErrUnavailable)
 	a.EXPECT().Stop(gomock.Any(), l.Session.ID).Return(D.ErrUnavailable)
 	a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return(nil, D.ErrUnavailable)
-	s.EXPECT().Executions(gomock.Any(), l.Session.ID).Return(nil, nil)
+	s.EXPECT().MarkUnknown(gomock.Any(), l).Return(nil)
 	s.EXPECT().Checkpoint(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
 		if !v.JournalArchived || !v.JournalIncomplete {
 			t.Fatal(v)

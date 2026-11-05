@@ -76,7 +76,10 @@ func (w *Worker) Step(parent context.Context, l D.Lease) error {
 	case D.Stopping:
 		err = w.cleanup(ctx, l, &v)
 	case D.Stopped, D.Failed:
-		return nil
+		if !v.CleanupError {
+			return nil
+		}
+		err = w.cleanup(ctx, l, &v)
 	default:
 		return D.ErrProtocol
 	}
@@ -96,7 +99,7 @@ func reason(code string) string {
 	}
 }
 
-// finish выбирает конечное состояние сессии по причине завершения после обработки очистки.
+// finish выбирает конечное состояние пользовательской сессии независимо от оставшейся очистки облака.
 func (w *Worker) finish(v *D.Session) {
 	v.State = D.Failed
 	v.Stage = "failed"
@@ -344,77 +347,61 @@ func (w *Worker) ready(ctx context.Context, l D.Lease, v *D.Session) error {
 // dispatch отправляет одну ожидающую команду с прежним ID; при заполнении агента оставляет её в очереди
 // backend.
 func (w *Worker) dispatch(ctx context.Context, l D.Lease, v *D.Session) error {
-	xs, err := w.store.Executions(ctx, v.ID)
+	x, err := w.store.NextPending(ctx, v.ID)
+	if errors.Is(err, D.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	for _, x := range xs {
-		if x.Dispatch != "PENDING" {
-			continue
-		}
-		if err = w.store.CheckLease(ctx, l); err != nil {
-			return err
-		}
-		reply, callErr := w.agent.Execute(ctx, v.ID, D.Command{ExecutionID: x.ID, Code: x.Code, TimeoutSeconds: x.TimeoutSeconds, Kind: x.Kind})
-		switch {
-		case errors.Is(callErr, D.ErrQueueFull):
-			return nil // Сохраняем команду в очереди backend до освобождения места у агента.
-		case errors.Is(callErr, D.ErrInvalid), errors.Is(callErr, D.ErrConflict):
-			x.State = "REJECTED"
-			x.Dispatch = "REJECTED"
-		case callErr != nil:
-			return w.connectionFailure(v, callErr)
-		default:
-			// Повтор запроса может вернуть завершённое состояние до обработки событий вывода.
-			// Сначала архивируем доступные события и заново читаем накопленный результат,
-			// чтобы подтверждение завершения не затёрло вывод пустым снимком.
-			if terminal := (D.Execution{State: reply.State}); terminal.Terminal() {
-				complete, collectErr := w.collect(ctx, l, v)
-				if collectErr != nil {
-					var readErr *agentReadError
-					if errors.As(collectErr, &readErr) {
-						return w.connectionFailure(v, collectErr)
-					}
-					return collectErr
+
+	if err = w.store.CheckLease(ctx, l); err != nil {
+		return err
+	}
+	reply, callErr := w.agent.Execute(ctx, v.ID, D.Command{ExecutionID: x.ID, Code: x.Code, TimeoutSeconds: x.TimeoutSeconds, Kind: x.Kind})
+	switch {
+	case errors.Is(callErr, D.ErrQueueFull):
+		return nil // Сохраняем команду в очереди backend до освобождения места у агента.
+	case errors.Is(callErr, D.ErrInvalid), errors.Is(callErr, D.ErrConflict):
+		x.State = "REJECTED"
+		x.Dispatch = "REJECTED"
+	case callErr != nil:
+		return w.connectionFailure(v, callErr)
+	default:
+		// Повтор запроса может вернуть завершённое состояние до обработки событий вывода.
+		// Сначала архивируем доступные события и заново читаем накопленный результат,
+		// чтобы подтверждение завершения не затёрло вывод пустым снимком.
+		if terminal := (D.Execution{State: reply.State}); terminal.Terminal() {
+			complete, collectErr := w.collect(ctx, l, v)
+			if collectErr != nil {
+				var readErr *agentReadError
+				if errors.As(collectErr, &readErr) {
+					return w.connectionFailure(v, collectErr)
 				}
-				if !complete {
-					return nil
-				}
-				x, err = w.store.Execution(ctx, v.OwnerID, v.ID, x.ID)
-				if err != nil {
-					return err
-				}
+				return collectErr
 			}
-			x.Dispatch = "ACCEPTED"
-			x.State = reply.State
-			x.Result = reply.Result
-			v.LastActivityAt = w.now()
+			if !complete {
+				return nil
+			}
+			x, err = w.store.Execution(ctx, v.OwnerID, v.ID, x.ID)
+			if err != nil {
+				return err
+			}
 		}
-		if err = w.store.SaveExecution(ctx, l, x); err != nil {
-			return err
-		}
-		break
+		x.Dispatch = "ACCEPTED"
+		x.State = reply.State
+		x.Result = reply.Result
+		v.LastActivityAt = w.now()
+	}
+	if err = w.store.SaveExecution(ctx, l, x); err != nil {
+		return err
 	}
 	return nil
 }
 
 // markUnknown сохраняет недостоверный исход незавершённых попыток, не запуская их автоматически повторно.
 func (w *Worker) markUnknown(ctx context.Context, l D.Lease) error {
-	xs, err := w.store.Executions(ctx, l.Session.ID)
-	if err != nil {
-		return err
-	}
-	for _, x := range xs {
-		if x.Terminal() {
-			continue
-		}
-		x.State = "UNKNOWN"
-		x.Dispatch = "ACCEPTED"
-		if err = w.store.SaveExecution(ctx, l, x); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.store.MarkUnknown(ctx, l)
 }
 
 // cleanup останавливает приём команд, сохраняет доступные результаты и запрашивает идемпотентное удаление
@@ -493,6 +480,9 @@ func (w *Worker) cleanup(ctx context.Context, l D.Lease, v *D.Session) error {
 	if err = w.markUnknown(ctx, l); err != nil {
 		return err
 	}
+	// Пользовательский слот освобождается после остановки и архивации, до ответа облака.
+	w.finish(v)
+	v.CleanupError = true
 	v.JournalArchived = true
 	if err = w.store.Checkpoint(ctx, l, *v); err != nil {
 		return err
@@ -503,15 +493,11 @@ func (w *Worker) cleanup(ctx context.Context, l D.Lease, v *D.Session) error {
 	if !v.DeleteSent && env.State != "DELETING" && env.State != "CLEANUP_PENDING" {
 		if err = w.env.RequestDelete(ctx, v.ID, reason(v.Reason)); err != nil {
 			v.CleanupError = true
-			v.Stage = "cleanup_pending"
 			return nil
 		}
 	}
 	v.DeleteSent = true
-	v.Stage = "deleting_environment"
-	v.CleanupError = env.State == "CLEANUP_PENDING"
-	if v.CleanupError {
-		v.Stage = "cleanup_pending"
-	}
+	// Подтверждение RequestDelete не подтверждает удаление ресурсов; Claim продолжит наблюдение.
+	v.CleanupError = true
 	return nil
 }

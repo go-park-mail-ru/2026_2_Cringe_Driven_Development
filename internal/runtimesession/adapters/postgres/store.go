@@ -180,7 +180,7 @@ func (s *Store) Claim(ctx context.Context, worker string) (domain.Lease, error) 
 	var b []byte
 	var version int64
 	e = tx.QueryRow(ctx, `UPDATE runtime_sessions SET lease_owner=$1,lease_version=lease_version+1,lease_until=now()+interval '90 seconds'
- WHERE id=(SELECT id FROM runtime_sessions WHERE (state NOT IN ('STOPPED','FAILED') OR (data->>'CreateUnknown')::boolean) AND next_check<=now() AND lease_until<now() ORDER BY next_check FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING data,lease_version`, worker).Scan(&b, &version)
+ WHERE id=(SELECT id FROM runtime_sessions WHERE (state NOT IN ('STOPPED','FAILED') OR (data->>'CreateUnknown')::boolean OR COALESCE((data->'public'->>'cleanup_pending')::boolean,false)) AND next_check<=now() AND lease_until<now() ORDER BY next_check FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING data,lease_version`, worker).Scan(&b, &version)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return domain.Lease{}, domain.ErrNotFound
 	}
@@ -243,10 +243,10 @@ func (s *Store) save(ctx context.Context, l domain.Lease, v domain.Session, rele
 	if current.AgentSeq > l.Session.AgentSeq {
 		v.Generation = current.Generation
 	}
-	if current.State != v.State || current.Stage != v.Stage || current.Reason != v.Reason {
+	if current.State != v.State || current.Stage != v.Stage || current.Reason != v.Reason || current.CleanupError != v.CleanupError {
 		v.PublicSeq++
 		var body []byte
-		body, e = json.Marshal(map[string]any{"state": v.State, "stage": v.Stage, "reason": v.Reason})
+		body, e = json.Marshal(map[string]any{"state": v.State, "stage": v.Stage, "reason": v.Reason, "cleanup_pending": v.CleanupError})
 		if e != nil {
 			return e
 		}
