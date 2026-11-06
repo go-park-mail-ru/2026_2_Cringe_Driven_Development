@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -18,6 +17,15 @@ import (
 // and decimal numbers without an exponent or insignificant trailing zeroes.
 // Decimal normalization makes accounting independent of jsonb's number spelling.
 func CanonicalJSON(raw []byte) (json.RawMessage, error) {
+	return CanonicalJSONLimit(raw, 128*1024*1024)
+}
+
+// CanonicalJSONLimit checks the complete encoded size before expanding numbers
+// or allocating the final JSON. The limit includes escaping and delimiters.
+func CanonicalJSONLimit(raw []byte, limit int) (json.RawMessage, error) {
+	if limit < 0 {
+		return nil, domain.ErrTooLarge
+	}
 	if !utf8.Valid(raw) {
 		return nil, errors.New("invalid UTF-8")
 	}
@@ -68,6 +76,10 @@ func CanonicalJSON(raw []byte) (json.RawMessage, error) {
 	if err := d.Decode(&extra); err != io.EOF {
 		return nil, errors.New("trailing JSON")
 	}
+	remaining := limit
+	if err := canonicalBudget(value, &remaining); err != nil {
+		return nil, err
+	}
 	value, err := normalize(value)
 	if err != nil {
 		return nil, err
@@ -81,53 +93,21 @@ func normalize(v any) (any, error) {
 			return nil, errors.New("NUL is not supported by PostgreSQL")
 		}
 	case json.Number:
-		// JSON decimal denominators have only factors 2 and 5. The input exponent
-		// bounds avoid expanding values beyond PostgreSQL numeric's supported scale.
-		s := string(x)
-		exp := 0
-		if i := strings.IndexAny(s, "eE"); i >= 0 {
-			var e error
-			exp, e = strconv.Atoi(s[i+1:])
-			if e != nil || exp > 131071 || exp < -16383 {
-				return nil, errors.New("number outside PostgreSQL range")
-			}
-			s = s[:i]
+		digits, point, negative, err := decimalLayout(x)
+		if err != nil {
+			return nil, err
 		}
-
-		integerDigits := len(s)
-		if dot := strings.IndexByte(s, '.'); dot >= 0 {
-			integerDigits = dot
+		var s string
+		switch {
+		case point <= 0:
+			s = "0." + strings.Repeat("0", -point) + digits
+		case point >= len(digits):
+			s = digits + strings.Repeat("0", point-len(digits))
+		default:
+			s = digits[:point] + "." + digits[point:]
 		}
-		if strings.HasPrefix(s, "-") {
-			integerDigits--
-		}
-		if integerDigits+exp > 131072 {
-			return nil, errors.New("number outside PostgreSQL range")
-		}
-		scale := 0
-		if i := strings.IndexByte(s, '.'); i >= 0 {
-			scale = len(s) - i - 1
-		}
-		scale -= exp
-		if scale < 0 {
-			scale = 0
-		}
-		if scale > 16383 {
-			return nil, errors.New("number outside PostgreSQL range")
-		}
-		r, ok := new(big.Rat).SetString(string(x))
-		if !ok {
-			return nil, errors.New("invalid JSON number")
-		}
-		s = r.FloatString(scale)
-		if strings.Contains(s, ".") {
-			s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
-		}
-		if s == "-0" {
-			s = "0"
-		}
-		if len(s) > 131073 {
-			return nil, errors.New("number outside PostgreSQL range")
+		if negative {
+			s = "-" + s
 		}
 		return json.Number(s), nil
 	case []any:
@@ -152,6 +132,125 @@ func normalize(v any) (any, error) {
 	}
 	return v, nil
 }
+
+// decimalLayout computes the canonical decimal's shape without expanding its
+// exponent. JSON syntax has already been validated by encoding/json.
+func decimalLayout(n json.Number) (digits string, point int, negative bool, err error) {
+	s := string(n)
+	negative = strings.HasPrefix(s, "-")
+	s = strings.TrimPrefix(s, "-")
+	exp := 0
+	if i := strings.IndexAny(s, "eE"); i >= 0 {
+		exp, err = strconv.Atoi(s[i+1:])
+		if err != nil || exp > 131071 || exp < -16383 {
+			return "", 0, false, errors.New("number outside PostgreSQL range")
+		}
+		s = s[:i]
+	}
+	point = len(s)
+	scale := 0
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		point = i
+		scale = len(s) - i - 1
+	}
+	if point+exp > 131072 || scale-exp > 16383 {
+		return "", 0, false, errors.New("number outside PostgreSQL range")
+	}
+	digits = strings.ReplaceAll(s, ".", "")
+	trimmed := strings.TrimLeft(digits, "0")
+	point += exp - (len(digits) - len(trimmed))
+	digits = strings.TrimRight(trimmed, "0")
+	if digits == "" {
+		return "0", 1, false, nil
+	}
+	return digits, point, negative, nil
+}
+
+func canonicalBudget(v any, remaining *int) error {
+	spend := func(n int) error {
+		if n > *remaining {
+			return domain.ErrTooLarge
+		}
+		*remaining -= n
+		return nil
+	}
+	switch x := v.(type) {
+	case nil:
+		return spend(4)
+	case bool:
+		if x {
+			return spend(4)
+		}
+		return spend(5)
+	case string:
+		if err := spend(2); err != nil {
+			return err
+		}
+		for _, r := range x {
+			n := utf8.RuneLen(r)
+			switch {
+			case r == 0:
+				return errors.New("NUL is not supported by PostgreSQL")
+			case r == '"' || r == '\\' || r == '\n' || r == '\r' || r == '\t' || r == '\b' || r == '\f':
+				n = 2
+			case r < 0x20 || r == '<' || r == '>' || r == '&' || r == '\u2028' || r == '\u2029':
+				n = 6
+			}
+			if err := spend(n); err != nil {
+				return err
+			}
+		}
+	case json.Number:
+		digits, point, negative, err := decimalLayout(x)
+		if err != nil {
+			return err
+		}
+		n := len(digits)
+		switch {
+		case point <= 0:
+			n += 2 - point
+		case point >= n:
+			n = point
+		default:
+			n++
+		}
+		if negative {
+			n++
+		}
+		return spend(n)
+	case []any:
+		n := 2
+		if len(x) > 0 {
+			n += len(x) - 1
+		}
+		if err := spend(n); err != nil {
+			return err
+		}
+		for _, item := range x {
+			if err := canonicalBudget(item, remaining); err != nil {
+				return err
+			}
+		}
+	case map[string]any:
+		n := 2
+		if len(x) > 0 {
+			n += 2*len(x) - 1
+		} // colons and commas
+		if err := spend(n); err != nil {
+			return err
+		}
+		for k, item := range x {
+			if err := canonicalBudget(k, remaining); err != nil {
+				return err
+			}
+			if err := canonicalBudget(item, remaining); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func object(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

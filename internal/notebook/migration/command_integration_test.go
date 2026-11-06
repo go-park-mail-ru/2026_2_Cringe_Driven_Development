@@ -3,6 +3,7 @@ package migration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/migrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -61,12 +63,22 @@ func TestMigrationCommandWithS3AndPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	document := `{"nbformat":4,"nbformat_minor":5,"metadata":{"custom":true},"cells":[{"id":"stable","cell_type":"code","source":["  я","😀"],"outputs":[{"text":"saved"}],"execution_count":4,"attachments":{"keep":{}}}]}`
+	repo := postgres.NewNotebookRepository(pool)
+	if err = repo.Ready(ctx); !errors.Is(err, usecase.ErrMigrationRequired) {
+		t.Fatalf("API ready before migration: %v", err)
+	}
+	var invalid atomic.Bool
+	invalid.Store(true)
 	var requests atomic.Int32
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
 		if r.Method != http.MethodGet || r.URL.Path != "/legacy/original.ipynb" {
 			t.Errorf("unexpected S3 operation: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(400)
+			return
+		}
+		if invalid.Load() {
+			_, _ = fmt.Fprint(w, `{"nbformat":4,"nbformat_minor":5,"cells":[{"id":"bad","cell_type":"code","source":"\u0000"}]}`)
 			return
 		}
 		w.Header().Set("Content-Type", "application/x-ipynb+json")
@@ -78,13 +90,28 @@ func TestMigrationCommandWithS3AndPostgres(t *testing.T) {
 	}
 	opts := Options{DatabaseURL: databaseURL.String(), Bucket: "legacy"}
 	var out bytes.Buffer
+	if err = RunCommand(ctx, opts, &out); err == nil {
+		t.Fatal("invalid document accepted")
+	}
+	if err = repo.Ready(ctx); !errors.Is(err, usecase.ErrMigrationRequired) {
+		t.Fatalf("API ready after failed migration: %v", err)
+	}
+	var count int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM notebook_cells WHERE notebook_id=$1`, id).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("partial migration: cells=%d err=%v", count, err)
+	}
+	invalid.Store(false)
+	requests.Store(0)
+	out.Reset()
 	if err = RunCommand(ctx, opts, &out); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "migrated=1") || requests.Load() != 1 {
 		t.Fatalf("%s requests=%d", out.String(), requests.Load())
 	}
-	repo := postgres.NewNotebookRepository(pool)
+	if err = repo.Ready(ctx); err != nil {
+		t.Fatalf("API blocked after migration: %v", err)
+	}
 	n, err := repo.Get(ctx, id, 1)
 	if err != nil {
 		t.Fatal(err)

@@ -3,7 +3,11 @@ package ipynb
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
+
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 )
 
 func TestDocumentRoundTripAndAccounting(t *testing.T) {
@@ -100,5 +104,39 @@ func TestUnknownRuntimeNamespaceIsNotLost(t *testing.T) {
 	cells[0].OutputTruncated = true
 	if _, err = EncodeDocument(doc, cells); err == nil {
 		t.Fatal("runtime flag silently overwrote unknown metadata")
+	}
+}
+
+func TestCanonicalJSONBudget(t *testing.T) {
+	for _, input := range []string{`[1e308,1e308]`, `[1e-308,1e-308]`, `{"nested":[1e308],"escaped":"<😀\\\""}`} {
+		out, err := CanonicalJSONLimit([]byte(input), 1024)
+		if err != nil {
+			t.Fatal(err)
+		}
+		exact, err := CanonicalJSONLimit([]byte(input), len(out))
+		if err != nil || !bytes.Equal(out, exact) {
+			t.Fatalf("exact boundary: %v", err)
+		}
+		if _, err = CanonicalJSONLimit([]byte(input), len(out)-1); !errors.Is(err, domain.ErrTooLarge) {
+			t.Fatalf("accepted over budget: %v", err)
+		}
+	}
+}
+
+func TestCanonicalJSONExponentArrayBudget(t *testing.T) {
+	input := []byte(`[` + strings.Repeat(`1e308,`, 9999) + `1e308]`)
+	if _, err := CanonicalJSONLimit(input, 1024); !errors.Is(err, domain.ErrTooLarge) {
+		t.Fatalf("expanded array accepted: %v", err)
+	}
+}
+
+func TestCanonicalDecimalSpelling(t *testing.T) {
+	for input, want := range map[string]string{
+		"1e3": "1000", "1e-3": "0.001", "-0.000e3": "0", "120.00e-1": "12", "0.01200e1": "0.12", "-12.30e-2": "-0.123", "1000e-3": "1",
+	} {
+		got, err := CanonicalJSON([]byte(input))
+		if err != nil || string(got) != want {
+			t.Errorf("%s: got %s, want %s (%v)", input, got, want, err)
+		}
 	}
 }

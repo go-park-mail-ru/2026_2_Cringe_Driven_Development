@@ -44,9 +44,15 @@ func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ow
 	if len(result.Outputs) > usecase.MaxNotebookBytes {
 		return "", usecase.ErrTooLarge
 	}
-	outputs, err := ipynb.CanonicalJSON(result.Outputs)
+	outputs, err := ipynb.CanonicalJSONLimit(result.Outputs, usecase.MaxNotebookBytes)
+	if errors.Is(err, domain.ErrTooLarge) {
+		return "", usecase.ErrTooLarge
+	}
 	if err != nil {
 		return "", usecase.ErrInvalidDocument
+	}
+	if len(outputs) > usecase.MaxNotebookBytes {
+		return "", usecase.ErrTooLarge
 	}
 	if err = ipynb.ValidateOutputs(outputs); err != nil {
 		return "", usecase.ErrInvalidDocument
