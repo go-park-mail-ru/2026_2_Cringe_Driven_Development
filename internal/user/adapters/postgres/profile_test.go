@@ -22,7 +22,7 @@ func TestPasswordCAS(t *testing.T) {
 }
 func TestUpdateLoginConflict(t *testing.T) {
 	db := newPool(t)
-	db.ExpectQuery(`UPDATE users SET login = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, '')`).WithArgs(int64(7), "ALICE").WillReturnError(&pgconn.PgError{Code: "23505"})
+	db.ExpectQuery(`UPDATE users SET login = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`).WithArgs(int64(7), "ALICE").WillReturnError(&pgconn.PgError{Code: "23505"})
 	_, err := NewUserRepository(db).UpdateLogin(context.Background(), 7, "ALICE")
 	if !errors.Is(err, usecase.ErrLoginTaken) {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestSwapAvatarTransaction(t *testing.T) {
 	db := newPool(t)
 	db.ExpectBegin()
 	db.ExpectQuery(`SELECT COALESCE(avatar_key, '') FROM users WHERE id = $1 FOR UPDATE`).WithArgs(int64(7)).WillReturnRows(pgxmock.NewRows([]string{"avatar_key"}).AddRow("old"))
-	db.ExpectQuery(`UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, '')`).WithArgs(int64(7), "new").WillReturnRows(pgxmock.NewRows([]string{"id", "login", "avatar_key"}).AddRow(int64(7), "alice", "new"))
+	db.ExpectQuery(`UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`).WithArgs(int64(7), "new").WillReturnRows(pgxmock.NewRows([]string{"id", "login", "avatar_key", "totp_enabled"}).AddRow(int64(7), "alice", "new", false))
 	db.ExpectCommit()
 	u, old, err := NewUserRepository(db).SwapAvatar(context.Background(), 7, "new")
 	if err != nil || old != "old" || u.AvatarKey != "new" {
@@ -45,7 +45,7 @@ func TestSwapAvatarUpdateFailureRollsBack(t *testing.T) {
 	failure := errors.New("write unavailable")
 	db.ExpectBegin()
 	db.ExpectQuery(`SELECT COALESCE(avatar_key, '') FROM users WHERE id = $1 FOR UPDATE`).WithArgs(int64(7)).WillReturnRows(pgxmock.NewRows([]string{"avatar_key"}).AddRow("old"))
-	db.ExpectQuery(`UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, '')`).WithArgs(int64(7), "new").WillReturnError(failure)
+	db.ExpectQuery(`UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`).WithArgs(int64(7), "new").WillReturnError(failure)
 	db.ExpectRollback()
 	u, old, err := NewUserRepository(db).SwapAvatar(context.Background(), 7, "new")
 	if !errors.Is(err, failure) || u.ID != 0 || old != "" {
@@ -55,7 +55,7 @@ func TestSwapAvatarUpdateFailureRollsBack(t *testing.T) {
 
 func TestCredentialsByIDCarriesAvatar(t *testing.T) {
 	db := newPool(t)
-	db.ExpectQuery(`SELECT id, login, password_hash, COALESCE(avatar_key, '') FROM users WHERE id = $1`).WithArgs(int64(7)).WillReturnRows(pgxmock.NewRows([]string{"id", "login", "password_hash", "avatar_key"}).AddRow(int64(7), "alice", "hash", "avatar"))
+	db.ExpectQuery(`SELECT id, login, password_hash, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE id = $1`).WithArgs(int64(7)).WillReturnRows(pgxmock.NewRows([]string{"id", "login", "password_hash", "avatar_key", "totp_enabled"}).AddRow(int64(7), "alice", "hash", "avatar", false))
 	u, hash, err := NewUserRepository(db).CredentialsByID(context.Background(), 7)
 	if err != nil || u.AvatarKey != "avatar" || hash != "hash" {
 		t.Fatalf("user=%v hash=%s err=%v", u, hash, err)

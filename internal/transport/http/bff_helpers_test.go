@@ -16,7 +16,7 @@ type bffUsers struct {
 	mutations int
 }
 
-func (u *bffUsers) Login(context.Context, string, string) (domain.User, usecase.Session, error) {
+func (u *bffUsers) Login(context.Context, string, string, ...*string) (domain.User, usecase.Session, error) {
 	return domain.User{ID: 1, Login: "bob"}, u.session, nil
 }
 func (u *bffUsers) Register(ctx context.Context, login, password string) (domain.User, usecase.Session, error) {

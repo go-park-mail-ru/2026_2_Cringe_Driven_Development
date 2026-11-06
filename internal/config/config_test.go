@@ -38,6 +38,8 @@ func settings(values map[string]string) func(string) (string, bool) {
 			return v, true
 		}
 		switch key {
+		case "TOTP_ENCRYPTION_KEY":
+			return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", true
 		case "S3_AVATARS_BUCKET":
 			return "avatars", true
 		case "S3_AVATARS_PUBLIC_URL":

@@ -88,7 +88,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 `internal/transport/http` — роутер, `/health`, API-генерация, middleware, security, principal, httperr; `internal/{user,notebook}/delivery/http`
 → `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,avatar,security,ipynb}`
 реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.
-Сессии — Redis primary через `usecase.SessionStore`, пользователи — PostgreSQL; [runbook](docs/redis-sessions.md).
+Сессии и лимиты входа/2FA — Redis primary; пользователи и зашифрованные TOTP-секреты — PostgreSQL; [runbook](docs/redis-sessions.md).
 Блокноты: PostgreSQL по ячейкам, токен редакции и размеры — docs/notebook-editing.md; перенос — docs/notebook-migration.md.
 `internal/tooling/apidog` — экспорт контракта; `migrations` — встроенные goose SQL.
 `internal/transport/http/api/api.gen.go` не редактируй вручную. Контракт и `make generate` описаны в [docs/apidog.md](docs/apidog.md).

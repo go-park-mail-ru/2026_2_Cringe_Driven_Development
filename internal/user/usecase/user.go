@@ -13,6 +13,8 @@ import (
 )
 
 type UserUsecase struct {
+	twoFactor  TwoFactorSecurity
+	limiter    AttemptLimiter
 	users      UserStore
 	sessions   SessionStore
 	tokens     TokenIssuer
@@ -23,8 +25,12 @@ type UserUsecase struct {
 	now func() time.Time
 }
 
-func NewUserUsecase(users UserStore, sessions SessionStore, tokens TokenIssuer, passwords PasswordHasher, refresh RefreshTokens, refreshTTL time.Duration) *UserUsecase {
-	return &UserUsecase{users: users, sessions: sessions, tokens: tokens, passwords: passwords, refresh: refresh, refreshTTL: refreshTTL, now: time.Now}
+func NewUserUsecase(users UserStore, sessions SessionStore, tokens TokenIssuer, passwords PasswordHasher, refresh RefreshTokens, refreshTTL time.Duration, options ...func(*UserUsecase)) *UserUsecase {
+	uc := &UserUsecase{users: users, sessions: sessions, tokens: tokens, passwords: passwords, refresh: refresh, refreshTTL: refreshTTL, now: time.Now}
+	for _, option := range options {
+		option(uc)
+	}
+	return uc
 }
 
 func (uc *UserUsecase) Register(ctx context.Context, login, password string) (domain.User, Session, error) {
@@ -67,42 +73,53 @@ func (uc *UserUsecase) Register(ctx context.Context, login, password string) (do
 	return u, sess, err
 }
 
-func (uc *UserUsecase) Login(ctx context.Context, login, password string) (domain.User, Session, error) {
+func (uc *UserUsecase) Login(ctx context.Context, login, password string, userCode ...*string) (domain.User, Session, error) {
 	u, _, err := uc.users.UserByLogin(ctx, login)
 	if errors.Is(err, ErrUserNotFound) {
+		if limitErr := uc.allow(ctx, unknownLoginKey(login), 10); limitErr != nil {
+			return domain.User{}, Session{}, limitErr
+		}
 		return domain.User{}, Session{}, ErrInvalidCredentials
 	}
 	if err != nil {
 		return domain.User{}, Session{}, err
 	}
-	// Capture the revocation fence before the final password read. Create must
-	// reject this version if a concurrent password change revokes sessions.
+	if err = uc.allow(ctx, accountAttemptKey("login", u.ID), 10); err != nil {
+		return domain.User{}, Session{}, err
+	}
 	version, err := uc.sessions.CurrentVersion(ctx, u.ID)
 	if err != nil {
 		return domain.User{}, Session{}, err
 	}
-	u, hash, err := uc.users.CredentialsByID(ctx, u.ID)
-	if errors.Is(err, ErrUserNotFound) {
-		return domain.User{}, Session{}, ErrInvalidCredentials
+	var sess Session
+	err = uc.users.WithAuthLock(ctx, u.ID, func(state *AuthState) error {
+		matched, compareErr := uc.passwords.Compare(state.PasswordHash, password)
+		if compareErr != nil {
+			return observability.WithCode(fmt.Errorf("compare password: %w", compareErr), "password_compare_failed")
+		}
+		if !matched {
+			return ErrInvalidCredentials
+		}
+		if state.User.Has2FA {
+			if len(userCode) == 0 || userCode[0] == nil {
+				return ErrTwoFactorRequired
+			}
+			if checkErr := uc.consumeTOTP(state, *userCode[0]); checkErr != nil {
+				return checkErr
+			}
+		}
+		u = state.User
+		sess, err = uc.startSession(ctx, u.ID, version)
+		return err
+	})
+	if errors.Is(err, ErrVersionChanged) || errors.Is(err, ErrUserNotFound) {
+		err = ErrInvalidCredentials
 	}
 	if err != nil {
 		return domain.User{}, Session{}, err
 	}
-	matched, err := uc.passwords.Compare(hash, password)
-	if err != nil {
-		return domain.User{}, Session{}, observability.WithCode(fmt.Errorf("compare password: %w", err), "password_compare_failed")
-	}
-	if !matched {
-		return domain.User{}, Session{}, ErrInvalidCredentials
-	}
-	sess, err := uc.startSession(ctx, u.ID, version)
-	if errors.Is(err, ErrVersionChanged) {
-		return domain.User{}, Session{}, ErrInvalidCredentials
-	}
-	if err == nil {
-		slog.InfoContext(ctx, "user.login", slog.String("outcome", "success"), slog.Int64("user_id", u.ID))
-	}
-	return u, sess, err
+	slog.InfoContext(ctx, "user.login", slog.String("outcome", "success"), slog.Int64("user_id", u.ID))
+	return u, sess, nil
 }
 
 func (uc *UserUsecase) Refresh(ctx context.Context, refreshToken string) (Session, error) {

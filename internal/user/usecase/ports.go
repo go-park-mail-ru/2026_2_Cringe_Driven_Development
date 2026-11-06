@@ -7,6 +7,7 @@ import (
 )
 
 type UserStore interface {
+	WithAuthLock(ctx context.Context, id int64, fn func(*AuthState) error) error
 	CredentialsByID(ctx context.Context, id int64) (domain.User, string, error)
 	UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error)
 	CompareAndSwapPassword(ctx context.Context, id int64, oldHash, newHash string) error

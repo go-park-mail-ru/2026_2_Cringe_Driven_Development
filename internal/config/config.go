@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 )
 
 type Config struct {
+	TOTPEncryptionKey                       []byte
 	RedisHost, RedisPassword                string
 	RedisPort, RedisDB                      int
 	RedisDialTimeout, RedisOperationTimeout time.Duration
@@ -74,6 +76,11 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 	if c.AccessTTL < time.Second || c.RefreshTTL < time.Second {
 		return Config{}, errors.New("token TTL must be at least one second")
 	}
+	key, keyErr := base64.StdEncoding.DecodeString(get("TOTP_ENCRYPTION_KEY", ""))
+	if keyErr != nil || len(key) != 32 {
+		return Config{}, errors.New("invalid TOTP_ENCRYPTION_KEY: expected base64 of exactly 32 bytes")
+	}
+	c.TOTPEncryptionKey = key
 	if c.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is not set")
 	}

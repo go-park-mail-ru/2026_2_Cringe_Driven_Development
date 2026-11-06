@@ -18,9 +18,11 @@ import (
 // fakeRepo stores users and sessions for token rotation/logout and logging flows.
 // This fixture does not verify PostgreSQL behavior.
 type fakeRepo struct {
-	mu       sync.Mutex
-	users    map[int64]fakeUser
-	sessions map[string]RefreshSession
+	mu         sync.Mutex
+	authMu     sync.Mutex
+	authStates map[int64]AuthState
+	users      map[int64]fakeUser
+	sessions   map[string]RefreshSession
 	// lastID растёт с каждым пользователем, как IDENTITY в Postgres.
 	lastID int64
 }
@@ -195,4 +197,32 @@ func (r *fakeRepo) SwapAvatar(ctx context.Context, id int64, key string) (domain
 	u.AvatarKey = key
 	r.users[id] = u
 	return u.User, old, nil
+}
+
+func (r *fakeRepo) WithAuthLock(ctx context.Context, id int64, fn func(*AuthState) error) error {
+	r.authMu.Lock()
+	defer r.authMu.Unlock()
+	u, hash, err := r.CredentialsByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if r.authStates == nil {
+		r.authStates = make(map[int64]AuthState)
+	}
+	state, ok := r.authStates[id]
+	if !ok {
+		state.LastStep = -1
+	}
+	state.User = u
+	state.PasswordHash = hash
+	if err = fn(&state); err != nil {
+		return err
+	}
+	r.authStates[id] = state
+	r.mu.Lock()
+	user := r.users[id]
+	user.User = state.User
+	r.users[id] = user
+	r.mu.Unlock()
+	return nil
 }
