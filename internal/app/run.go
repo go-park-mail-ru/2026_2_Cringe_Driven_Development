@@ -16,7 +16,7 @@ import (
 
 func startupError(stage string, err error) error {
 	switch stage {
-	case "database_connect", "database_migrate", "s3_client", "redis_connect", "runtime_init", "http_listen":
+	case "database_connect", "database_migrate", "s3_client", "redis_connect", "runtime_init", "http_listen", "notebook_migration", "totp_init":
 		return observability.WithCode(err, stage)
 	default:
 		return observability.WithCode(err, "internal_error")

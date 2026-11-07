@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -13,12 +14,15 @@ import (
 )
 
 func main() {
-	database := flag.String("database-url", os.Getenv("NOTEBOOK_MIGRATION_DATABASE_URL"), "PostgreSQL URL")
-	bucket := flag.String("bucket", os.Getenv("MIGRATION_S3_NOTEBOOKS_BUCKET"), "legacy notebook bucket (migration only)")
-	verify := flag.Bool("verify", false, "compare all migrated notebooks to S3 without writing")
-	flag.Parse()
+	opts, err := migration.ParseOptions(os.Args[1:], os.Getenv, os.Stderr)
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
+	if err != nil {
+		os.Exit(2)
+	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := migration.RunCommand(ctx, migration.Options{DatabaseURL: *database, Bucket: *bucket, VerifyOnly: *verify}, os.Stdout)
+	err = migration.RunCommand(ctx, opts, os.Stdout)
 	cancel()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

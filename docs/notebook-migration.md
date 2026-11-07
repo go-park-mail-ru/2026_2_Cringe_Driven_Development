@@ -22,7 +22,7 @@ go build -o bin/notebook-migrate ./cmd/notebook-migrate
 Передать в окружении `NOTEBOOK_MIGRATION_DATABASE_URL`,
 `MIGRATION_S3_NOTEBOOKS_BUCKET` и стандартные `AWS_*` для чтения старого бакета.
 Пароли и ключи не вставлять в команды и не сохранять в отчётах. Инструменту не
-требуются JWT, Redis или настройки аватаров. Затем:
+требуются JWT, TOTP, Redis или настройки аватаров. Затем:
 
 ```bash
 bin/notebook-migrate
@@ -46,6 +46,82 @@ bin/notebook-migrate -verify
 равенство длины экспорта `size_bytes`. Запускать до возобновления записей, иначе
 новые правки закономерно дадут несовпадение с архивным объектом.
 
+## Восстановление после неудачного CD
+
+`unhealthy` в CD — следствие остановки процесса, а не диагноз. На VPS2 читать
+`docker compose logs --tail=100 api` из `/opt/cellestial`. Код
+`notebook_migration` означает отказ проверки завершения переноса (в том числе
+ошибку её SQL-запроса); `totp_init` — ошибку инициализации TOTP-компонента;
+`startup_config` — ошибку проверки настроек до запуска приложения. В частности,
+отсутствующий или некорректный TOTP-ключ даёт `startup_config`, а не `totp_init`.
+Коды не содержат исходную ошибку, URL подключения или credentials.
+После backend#23 обязателен постоянный
+`TOTP_ENCRYPTION_KEY`: infra должна передавать его из `vault_totp_encryption_key`
+через `.env` **и** `services.api.environment`. Если ключ уже использовался,
+сохранить прежний; для первой настройки сгенерировать `openssl rand -base64 32`
+один раз и сохранить в Vault. Случайный ключ на каждом деплое недопустим.
+
+Утилита включена в новый API-образ как `/app/notebook-migrate`. Она принимает
+обычные `POSTGRES_*` и `AWS_*` из Compose без полной конфигурации API; явные
+`NOTEBOOK_MIGRATION_DATABASE_URL` и `MIGRATION_S3_NOTEBOOKS_BUCKET` имеют приоритет.
+Старое имя `S3_NOTEBOOKS_BUCKET` понимает только offline-утилита.
+Для подключения из Compose нужны `POSTGRES_HOST`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD` и `POSTGRES_DB`; используется внутренний порт PostgreSQL
+5432, а не опубликованный на хосте `POSTGRES_PORT`. Флаги `-database-url` и
+`-bucket` имеют приоритет над окружением; секретный URL передавать через
+окружение, чтобы не оставлять его в истории команд.
+
+Если текущий опубликованный образ ещё не содержит утилиту, собрать её из этого
+checkout для архитектуры VPS2 (`GOARCH=amd64` для x86_64):
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/notebook-migrate ./cmd/notebook-migrate
+```
+
+Передать бинарник на VPS2 как `/opt/cellestial/notebook-migrate`, проверить
+контрольную сумму после передачи и установить права `0755`. Затем на VPS2
+от root, при остановленных внешних источниках записи:
+
+```bash
+set -eu
+cd /opt/cellestial
+docker compose stop api
+install -d -m 0700 backups
+umask 077
+notebook_backup="backups/before-notebook-migration-$(date -u +%Y%m%dT%H%M%SZ).dump"
+docker compose exec -T postgres sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$notebook_backup"
+docker compose exec -T postgres pg_restore --list < "$notebook_backup" > /dev/null
+```
+
+`pg_restore --list` проверяет читаемость оглавления архива; полную пригодность
+резервной копии подтвердить пробным восстановлением в отдельной тестовой БД
+до изменения production-схемы. Сохранить доступную копию исходных S3-объектов.
+PostgreSQL должен оставаться запущенным. Имя legacy-бакета задать оператору
+по текущей конфигурации infra; это значение не является секретом:
+
+```bash
+export MIGRATION_S3_NOTEBOOKS_BUCKET='<имя исходного бакета>'
+
+docker compose run --rm --no-deps --pull never \
+  --volume /opt/cellestial/notebook-migrate:/app/notebook-migrate:ro \
+  --entrypoint /app/notebook-migrate \
+  -e MIGRATION_S3_NOTEBOOKS_BUCKET api
+docker compose run --rm --no-deps --pull never \
+  --volume /opt/cellestial/notebook-migrate:/app/notebook-migrate:ro \
+  --entrypoint /app/notebook-migrate \
+  -e MIGRATION_S3_NOTEBOOKS_BUCKET api -verify
+```
+
+Для образа со встроенной утилитой убрать обе опции `--volume`.
+Если нужен явный URL подключения, передать заранее установленную переменную
+дополнительной опцией `-e NOTEBOOK_MIGRATION_DATABASE_URL` в обе команды.
+Имя бакета сверить с текущим inventory infra. Исходные S3-объекты не удаляются.
+При ненулевом коде любой команды остановиться: API не запускать до исправления.
+После проверки SQL ниже выполнить обычную выкатку с исправленной infra и
+постоянным TOTP-ключом; затем проверить health, content и аватары. Повтор CD сам
+по себе не переносит данные. Возврат старого тега после изменения схемы БД не
+заменяет восстановление резервной копии.
+
 ## Обязательная проверка перед запуском API
 
 Выкладка этой версии включает перенос данных; SQL-миграция сама не читает S3.
@@ -58,6 +134,16 @@ SELECT count(*) AS unverified_sources
 FROM notebook_legacy_sources WHERE verified_at IS NULL;
 ```
 
+Выполнить запросы через Compose без вывода пароля:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT count(*) AS pending_notebooks FROM notebooks WHERE revision IS NULL;
+SELECT count(*) AS unverified_sources
+FROM notebook_legacy_sources WHERE verified_at IS NULL;
+SQL
+```
+
 Оба значения должны быть нулевыми. При ошибке оставить записи остановленными,
 исправить причину и повторить перенос и проверку. Не удалять блокноты или исходные
 S3-объекты для обхода ошибки. Сохранить итоговые счётчики команд и результаты SQL
@@ -65,10 +151,13 @@ S3-объекты для обхода ошибки. Сохранить итог�
 
 ## Завершение
 
-После нулевого кода обеих команд проверить количество документов и ячеек,
-выборочно открыть content и список с превью. Затем запустить новый API без
-`S3_NOTEBOOKS_BUCKET`. Проверить создание, редактирование, повторное открытие
-с результатами и загрузку/отображение аватара.
+После нулевого кода обеих команд и нулевых SQL-счётчиков проверить количество
+документов и ячеек. После настройки постоянного TOTP-ключа в infra#112 выполнить
+выкатку нового API без `S3_NOTEBOOKS_BUCKET`. Затем проверить CD и `/health`,
+выборочно открыть content существующего блокнота и список с превью.
+Проверить создание, редактирование, повторное открытие с результатами и
+загрузку/отображение аватара. Эта совместная проверка проводится после готовности
+backend#79 и infra#112; до неё родительская задача не считается принятой.
 
 Исходные объекты и бакет автоматически не удаляются. Таблица соответствий остаётся
 для аудита и повторной offline-сверки; рабочие операции блокнотов её не читают.
@@ -76,11 +165,10 @@ S3-объекты для обхода ошибки. Сохранить итог�
 Миграция Down намеренно запрещена: восстановление старого приложения требует
 восстановления резервной копии БД, без удаления исходных S3-объектов.
 
-Production env принадлежит infra. В `ansible/roles/app/templates/env.j2` убрать
-передачу `S3_NOTEBOOKS_BUCKET`, в `tasks/validate.yml` — обязательность
-`notebooks_bucket`; сохранить общий AWS-доступ и настройки аватаров. Связь изменения:
-`Part of Cringe-Driven-Development-Team/backend#65`. Эти правки и выкатка здесь
-автоматически не выполняются.
+Production env, постоянный TOTP-ключ и выполнение переноса на VPS2 принадлежат
+infra#112. Сохранить общий AWS-доступ и настройки аватаров. Сначала вливается
+infra sub-issue, затем backend#79; если backend нужен раньше для восстановления,
+его PR использует `Part of`, а родителя после совместной приёмки закрывает ментор.
 
 ## Проверка производительности
 

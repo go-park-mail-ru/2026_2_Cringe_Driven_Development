@@ -12,6 +12,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o server ./cmd/main
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o runtime-smoke ./cmd/runtime-smoke
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o notebook-migrate ./cmd/notebook-migrate
 
 FROM alpine:3.23
 ARG RUNTIME_PYTHON_IMAGE=cellestial-kernel-python:local
@@ -28,6 +29,7 @@ RUN apk add --no-cache python3 ansible-core openssh-client \
 WORKDIR /app
 COPY --from=builder /app/server .
 COPY --from=builder /app/runtime-smoke /app/runtime-smoke
+COPY --from=builder /app/notebook-migrate /app/notebook-migrate
 COPY --from=agent /out/ /app/agent/
 COPY runtime-agent/requirements.txt /app/agent/requirements.txt
 COPY runtime-agent/deploy/cellestial-agent.service /app/agent/cellestial-agent.service
