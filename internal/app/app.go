@@ -87,7 +87,12 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	sessions := userredis.NewStore(client, "", cfg.RedisOperationTimeout)
 	tokens := usersecurity.NewAccessToken([]byte(cfg.JWTSecret), cfg.AccessTTL)
 	userRepo := postgres.NewUserRepository(pool)
-	userUsecase := usecase.NewUserUsecase(userRepo, sessions, tokens, usersecurity.PasswordHasher{}, usersecurity.RefreshTokens{}, cfg.RefreshTTL)
+	totpSecurity, err := usersecurity.NewTOTP(cfg.TOTPEncryptionKey)
+	if err != nil {
+		return nil, startupError("totp_init", err)
+	}
+	attemptLimiter := userredis.NewAttemptLimiter(client, "", cfg.RedisOperationTimeout)
+	userUsecase := usecase.NewUserUsecase(userRepo, sessions, tokens, usersecurity.PasswordHasher{}, usersecurity.RefreshTokens{}, cfg.RefreshTTL, usecase.WithTwoFactor(totpSecurity, attemptLimiter))
 
 	s3Client, err := s3client.NewClient(ctx)
 	if err != nil {

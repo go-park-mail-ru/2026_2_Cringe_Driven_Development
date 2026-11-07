@@ -23,10 +23,13 @@ var (
 )
 
 type Usecase interface {
+	EnableTwoFactor(ctx context.Context, id int64) (TwoFactorSetup, error)
+	ConfirmTwoFactor(ctx context.Context, id int64, code string) error
+	DisableTwoFactor(ctx context.Context, id int64, password string) error
 	UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error)
 	ChangeCurrentUserPassword(ctx context.Context, id int64, currentPassword, newPassword string) error
 	Register(ctx context.Context, login, password string) (domain.User, Session, error)
-	Login(ctx context.Context, login, password string) (domain.User, Session, error)
+	Login(ctx context.Context, login, password string, userCode ...*string) (domain.User, Session, error)
 	// Refresh атомарно меняет refresh-токен, сохраняя sid и версию.
 	Refresh(ctx context.Context, refreshToken string) (Session, error)
 	Logout(ctx context.Context, refreshToken string, claims SessionClaims) error

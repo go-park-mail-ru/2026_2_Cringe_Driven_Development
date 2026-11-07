@@ -52,9 +52,9 @@ func (r *UserRepository) CreateUser(ctx context.Context, login, passwordHash str
 func (r *UserRepository) UserByLogin(ctx context.Context, login string) (u domain.User, passwordHash string, err error) {
 	started := time.Now()
 	err = r.db.QueryRow(ctx,
-		`SELECT id, login, password_hash, COALESCE(avatar_key, '') FROM users WHERE lower(login) = lower($1)`,
+		`SELECT id, login, password_hash, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE lower(login) = lower($1)`,
 		login,
-	).Scan(&u.ID, &u.Login, &passwordHash, &u.AvatarKey)
+	).Scan(&u.ID, &u.Login, &passwordHash, &u.AvatarKey, &u.Has2FA)
 	observability.LogStorage(ctx, "user.by_login", started, err)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, "", usecase.ErrUserNotFound
@@ -68,7 +68,7 @@ func (r *UserRepository) UserByLogin(ctx context.Context, login string) (u domai
 func (r *UserRepository) UserByID(ctx context.Context, id int64) (domain.User, error) {
 	started := time.Now()
 	u := domain.User{ID: id}
-	err := r.db.QueryRow(ctx, `SELECT login, COALESCE(avatar_key, '') FROM users WHERE id = $1`, id).Scan(&u.Login, &u.AvatarKey)
+	err := r.db.QueryRow(ctx, `SELECT login, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE id = $1`, id).Scan(&u.Login, &u.AvatarKey, &u.Has2FA)
 	observability.LogStorage(ctx, "user.by_id", started, err)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, usecase.ErrUserNotFound
@@ -82,7 +82,7 @@ func (r *UserRepository) UserByID(ctx context.Context, id int64) (domain.User, e
 func (r *UserRepository) CredentialsByID(ctx context.Context, id int64) (domain.User, string, error) {
 	var u domain.User
 	var hash string
-	err := r.db.QueryRow(ctx, `SELECT id, login, password_hash, COALESCE(avatar_key, '') FROM users WHERE id = $1`, id).Scan(&u.ID, &u.Login, &hash, &u.AvatarKey)
+	err := r.db.QueryRow(ctx, `SELECT id, login, password_hash, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE id = $1`, id).Scan(&u.ID, &u.Login, &hash, &u.AvatarKey, &u.Has2FA)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, "", usecase.ErrUserNotFound
 	}
@@ -93,7 +93,7 @@ func (r *UserRepository) CredentialsByID(ctx context.Context, id int64) (domain.
 }
 func (r *UserRepository) UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error) {
 	var u domain.User
-	err := r.db.QueryRow(ctx, `UPDATE users SET login = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, '')`, id, login).Scan(&u.ID, &u.Login, &u.AvatarKey)
+	err := r.db.QueryRow(ctx, `UPDATE users SET login = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`, id, login).Scan(&u.ID, &u.Login, &u.AvatarKey, &u.Has2FA)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 		return domain.User{}, usecase.ErrLoginTaken
@@ -137,7 +137,7 @@ func (r *UserRepository) SwapAvatar(ctx context.Context, id int64, newKey string
 		return domain.User{}, "", fmt.Errorf("lock avatar: %w", err)
 	}
 	var u domain.User
-	err = tx.QueryRow(ctx, `UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, '')`, id, newKey).Scan(&u.ID, &u.Login, &u.AvatarKey)
+	err = tx.QueryRow(ctx, `UPDATE users SET avatar_key = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`, id, newKey).Scan(&u.ID, &u.Login, &u.AvatarKey, &u.Has2FA)
 	if err != nil {
 		return domain.User{}, "", fmt.Errorf("swap avatar: %w", err)
 	}

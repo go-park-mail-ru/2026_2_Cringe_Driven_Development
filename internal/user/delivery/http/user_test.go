@@ -68,7 +68,7 @@ func TestAuthErrors(t *testing.T) {
 	}{
 		{"auth/register", `{"login":"bob","password":"password123"}`, usecase.ErrLoginTaken, 409},
 		{"auth/register", `{"login":"bob","password":"password123"}`, usecase.ErrPasswordTooLong, 400},
-		{"auth/login", `{"login":"bob","password":"password123"}`, usecase.ErrInvalidCredentials, 401},
+		{"auth/login", `{"login":"bob","password":"password123"}`, usecase.ErrInvalidCredentials, 400},
 		{"auth/refresh", `{"refresh_token":"refresh"}`, usecase.ErrInvalidRefresh, 401},
 		{"auth/logout", `{"refresh_token":"refresh"}`, usecase.ErrInvalidRefresh, 401},
 		{"users/me", "", usecase.ErrUserNotFound, 401},

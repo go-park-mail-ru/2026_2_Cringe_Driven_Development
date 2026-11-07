@@ -149,6 +149,20 @@ func (mr *MockUserStoreMockRecorder) UserByLogin(ctx, login any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserByLogin", reflect.TypeOf((*MockUserStore)(nil).UserByLogin), ctx, login)
 }
 
+// WithAuthLock mocks base method.
+func (m *MockUserStore) WithAuthLock(ctx context.Context, id int64, fn func(*AuthState) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithAuthLock", ctx, id, fn)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WithAuthLock indicates an expected call of WithAuthLock.
+func (mr *MockUserStoreMockRecorder) WithAuthLock(ctx, id, fn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAuthLock", reflect.TypeOf((*MockUserStore)(nil).WithAuthLock), ctx, id, fn)
+}
+
 // MockSessionStore is a mock of SessionStore interface.
 type MockSessionStore struct {
 	ctrl     *gomock.Controller

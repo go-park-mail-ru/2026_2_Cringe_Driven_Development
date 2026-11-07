@@ -56,6 +56,20 @@ func (mr *MockUsecaseMockRecorder) ChangeCurrentUserPassword(ctx, id, currentPas
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeCurrentUserPassword", reflect.TypeOf((*MockUsecase)(nil).ChangeCurrentUserPassword), ctx, id, currentPassword, newPassword)
 }
 
+// ConfirmTwoFactor mocks base method.
+func (m *MockUsecase) ConfirmTwoFactor(ctx context.Context, id int64, code string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfirmTwoFactor", ctx, id, code)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ConfirmTwoFactor indicates an expected call of ConfirmTwoFactor.
+func (mr *MockUsecaseMockRecorder) ConfirmTwoFactor(ctx, id, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfirmTwoFactor", reflect.TypeOf((*MockUsecase)(nil).ConfirmTwoFactor), ctx, id, code)
+}
+
 // CurrentUser mocks base method.
 func (m *MockUsecase) CurrentUser(ctx context.Context, id int64) (domain.User, error) {
 	m.ctrl.T.Helper()
@@ -71,10 +85,43 @@ func (mr *MockUsecaseMockRecorder) CurrentUser(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentUser", reflect.TypeOf((*MockUsecase)(nil).CurrentUser), ctx, id)
 }
 
-// Login mocks base method.
-func (m *MockUsecase) Login(ctx context.Context, login, password string) (domain.User, usecase.Session, error) {
+// DisableTwoFactor mocks base method.
+func (m *MockUsecase) DisableTwoFactor(ctx context.Context, id int64, password string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Login", ctx, login, password)
+	ret := m.ctrl.Call(m, "DisableTwoFactor", ctx, id, password)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableTwoFactor indicates an expected call of DisableTwoFactor.
+func (mr *MockUsecaseMockRecorder) DisableTwoFactor(ctx, id, password any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableTwoFactor", reflect.TypeOf((*MockUsecase)(nil).DisableTwoFactor), ctx, id, password)
+}
+
+// EnableTwoFactor mocks base method.
+func (m *MockUsecase) EnableTwoFactor(ctx context.Context, id int64) (usecase.TwoFactorSetup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableTwoFactor", ctx, id)
+	ret0, _ := ret[0].(usecase.TwoFactorSetup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnableTwoFactor indicates an expected call of EnableTwoFactor.
+func (mr *MockUsecaseMockRecorder) EnableTwoFactor(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableTwoFactor", reflect.TypeOf((*MockUsecase)(nil).EnableTwoFactor), ctx, id)
+}
+
+// Login mocks base method.
+func (m *MockUsecase) Login(ctx context.Context, login, password string, userCode ...*string) (domain.User, usecase.Session, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, login, password}
+	for _, a := range userCode {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Login", varargs...)
 	ret0, _ := ret[0].(domain.User)
 	ret1, _ := ret[1].(usecase.Session)
 	ret2, _ := ret[2].(error)
@@ -82,9 +129,10 @@ func (m *MockUsecase) Login(ctx context.Context, login, password string) (domain
 }
 
 // Login indicates an expected call of Login.
-func (mr *MockUsecaseMockRecorder) Login(ctx, login, password any) *gomock.Call {
+func (mr *MockUsecaseMockRecorder) Login(ctx, login, password any, userCode ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Login", reflect.TypeOf((*MockUsecase)(nil).Login), ctx, login, password)
+	varargs := append([]any{ctx, login, password}, userCode...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Login", reflect.TypeOf((*MockUsecase)(nil).Login), varargs...)
 }
 
 // Logout mocks base method.

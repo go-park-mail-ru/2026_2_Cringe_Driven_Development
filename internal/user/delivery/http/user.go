@@ -44,9 +44,22 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 	return api.RegisterUser201JSONResponse{User: h.toAPIUser(u), Tokens: pair}, nil
 }
 func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
-	u, sess, err := h.uc.Login(ctx, req.Body.Login, req.Body.Password)
+	var codes []*string
+	if req.Body.UserCode != nil {
+		codes = append(codes, req.Body.UserCode)
+	}
+	u, sess, err := h.uc.Login(ctx, req.Body.Login, req.Body.Password, codes...)
 	if errors.Is(err, usecase.ErrInvalidCredentials) {
-		return api.LoginUser401JSONResponse{Code: api.ErrorCodeInvalidCredentials, Message: "invalid login or password"}, nil
+		return api.LoginUser400JSONResponse{Code: api.ErrorCodeInvalidCredentials, Message: "invalid login or password"}, nil
+	}
+	if errors.Is(err, usecase.ErrTwoFactorRequired) {
+		return api.LoginUser412JSONResponse{Code: api.ErrorCodeTwoFactorRequired, Message: "TOTP code required"}, nil
+	}
+	if errors.Is(err, usecase.ErrInvalidTOTP) {
+		return api.LoginUser401JSONResponse{Code: api.ErrorCodeInvalidTotp, Message: "invalid or already used TOTP code"}, nil
+	}
+	if errors.Is(err, usecase.ErrRateLimited) {
+		return api.LoginUser429JSONResponse{Code: api.ErrorCodeRateLimited, Message: "too many requests"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -117,7 +130,7 @@ func toTokenPair(sess usecase.Session) (api.TokenPair, error) {
 	return api.TokenPair{AccessToken: sess.AccessToken, RefreshToken: sess.RefreshToken, AccessExpiresIn: access, RefreshExpiresIn: refresh}, nil
 }
 func (h *Handler) toAPIUser(u domain.User) api.User {
-	result := api.User{Id: u.ID, Login: u.Login}
+	result := api.User{Id: u.ID, Login: u.Login, Has2fa: u.Has2FA}
 	if u.AvatarKey != "" {
 		v := h.avatarURL + "/" + u.AvatarKey
 		result.AvatarUrl = &v
