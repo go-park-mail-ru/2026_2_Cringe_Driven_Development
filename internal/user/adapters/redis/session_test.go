@@ -424,3 +424,26 @@ func TestStorageFailureIsNotInvalidSession(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Полный сброс БД (docs/database-reset.md) очищает Redis приложения: старые access/refresh-токены
+// не должны действовать, даже если новый пользователь получил прежний числовой ID.
+func TestResetRevokesSessionsOfReusedUserIDs(t *testing.T) {
+	s, c, ctx := fixture(t)
+	old := newSession(ctx, t, s, 1)
+	must(t, s.Create(ctx, old))
+	must(t, s.ValidateAccess(ctx, old.SessionClaims))
+	// FLUSHDB в пределах ключей этого Store: общий Redis тестов не очищается целиком
+	keys, err := c.Keys(ctx, s.prefix+"*").Result()
+	must(t, err)
+	must(t, c.Del(ctx, keys...).Err())
+
+	invalid(t, s.ValidateAccess(ctx, old.SessionClaims))
+	_, err = s.Find(ctx, old.TokenHash)
+	invalid(t, err)
+	reused := newSession(ctx, t, s, 1)
+	must(t, s.Create(ctx, reused))
+	must(t, s.ValidateAccess(ctx, reused.SessionClaims))
+	invalid(t, s.ValidateAccess(ctx, old.SessionClaims))
+	_, err = s.Find(ctx, old.TokenHash)
+	invalid(t, err)
+}
