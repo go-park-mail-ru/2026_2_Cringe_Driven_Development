@@ -1,4 +1,4 @@
-// Package s3client creates the shared AWS client used by avatars and offline migration.
+// Package s3client creates the shared AWS client used by avatars.
 package s3client
 
 import (

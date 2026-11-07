@@ -12,7 +12,7 @@ import (
 )
 
 func TestStartupErrorLogsSafeCodeAndPreservesCause(t *testing.T) {
-	for _, stage := range []string{"database_connect", "database_migrate", "s3_client", "redis_connect", "runtime_init", "http_listen", "notebook_migration", "totp_init"} {
+	for _, stage := range []string{"database_connect", "database_migrate", "s3_client", "redis_connect", "runtime_init", "http_listen", "totp_init"} {
 		source := errors.New("SECRET-credential")
 		err := startupError(stage, source)
 		if !errors.Is(err, source) || observability.ErrorCode(err) != stage {

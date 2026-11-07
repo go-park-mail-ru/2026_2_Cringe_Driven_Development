@@ -89,7 +89,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 → `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,avatar,security,ipynb}`
 реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.
 Сессии и лимиты входа/2FA — Redis primary; пользователи и зашифрованные TOTP-секреты — PostgreSQL; [runbook](docs/redis-sessions.md).
-Блокноты: PostgreSQL по ячейкам, токен редакции и размеры — docs/notebook-editing.md; перенос — docs/notebook-migration.md.
+Блокноты: PostgreSQL по ячейкам, токен редакции и размеры — docs/notebook-editing.md; однократный сброс БД вместо переноса — docs/database-reset.md.
 `internal/tooling/apidog` — экспорт контракта; `migrations` — встроенные goose SQL.
 `internal/transport/http/api/api.gen.go` не редактируй вручную. Контракт и `make generate` описаны в [docs/apidog.md](docs/apidog.md).
 
@@ -110,7 +110,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
   production-конфигурацию в backend и не коммить открытые секреты.
 - Проект Compose на VPS — `cellestial`, каталог `/opt/cellestial`; существующие
   volumes Caddy сохраняются. Миграции goose выполняются при старте API.
-- S3 используется аватарами: `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`; notebook bucket нужен только offline-переносу.
+- S3 используется аватарами: `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`; блокноты в S3 не хранятся и не переносятся.
   Локально SeaweedFS: anonymous Read только аватарам через `s3-init`; production S3/CDN — infra.
 - `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
   `workflow_call` с SHA-тегом из job `docker`. CD в environment `production`

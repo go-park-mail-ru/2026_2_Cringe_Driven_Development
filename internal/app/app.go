@@ -99,9 +99,6 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 		return nil, startupError("s3_client", err)
 	}
 	notebookRepo := notebookpostgres.NewNotebookRepository(pool)
-	if err = notebookRepo.Ready(ctx); err != nil {
-		return nil, startupError("notebook_migration", err)
-	}
 	runtimeModule, err := runtimemodule.Build(ctx, cfg.Runtime, pool)
 	if err != nil {
 		return nil, startupError("runtime_init", err)
