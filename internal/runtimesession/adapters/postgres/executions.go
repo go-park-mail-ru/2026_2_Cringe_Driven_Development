@@ -16,6 +16,7 @@ import (
 // executionRecord сохраняет публичный результат и служебные параметры команды отдельно, чтобы последние не
 // попали в API.
 type executionRecord struct {
+	SourceVersion string
 	// Public Публичная часть записи, разрешённая для ответа API.
 	Public domain.Execution
 	// OwnerID ID владельца для проверки доступа.
@@ -49,7 +50,7 @@ func encodeExecution(x domain.Execution) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := executionRecord{Public: x, OwnerID: x.OwnerID, NotebookID: x.NotebookID, Code: []byte(x.Code), TimeoutSeconds: x.TimeoutSeconds, Dispatch: x.Dispatch, Version: x.Version, Generation: x.Generation, ClearPending: x.ClearPending, Kind: x.Kind, OutputJSON: outputs, ResultJSON: []byte(x.Result)}
+	r := executionRecord{Public: x, SourceVersion: x.SourceVersion, OwnerID: x.OwnerID, NotebookID: x.NotebookID, Code: []byte(x.Code), TimeoutSeconds: x.TimeoutSeconds, Dispatch: x.Dispatch, Version: x.Version, Generation: x.Generation, ClearPending: x.ClearPending, Kind: x.Kind, OutputJSON: outputs, ResultJSON: []byte(x.Result)}
 	for _, raw := range x.Outputs {
 		key, err := displayKey(raw)
 		if err != nil {
@@ -69,6 +70,7 @@ func decodeExecution(b []byte) (domain.Execution, error) {
 	var r executionRecord
 	e := json.Unmarshal(b, &r)
 	x := r.Public
+	x.SourceVersion = r.SourceVersion
 	x.OwnerID = r.OwnerID
 	x.NotebookID = r.NotebookID
 	x.Code = string(r.Code)
@@ -114,9 +116,8 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 		return domain.Execution{}, e
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var key string
 	var nb int64
-	e = tx.QueryRow(ctx, "SELECT n.file_key,n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&key, &nb)
+	e = tx.QueryRow(ctx, "SELECT n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&nb)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return domain.Execution{}, domain.ErrNotFound
 	}
@@ -148,7 +149,7 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 	if queued >= domain.MaxQueuedCommands {
 		return prior, domain.ErrQueueFull
 	}
-	code, e := s.reader.ReadCode(ctx, key, r.CellID)
+	code, sourceVersion, _, e := readCell(ctx, tx, nb, r.CellID)
 	if e != nil {
 		return prior, e
 	}
@@ -167,7 +168,7 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 	if e != nil {
 		return prior, e
 	}
-	x := domain.Execution{ID: r.ExecutionID, SessionID: sid, OwnerID: owner, NotebookID: nb, CellID: r.CellID, SourceHash: r.SourceHash, Code: code, TimeoutSeconds: r.TimeoutSeconds, Attempt: attempt, Dispatch: "PENDING", State: "PENDING", Outputs: []json.RawMessage{}, Projection: "pending"}
+	x := domain.Execution{ID: r.ExecutionID, SessionID: sid, OwnerID: owner, NotebookID: nb, CellID: r.CellID, SourceHash: r.SourceHash, SourceVersion: sourceVersion, Code: code, TimeoutSeconds: r.TimeoutSeconds, Attempt: attempt, Dispatch: "PENDING", State: "PENDING", Outputs: []json.RawMessage{}, Projection: "pending"}
 	b, e := encodeExecution(x)
 	if e != nil {
 		return x, e
@@ -254,4 +255,17 @@ func (s *Store) SaveExecution(ctx context.Context, l domain.Lease, x domain.Exec
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// readCell runs under the caller's notebook lock and never reads outputs or attachments.
+func readCell(ctx context.Context, tx pgx.Tx, notebookID int64, cellID string) (code, version string, position int, err error) {
+	var kind string
+	err = tx.QueryRow(ctx, `SELECT source,source_version,position,kind FROM notebook_cells WHERE notebook_id=$1 AND cell_id=$2`, notebookID, cellID).Scan(&code, &version, &position, &kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = domain.ErrNotFound
+	}
+	if err == nil && kind != "code" {
+		err = domain.ErrInvalid
+	}
+	return code, version, position, err
 }

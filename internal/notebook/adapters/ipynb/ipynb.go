@@ -21,23 +21,12 @@ type file struct {
 	NBFormatMinor int      `json:"nbformat_minor"`
 }
 
-// cell читает нужные поля ячейки ipynb, включая сохранённый результат и признак усечения в метаданных.
 type cell struct {
-	// ID Идентификатор записи.
-	ID string `json:"id"`
-	// CellType Тип ячейки в формате ipynb.
-	CellType domain.CellKind `json:"cell_type"`
-	// Metadata Дополнительные метаданные сообщения или ячейки.
-	Metadata struct {
-		Runtime *struct {
-			Truncated bool `json:"output_truncated"`
-		} `json:"cellestial_runtime,omitempty"`
-	} `json:"metadata"`
-	// Source Исходный текст ячейки.
-	Source source `json:"source"`
-	// Outputs Сохранённые сообщения вывода в формате ipynb.
-	Outputs json.RawMessage `json:"outputs,omitempty"`
-	// ExecutionCount Счётчик исполнения kernel; nil означает отсутствие известного номера.
+	ID             string          `json:"id"`
+	CellType       domain.CellKind `json:"cell_type"`
+	Metadata       struct{}        `json:"metadata"`
+	Source         source          `json:"source"`
+	Outputs        json.RawMessage `json:"outputs,omitempty"`
 	ExecutionCount json.RawMessage `json:"execution_count,omitempty"`
 }
 
@@ -46,17 +35,28 @@ type source string
 
 // UnmarshalJSON склеивает массив строк в одну строку.
 func (s *source) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*s = source(str)
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	switch v := value.(type) {
+	case string:
+		*s = source(v)
 		return nil
+	case []any:
+		var text strings.Builder
+		for _, part := range v {
+			line, ok := part.(string)
+			if !ok {
+				return errors.New("source array must contain only strings")
+			}
+			text.WriteString(line)
+		}
+		*s = source(text.String())
+		return nil
+	default:
+		return errors.New("source must be a string or an array of strings")
 	}
-	var lines []string
-	if err := json.Unmarshal(data, &lines); err != nil {
-		return fmt.Errorf("source is neither a string nor an array of strings: %w", err)
-	}
-	*s = source(strings.Join(lines, ""))
-	return nil
 }
 
 // Parse разбирает файл в блоки; без блоков возвращает пустой срез, а не nil.
@@ -70,23 +70,7 @@ func Parse(data []byte) ([]domain.Cell, error) {
 		if c.CellType != domain.CellKindCode && c.CellType != domain.CellKindMarkdown {
 			return nil, fmt.Errorf("%w: %q", ErrUnknownCellType, c.CellType)
 		}
-		v := domain.Cell{ID: c.ID, Kind: c.CellType, Source: string(c.Source)}
-		if c.CellType == domain.CellKindCode {
-			var result domain.CellResult
-			if len(c.Outputs) > 0 && json.Unmarshal(c.Outputs, &result.Outputs) != nil {
-				return nil, errors.New("invalid cell outputs")
-			}
-			if len(c.ExecutionCount) > 0 && json.Unmarshal(c.ExecutionCount, &result.ExecutionCount) != nil {
-				return nil, errors.New("invalid execution_count")
-			}
-			if c.Metadata.Runtime != nil {
-				result.Truncated = c.Metadata.Runtime.Truncated
-			}
-			if len(result.Outputs) > 0 || result.ExecutionCount != nil || result.Truncated {
-				v.Result = &result
-			}
-		}
-		cells = append(cells, v)
+		cells = append(cells, domain.Cell{ID: c.ID, Kind: c.CellType, Source: string(c.Source)})
 	}
 	return cells, nil
 }

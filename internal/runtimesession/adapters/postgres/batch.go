@@ -13,12 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// BatchCodeReader читает исходники выбранных ячеек из одного снимка и проверяет их относительный порядок.
-type BatchCodeReader interface {
-	// ReadBatch читает один снимок исходников и проверяет, что выбранные ячейки сохранили свой порядок.
-	ReadBatch(context.Context, string, []string) ([]string, error)
-}
-
 // Queue читает только незавершённые исполнения ячеек: выполняемое первым, затем ожидающие; инспекции не
 // включаются.
 func (s *Store) Queue(ctx context.Context, owner int64, sid uuid.UUID) (D.Queue, error) {
@@ -56,9 +50,8 @@ func (s *Store) AdmitBatch(ctx context.Context, owner int64, sid uuid.UUID, r D.
 		return out, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var key string
 	var nb int64
-	err = tx.QueryRow(ctx, "SELECT n.file_key,n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&key, &nb)
+	err = tx.QueryRow(ctx, "SELECT n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&nb)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, D.ErrNotFound
 	}
@@ -103,23 +96,16 @@ func (s *Store) AdmitBatch(ctx context.Context, owner int64, sid uuid.UUID, r D.
 	if count+len(r.Cells) > D.MaxQueuedCommands {
 		return out, D.ErrQueueFull
 	}
-	reader, ok := s.reader.(BatchCodeReader)
-	if !ok {
-		return out, D.ErrUnavailable
-	}
-	ids := make([]string, len(r.Cells))
-	for i, c := range r.Cells {
-		ids[i] = c.CellID
-	}
-	codes, err := reader.ReadBatch(ctx, key, ids)
-	if err != nil {
-		return out, err
-	}
-	if len(codes) != len(ids) {
-		return out, D.ErrProtocol
-	}
-	for i, c := range r.Cells {
-		code := codes[i]
+	previous := -1
+	for _, c := range r.Cells {
+		code, sourceVersion, position, readErr := readCell(ctx, tx, nb, c.CellID)
+		if readErr != nil {
+			return out, readErr
+		}
+		if position <= previous {
+			return out, D.ErrConflict
+		}
+		previous = position
 		if len(code) > 65536 {
 			return out, D.ErrInvalid
 		}
@@ -133,7 +119,7 @@ func (s *Store) AdmitBatch(ctx context.Context, owner int64, sid uuid.UUID, r D.
 		if err != nil {
 			return out, err
 		}
-		x := D.Execution{SessionID: sid, ID: id, OwnerID: owner, NotebookID: nb, CellID: c.CellID, SourceHash: c.SourceHash, Code: code, TimeoutSeconds: r.TimeoutSeconds, Attempt: attempt, Dispatch: "PENDING", State: "PENDING", Outputs: []json.RawMessage{}, Projection: "pending"}
+		x := D.Execution{SessionID: sid, ID: id, OwnerID: owner, NotebookID: nb, CellID: c.CellID, SourceHash: c.SourceHash, SourceVersion: sourceVersion, Code: code, TimeoutSeconds: r.TimeoutSeconds, Attempt: attempt, Dispatch: "PENDING", State: "PENDING", Outputs: []json.RawMessage{}, Projection: "pending"}
 		if _, err = D.CommandPayload(D.Command{ExecutionID: id, Code: code, TimeoutSeconds: r.TimeoutSeconds}); err != nil {
 			return out, err
 		}

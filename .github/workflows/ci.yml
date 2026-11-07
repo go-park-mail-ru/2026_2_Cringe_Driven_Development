@@ -31,6 +31,19 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-test
+          POSTGRES_DB: backend_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
       redis:
         image: redis:8-alpine
         ports:
@@ -41,6 +54,8 @@ jobs:
           --health-timeout 3s
           --health-retries 12
     env:
+      TEST_POSTGRES_DSN: postgres://postgres:postgres-test@127.0.0.1:5432/backend_test?sslmode=disable
+      RUNTIME_TEST_DATABASE_URL: postgres://postgres:postgres-test@127.0.0.1:5432/backend_test?sslmode=disable
       REDIS_TEST_ADDR: 127.0.0.1:6379
       REDIS_RECOVERY_TESTS: '1'
     steps:

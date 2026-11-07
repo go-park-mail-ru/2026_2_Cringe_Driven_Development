@@ -2,14 +2,12 @@ package httptransport
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -18,8 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// TestS2SRejectionDoesNotTouchNotebookStorage проверяет, что отказ по X-BFF-Key не вызывает чтение или
-// запись блокнотов.
 func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 	for _, op := range []struct {
 		method, path string
@@ -34,13 +30,8 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 				f := newRouterFixture(t)
 				users, access := f.users, f.access
 				ctrl := gomock.NewController(t)
-				meta := NewMockMetadata(ctrl)
-				data, err := ipynb.Build([]domain.Cell{{ID: "cell", Kind: domain.CellKindCode}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				files := NewMockFiles(ctrl)
-				uc := notebookusecase.NewNotebookUsecase(meta, files, ipynb.Codec{})
+				repo := NewMockRepository(ctrl)
+				uc := notebookusecase.NewNotebookUsecase(repo, notebookusecase.NoActiveSessions{})
 				handler, err := NewRouter(Server{
 					UserHandler:     userdelivery.NewHandler(users),
 					NotebookHandler: notebookdelivery.NewHandler(uc),
@@ -61,50 +52,15 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 				if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"s2s_forbidden"`) {
 					t.Fatalf("rejection: %d %s", rec.Code, rec.Body)
 				}
-				// При отказе ожиданий нет: любой вызов хранилища или сервиса сессий нарушит тест.
-				// Разрешённые вызовы задаём только после отклонённого запроса для проверки успешного пути.
-				var revision string
+				// No expectations existed during rejection: any storage/session call fails.
+				// Positive control grants exact calls only after the rejected request.
 				if op.path == BaseURL+"/notebooks" {
-					var key string
-					put := files.EXPECT().Put(gomock.Any(), gomock.Cond(func(k string) bool { return strings.HasPrefix(k, "notebooks/") && strings.HasSuffix(k, ".ipynb") }), gomock.Cond(func(b []byte) bool {
-						cells, err := ipynb.Parse(b)
-						return err == nil && len(cells) == 1 && cells[0].ID != "" && cells[0].Kind == domain.CellKindCode && cells[0].Source == ""
-					})).DoAndReturn(func(_ context.Context, k string, _ []byte) error { key = k; return nil })
-					meta.EXPECT().Create(gomock.Any(), gomock.Cond(func(n domain.Notebook) bool {
-						return n.OwnerID == 1 && n.Name == "Notebook" && n.FileKey == key && n.CellsCount == 1
-					})).After(put).DoAndReturn(func(_ context.Context, n domain.Notebook) (domain.Notebook, error) { n.ID = 1; return n, nil })
+					repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, n domain.Notebook) (domain.Notebook, error) { n.ID = 1; return n, nil })
 				} else {
-					meta.EXPECT().Get(gomock.Any(), int64(1), int64(1)).Return(domain.Notebook{ID: 1, OwnerID: 1, FileKey: "fixture.ipynb"}, nil)
-					files.EXPECT().Get(gomock.Any(), "fixture.ipynb").Return(data, nil)
-					snapshot, err := uc.Content(context.Background(), 1, 1)
-					if err != nil {
-						t.Fatal(err)
-					}
-					revision = snapshot.Hash
-					wantCount := 2
-					if op.method == http.MethodDelete {
-						wantCount = 0
-					}
-					meta.EXPECT().Modify(gomock.Any(), int64(1), int64(1), gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, _ int64, fn func(domain.Notebook) (notebookusecase.MetadataUpdate, error)) error {
-						update, err := fn(domain.Notebook{ID: 1, OwnerID: 1, FileKey: "fixture.ipynb", CellsCount: 1})
-						if err != nil || (update.CellsCount != wantCount || !update.Changed || update.FileKey == "fixture.ipynb") {
-							t.Fatalf("callback count=%d err=%v", update.CellsCount, err)
-						}
-						return err
-					})
-					gomock.InOrder(files.EXPECT().Get(gomock.Any(), "fixture.ipynb").Return(data, nil), files.EXPECT().Put(gomock.Any(), gomock.Cond(func(k string) bool { return strings.HasPrefix(k, "notebooks/") && strings.HasSuffix(k, ".ipynb") }), gomock.Cond(func(b []byte) bool {
-						cells, err := ipynb.Parse(b)
-						if err != nil || len(cells) != wantCount {
-							return false
-						}
-						if wantCount == 2 {
-							return cells[0].ID == "cell" && cells[1].Kind == domain.CellKindCode
-						}
-						return true
-					})).Return(nil))
+					repo.EXPECT().Apply(gomock.Any(), int64(1), int64(1), "revision", gomock.Any()).Return(notebookusecase.Change{Hash: "next", Cell: domain.Cell{ID: "cell", Kind: domain.CellKindCode}}, nil)
 				}
 				positive := notebookMutationRequest(op.method, op.path, access)
-				positive.Header.Set("If-Match", fmt.Sprintf("%q", revision))
+				positive.Header.Set("If-Match", `"revision"`)
 				rec = serveRouter(handler, positive)
 				if rec.Code != op.status {
 					t.Fatalf("valid request failed: status=%d body=%s", rec.Code, rec.Body)

@@ -2,6 +2,7 @@ package ipynb
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestRewriteAddsAndDeletesCells(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0] != cells[0] || !strings.Contains(string(data), `"outputs":[]`) {
+	if len(got) != 1 || !reflect.DeepEqual(got[0], cells[0]) || !strings.Contains(string(data), `"outputs":[]`) {
 		t.Fatalf("invalid new cell: %s", data)
 	}
 	data, err = (Codec{}).Rewrite(data, []domain.Cell{})
@@ -85,25 +86,5 @@ func TestRewriteAddsAndDeletesCells(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"cells":[]`) {
 		t.Fatalf("want empty cells: %s", data)
-	}
-}
-
-// TestChangingSourceClearsPersistedTruncation проверяет сброс старого результата и признака усечения при
-// изменении кода без потери чужих метаданных.
-func TestChangingSourceClearsPersistedTruncation(t *testing.T) {
-	raw := []byte(`{"cells":[{"id":"a","cell_type":"code","source":"old","outputs":[{"output_type":"stream","text":"short"}],"execution_count":1,"metadata":{"keep":true,"cellestial_runtime":{"output_truncated":true}}}]}`)
-	out, err := (Codec{}).Rewrite(raw, []domain.Cell{{ID: "a", Kind: domain.CellKindCode, Source: "new"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	cells, err := Parse(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cells[0].Result != nil {
-		t.Fatal("old runtime result survived source edit", cells[0].Result)
-	}
-	if !strings.Contains(string(out), `"keep":true`) {
-		t.Fatal("unrelated metadata removed")
 	}
 }

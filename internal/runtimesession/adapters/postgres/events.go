@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
+	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/usecase"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -133,7 +133,7 @@ func (s *Store) Events(ctx context.Context, owner int64, id uuid.UUID, after int
 
 // Project применяет отложенный результат к актуальной ячейке под блокировкой блокнота, защищая более новую
 // попытку и изменённый код.
-func (s *Store) Project(ctx context.Context, w usecase.OutputWriter) error {
+func (s *Store) Project(ctx context.Context) error {
 	tx, e := s.db.Begin(ctx)
 	if e != nil {
 		return e
@@ -149,8 +149,8 @@ func (s *Store) Project(ctx context.Context, w usecase.OutputWriter) error {
 	if e != nil {
 		return e
 	}
-	var key string
-	e = tx.QueryRow(ctx, "SELECT n.file_key FROM notebooks n JOIN runtime_executions e ON e.notebook_id=n.id WHERE e.session_id=$1 AND e.id=$2 FOR UPDATE OF n", sid, id).Scan(&key)
+	var notebookID int64
+	e = tx.QueryRow(ctx, "SELECT n.id FROM notebooks n JOIN runtime_executions e ON e.notebook_id=n.id WHERE e.session_id=$1 AND e.id=$2 FOR UPDATE OF n", sid, id).Scan(&notebookID)
 	if e != nil {
 		return e
 	}
@@ -167,9 +167,14 @@ func (s *Store) Project(ctx context.Context, w usecase.OutputWriter) error {
 		return e
 	}
 	applied := false
-	var newKey string
 	if latest == x.Attempt {
-		newKey, applied, e = w.ApplyOutput(ctx, key, x)
+		applied, e = s.applyOutput(ctx, tx, x)
+		// Unsupported JSONB values and a notebook size overflow are permanent
+		// projection conflicts; the lossless execution archive remains available.
+		if errors.Is(e, notebookusecase.ErrInvalidDocument) || errors.Is(e, notebookusecase.ErrTooLarge) {
+			applied = false
+			e = nil
+		}
 		if e != nil {
 			_ = tx.Rollback(ctx)
 			_, retryErr := s.db.Exec(ctx, "UPDATE runtime_projections SET next_attempt=now()+interval '5 seconds' WHERE session_id=$1 AND execution_id=$2 AND version=$3", sid, id, version)
@@ -179,10 +184,6 @@ func (s *Store) Project(ctx context.Context, w usecase.OutputWriter) error {
 	x.Projection = "conflict"
 	if applied {
 		x.Projection = "applied"
-		_, e = tx.Exec(ctx, "UPDATE notebooks SET file_key=$2 WHERE id=$1", x.NotebookID, newKey)
-		if e != nil {
-			return e
-		}
 	}
 	b, e := encodeExecution(x)
 	if e != nil {
@@ -197,4 +198,28 @@ func (s *Store) Project(ctx context.Context, w usecase.OutputWriter) error {
 		return e
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *Store) applyOutput(ctx context.Context, tx pgx.Tx, x domain.Execution) (bool, error) {
+	outputs := make([]map[string]json.RawMessage, 0, len(x.Outputs))
+	for _, raw := range x.Outputs {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return false, err
+		}
+		if fields == nil {
+			return false, domain.ErrProtocol
+		}
+		delete(fields, "transient")
+		outputs = append(outputs, fields)
+	}
+	encoded, err := json.Marshal(outputs)
+	if err != nil {
+		return false, err
+	}
+	_, err = s.notebooks.SaveResultTx(ctx, tx, x.NotebookID, x.OwnerID, notebookusecase.CellResult{CellID: x.CellID, SourceVersion: x.SourceVersion, Outputs: encoded, ExecutionCount: x.ExecutionCount, OutputTruncated: x.Truncated})
+	if errors.Is(err, notebookusecase.ErrStaleSource) {
+		return false, nil
+	}
+	return err == nil, err
 }

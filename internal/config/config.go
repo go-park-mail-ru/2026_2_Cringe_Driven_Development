@@ -20,7 +20,6 @@ type Config struct {
 	WriteTimeout, ReadTimeout               time.Duration
 	JWTSecret                               string
 	AccessTTL, RefreshTTL                   time.Duration
-	NotebooksBucket                         string
 	AvatarsBucket, AvatarsPublicURL         string
 	DBUser, DBPassword, DBHost, DBName      string
 	Runtime                                 RuntimeConfig
@@ -53,8 +52,7 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 		WriteTimeout: duration("WRITE_TIMEOUT", 15*time.Second), ReadTimeout: duration("READ_TIMEOUT", 15*time.Second),
 		JWTSecret: get("JWT_SECRET", ""),
 		AccessTTL: duration("ACCESS_TOKEN_TTL", 15*time.Minute), RefreshTTL: duration("REFRESH_TOKEN_TTL", 720*time.Hour),
-		NotebooksBucket: get("S3_NOTEBOOKS_BUCKET", ""),
-		DBUser:          get("POSTGRES_USER", "postgres"), DBPassword: get("POSTGRES_PASSWORD", "postgres"), DBHost: get("POSTGRES_HOST", "db"), DBName: get("POSTGRES_DB", "app_db"),
+		DBUser: get("POSTGRES_USER", "postgres"), DBPassword: get("POSTGRES_PASSWORD", "postgres"), DBHost: get("POSTGRES_HOST", "db"), DBName: get("POSTGRES_DB", "app_db"),
 	}
 	if raw, ok := lookup("LOG_LEVEL"); ok {
 		switch raw {
@@ -78,9 +76,6 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 	}
 	if c.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is not set")
-	}
-	if c.NotebooksBucket == "" {
-		return Config{}, errors.New("S3_NOTEBOOKS_BUCKET is not set")
 	}
 	c.AvatarsBucket = strings.TrimSpace(get("S3_AVATARS_BUCKET", ""))
 	c.AvatarsPublicURL = strings.TrimRight(get("S3_AVATARS_PUBLIC_URL", ""), "/")

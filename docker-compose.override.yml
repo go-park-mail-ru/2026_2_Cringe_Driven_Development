@@ -8,7 +8,6 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-devkey}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-devsecret}
       - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-http://s3:8333}
-      - S3_NOTEBOOKS_BUCKET=${S3_NOTEBOOKS_BUCKET:-cellestial-notebooks-0}
       - S3_AVATARS_BUCKET=${S3_AVATARS_BUCKET:-cellestial-avatars-local}
       - S3_AVATARS_PUBLIC_URL=${S3_AVATARS_PUBLIC_URL:-http://localhost:${S3_PORT:-8333}/${S3_AVATARS_BUCKET:-cellestial-avatars-local}}
     depends_on:
@@ -19,7 +18,7 @@ services:
 
   s3:
     image: chrislusf/seaweedfs:4.48
-    command: mini -dir=/data -ip=s3 -ip.bind=0.0.0.0 -bucket=${S3_NOTEBOOKS_BUCKET:-cellestial-notebooks-0},${S3_AVATARS_BUCKET:-cellestial-avatars-local}
+    command: mini -dir=/data -ip=s3 -ip.bind=0.0.0.0 -bucket=${S3_AVATARS_BUCKET:-cellestial-avatars-local}
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-devkey}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-devsecret}
@@ -34,7 +33,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Local anonymous reads are scoped to avatars; notebooks remain private.
+  # Local anonymous reads are scoped to the avatar bucket.
   s3-init:
     image: chrislusf/seaweedfs:4.48
     entrypoint: ["/bin/sh", "-ec"]

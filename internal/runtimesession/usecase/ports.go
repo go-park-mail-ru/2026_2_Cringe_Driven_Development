@@ -58,7 +58,7 @@ type Store interface {
 	Events(context.Context, int64, uuid.UUID, int64, domain.EventLimits) (domain.EventPage, error)
 	// Project применяет отложенный результат к актуальной ячейке под блокировкой блокнота, защищая более новую
 	// попытку и изменённый код.
-	Project(context.Context, OutputWriter) error
+	Project(context.Context) error
 }
 
 // Environments отделяет управление пользовательской сессией от создания и удаления VPS в модуле #57.
@@ -91,14 +91,6 @@ type SessionAgent interface {
 
 // Clock позволяет подменять текущее время в тестах восстановления и жизненного цикла.
 type Clock func() time.Time
-
-// OutputWriter сохраняет результат в существующем ipynb и возвращает новый файловый ключ и признак
-// применения.
-type OutputWriter interface {
-	// ApplyOutput проверяет ID и хэш исходника, записывает результат в новый S3-объект и возвращает его ключ;
-	// публикацию ссылки выполняет вызывающая транзакция.
-	ApplyOutput(context.Context, string, domain.Execution) (string, bool, error)
-}
 
 // KernelAgent отделяет команды управления памятью kernel от исполнения кода и чтения событий.
 type KernelAgent interface {

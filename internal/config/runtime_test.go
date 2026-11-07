@@ -8,7 +8,7 @@ import (
 )
 
 func runtimeBase() map[string]string {
-	return map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "bucket"}
+	return map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
 }
 
 func testKey() string { return base64.StdEncoding.EncodeToString(make([]byte, 32)) }

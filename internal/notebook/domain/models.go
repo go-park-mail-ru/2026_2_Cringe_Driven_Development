@@ -16,37 +16,47 @@ const (
 
 // Cell хранит блок; ID уникален внутри блокнота.
 type Cell struct {
-	// ID Идентификатор записи.
-	ID string
-	// Kind Вид команды, события или ячейки, определяющий обработку.
-	Kind CellKind
-	// Source Исходный текст ячейки.
-	Source string
-	// Result Результат команды в исходном JSON-представлении.
-	Result *CellResult
+	ID             string
+	Kind           CellKind
+	Source         string
+	SourceVersion  string
+	Metadata       json.RawMessage
+	Extra          map[string]json.RawMessage
+	Outputs        json.RawMessage
+	ExecutionCount *int64
+	Attachments    json.RawMessage
+	// Presence preserves optional fields during ipynb export.
+	OutputTruncated    bool
+	HasRuntimeMetadata bool
+	HasExecutionCount  bool
 }
 
-// Notebook собирается из строки в базе и блоков из файла.
+// Notebook is a consistent snapshot of metadata, document fields and ordered cells.
 type Notebook struct {
-	ID         int64
-	OwnerID    int64
-	Name       string
-	FileKey    string
-	CellsCount int
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Cells      []Cell
+	ID          int64
+	OwnerID     int64
+	Name        string
+	Revision    string
+	PreviewCode string
+	SizeBytes   int64
+	Document    Document
+	CellsCount  int
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Cells       []Cell
 }
 
 // NotebookSummary нужен списку: только база, без файла.
 type NotebookSummary struct {
-	ID         int64
-	Name       string
-	CellsCount int
-	UpdatedAt  time.Time
+	PreviewCode      string
+	HasActiveSession bool
+	ID               int64
+	Name             string
+	CellsCount       int
+	UpdatedAt        time.Time
 }
 
-// Content — согласованный снимок содержимого и хеша точных байтов ipynb.
+// Content — согласованный снимок содержимого и непрозрачного токена редакции.
 type Content struct {
 	Hash  string
 	Cells []Cell
@@ -58,12 +68,10 @@ type CellChange struct {
 	Cell Cell
 }
 
-// CellResult содержит сохранённые выводы, счётчик и признак усечения, независимые от версии исходников.
-type CellResult struct {
-	// Outputs Сохранённые сообщения вывода в формате ipynb.
-	Outputs []json.RawMessage
-	// ExecutionCount Счётчик исполнения kernel; nil означает отсутствие известного номера.
-	ExecutionCount *int64
-	// Truncated Признак усечения данных из-за ограничения размера.
-	Truncated bool
+// Document contains the top-level ipynb fields, without cells.
+type Document struct {
+	NBFormat      int
+	NBFormatMinor int
+	Metadata      json.RawMessage
+	Extra         map[string]json.RawMessage
 }

@@ -67,8 +67,12 @@ func TestOutputWithNULSurvivesArchive(t *testing.T) {
 	if err = json.Unmarshal(event.Content, &output); err != nil || output.Text != text {
 		t.Fatal(output, err)
 	}
-	if err = s.Project(ctx, &projectionWriter{}); err != nil {
+	if err = s.Project(ctx); err != nil {
 		t.Fatal(err)
+	}
+	x, err = s.Execution(ctx, owner, v.ID, "nul")
+	if err != nil || x.Projection != "conflict" {
+		t.Fatalf("unsupported NUL must not be published: %+v %v", x, err)
 	}
 }
 

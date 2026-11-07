@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
+	"go.uber.org/mock/gomock"
 )
 
 type editingFake struct {
@@ -142,5 +143,50 @@ func TestEditingHTTPMapsFailures(t *testing.T) {
 	rec = editingRequest(t, f, "GET", "", "", nil, false)
 	if rec.Code != http.StatusUnauthorized || f.calls != 0 {
 		t.Fatalf("unauthenticated: %d calls=%d", rec.Code, f.calls)
+	}
+}
+
+func TestContentIncludesPersistedResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	uc := NewMockUsecase(ctrl)
+	count := int64(4)
+	uc.EXPECT().Content(gomock.Any(), int64(1), int64(1)).Return(domain.Content{Hash: "revision", Cells: []domain.Cell{
+		{ID: "a", Kind: domain.CellKindCode, Source: "print(1)", Outputs: json.RawMessage(`[{"output_type":"stream","name":"stdout","text":"1\n"}]`), ExecutionCount: &count, OutputTruncated: true},
+		{ID: "b", Kind: domain.CellKindCode},
+	}}, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/notebooks/1/content", nil)
+	req.Header.Set("X-BFF-Key", "test-key")
+	req.Header.Set("Authorization", "Bearer access-1")
+	rec := httptest.NewRecorder()
+	newRouter(t, uc).ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	var response struct {
+		Hash  string
+		Cells []map[string]json.RawMessage
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Hash != "revision" || string(response.Cells[0]["execution_count"]) != "4" || string(response.Cells[0]["output_truncated"]) != "true" || !strings.Contains(string(response.Cells[0]["outputs"]), "stream") {
+		t.Fatal(rec.Body.String())
+	}
+	if string(response.Cells[1]["outputs"]) != "[]" || string(response.Cells[1]["execution_count"]) != "null" {
+		t.Fatal(rec.Body.String())
+	}
+}
+
+func TestContentPreservesRawCellKind(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	uc := NewMockUsecase(ctrl)
+	uc.EXPECT().Content(gomock.Any(), int64(1), int64(1)).Return(domain.Content{Hash: "revision", Cells: []domain.Cell{{ID: "raw", Kind: "raw", Source: "unprocessed"}}}, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/notebooks/1/content", nil)
+	req.Header.Set("X-BFF-Key", "test-key")
+	req.Header.Set("Authorization", "Bearer access-1")
+	rec := httptest.NewRecorder()
+	newRouter(t, uc).ServeHTTP(rec, req)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"kind":"raw"`) {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 }

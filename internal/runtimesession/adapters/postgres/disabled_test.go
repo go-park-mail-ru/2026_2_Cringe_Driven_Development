@@ -42,7 +42,7 @@ func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
 	if err = uc.Stop(ctx, owner, v.ID); err != nil {
 		t.Fatal(err)
 	}
-	worker := UC.NewWorker(s, env.New(module.Environments), module.Agent, nil, nil)
+	worker := UC.NewWorker(s, env.New(module.Environments), module.Agent, nil)
 	for range 7 {
 		if _, err = p.Exec(ctx, "UPDATE runtime_sessions SET next_check=now() WHERE id=$1", v.ID); err != nil {
 			t.Fatal(err)

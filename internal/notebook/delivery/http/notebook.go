@@ -30,10 +30,12 @@ func (h *Handler) ListNotebooks(ctx context.Context, _ api.ListNotebooksRequestO
 	resp := make(api.ListNotebooks200JSONResponse, 0, len(list))
 	for _, n := range list {
 		resp = append(resp, api.NotebookSummary{
-			Id:         n.ID,
-			Name:       n.Name,
-			CellsCount: n.CellsCount,
-			UpdatedAt:  n.UpdatedAt,
+			Id:               n.ID,
+			PreviewCode:      n.PreviewCode,
+			HasActiveSession: n.HasActiveSession,
+			Name:             n.Name,
+			CellsCount:       n.CellsCount,
+			UpdatedAt:        n.UpdatedAt,
 		})
 	}
 	return resp, nil
@@ -75,7 +77,7 @@ func (h *Handler) CreateCell(ctx context.Context, req api.CreateCellRequestObjec
 		return api.CreateCell404JSONResponse{Code: api.ErrorCodeNotFound, Message: err.Error()}, nil
 	case errors.Is(err, usecase.ErrNotebookConflict):
 		return api.CreateCell409JSONResponse{Code: api.NotebookEditingErrorCodeNotebookConflict, Message: err.Error()}, nil
-	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidHash), errors.Is(err, usecase.ErrInvalidCellKind):
+	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidHash), errors.Is(err, usecase.ErrInvalidCellKind), errors.Is(err, usecase.ErrInvalidDocument):
 		return api.CreateCell400JSONResponse{Code: api.ErrorCodeValidationError, Message: err.Error()}, nil
 	case errors.Is(err, usecase.ErrTooManyCells):
 		return api.CreateCell409JSONResponse{Code: api.NotebookEditingErrorCodeValidationError, Message: err.Error()}, nil

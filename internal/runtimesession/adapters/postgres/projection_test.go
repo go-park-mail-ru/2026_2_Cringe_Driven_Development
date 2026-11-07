@@ -5,28 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"testing"
 
+	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	D "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
 )
-
-// projectionWriter имитирует успешную или ошибочную запись результата в файловое хранилище.
-type projectionWriter struct {
-	// fail Управляемый отказ записи результата в тесте.
-	fail bool
-	// calls Число вызовов зависимости в тесте.
-	calls int
-}
-
-// ApplyOutput имитирует запись результата в файл, включая управляемый отказ для проверки повтора.
-func (w *projectionWriter) ApplyOutput(_ context.Context, _ string, _ D.Execution) (string, bool, error) {
-	w.calls++
-	if w.fail {
-		return "", false, errors.New("S3 unavailable")
-	}
-	return "projected-key", true, nil
-}
 
 // TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt проверяет повтор сохранения после сбоя и
 // защиту результата более новой попытки.
@@ -50,23 +33,31 @@ func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T
 	if err = s.CommitEvents(ctx, l, []D.AgentEvent{ev}); err != nil {
 		t.Fatal(err)
 	}
-	w := &projectionWriter{fail: true}
-	if err = s.Project(ctx, w); err == nil {
+	var before string
+	if err = p.QueryRow(ctx, `SELECT revision FROM notebooks WHERE id=$1`, nb).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = p.Exec(ctx, `CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected storage failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON notebook_cell_data FOR EACH ROW EXECUTE FUNCTION reject_projection()`); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Project(ctx); err == nil {
 		t.Fatal("storage failure ignored")
 	}
-	var key string
-	if err = p.QueryRow(ctx, "SELECT file_key FROM notebooks WHERE id=$1", nb).Scan(&key); err != nil || key != "key" {
-		t.Fatal(key, err)
+	var revision string
+	if err = p.QueryRow(ctx, "SELECT revision FROM notebooks WHERE id=$1", nb).Scan(&revision); err != nil || revision != before {
+		t.Fatal(revision, err)
 	}
 	if _, err = p.Exec(ctx, "UPDATE runtime_projections SET next_attempt=now() WHERE session_id=$1", v.ID); err != nil {
 		t.Fatal(err)
 	}
-	w.fail = false
-	if err = s.Project(ctx, w); err != nil {
+	if _, err = p.Exec(ctx, `DROP TRIGGER reject_projection ON notebook_cell_data`); err != nil {
 		t.Fatal(err)
 	}
-	if err = p.QueryRow(ctx, "SELECT file_key FROM notebooks WHERE id=$1", nb).Scan(&key); err != nil || key != "projected-key" {
-		t.Fatal(key, err)
+	if err = s.Project(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err = p.QueryRow(ctx, "SELECT revision FROM notebooks WHERE id=$1", nb).Scan(&revision); err != nil || revision == before {
+		t.Fatal(revision, err)
 	}
 	r.ExecutionID = "newer"
 	if _, err = s.Admit(ctx, owner, v.ID, r); err != nil {
@@ -80,11 +71,11 @@ func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T
 	if err = s.CommitEvents(ctx, l, []D.AgentEvent{ev}); err != nil {
 		t.Fatal(err)
 	}
-	before := w.calls
-	if err = s.Project(ctx, w); err != nil {
+	before = revision
+	if err = s.Project(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if w.calls != before {
+	if err = p.QueryRow(ctx, `SELECT revision FROM notebooks WHERE id=$1`, nb).Scan(&revision); err != nil || revision != before {
 		t.Fatal("old attempt projected over newer attempt")
 	}
 	x, err := s.Execution(ctx, owner, v.ID, "first")
@@ -93,21 +84,10 @@ func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T
 	}
 }
 
-// selectiveProjectionWriter отклоняет выбранный результат, позволяя проверить обработку следующих заданий.
-type selectiveProjectionWriter struct{}
-
-// ApplyOutput имитирует запись результата в файл, включая управляемый отказ для проверки повтора.
-func (selectiveProjectionWriter) ApplyOutput(_ context.Context, _ string, x D.Execution) (string, bool, error) {
-	if x.ID == "a" {
-		return "", false, errors.New("one output cannot be stored")
-	}
-	return "other-projection", true, nil
-}
-
 // TestFailedProjectionDoesNotBlockLaterJobs проверяет, что ошибка записи одного результата не останавливает
 // следующие задания.
 func TestFailedProjectionDoesNotBlockLaterJobs(t *testing.T) {
-	s, _, owner, nb := integrationStore(t)
+	s, pool, owner, nb := integrationStore(t)
 	ctx := context.Background()
 	v, err := s.Start(ctx, newSession(owner, nb))
 	if err != nil {
@@ -126,14 +106,102 @@ func TestFailedProjectionDoesNotBlockLaterJobs(t *testing.T) {
 	if err = s.CommitEvents(ctx, l, []D.AgentEvent{{Seq: 1, SessionID: v.ID, ExecutionID: "a", Kind: "kernel_message", MsgType: "stream", Content: json.RawMessage(`{"name":"stdout","text":"first"}`)}, {Seq: 2, SessionID: v.ID, ExecutionID: "z", Kind: "kernel_message", MsgType: "stream", Content: json.RawMessage(`{"name":"stdout","text":"second"}`)}}); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Project(ctx, selectiveProjectionWriter{}); err == nil {
+	if _, err = pool.Exec(ctx, `CREATE FUNCTION reject_first() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.cell_id='a' THEN RAISE EXCEPTION 'injected storage failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_first BEFORE UPDATE ON notebook_cell_data FOR EACH ROW EXECUTE FUNCTION reject_first()`); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Project(ctx); err == nil {
 		t.Fatal("failed write was acknowledged")
 	}
-	if err = s.Project(ctx, selectiveProjectionWriter{}); err != nil {
+	if err = s.Project(ctx); err != nil {
 		t.Fatal("one failed projection blocked later output", err)
 	}
 	x, err := s.Execution(ctx, owner, v.ID, "z")
 	if err != nil || x.Projection != "applied" {
 		t.Fatal(x, err)
+	}
+}
+
+func TestProjectionRejectsSourceABA(t *testing.T) {
+	s, _, owner, nb := integrationStore(t)
+	ctx := context.Background()
+	session, err := s.Start(ctx, newSession(owner, nb))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("print(42)"))
+	_, err = s.Admit(ctx, owner, session.ID, D.ExecuteRequest{ExecutionID: "old", CellID: "cell", SourceHash: hex.EncodeToString(sum[:]), TimeoutSeconds: 300})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := s.notebooks
+	n, err := repo.Get(ctx, nb, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := repo.Apply(ctx, nb, owner, n.Revision, notebookusecase.Operation{Kind: notebookusecase.Edit, CellID: "cell", Source: "changed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err = repo.Apply(ctx, nb, owner, changed.Hash, notebookusecase.Operation{Kind: notebookusecase.Edit, CellID: "cell", Source: "print(42)"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, err := s.Claim(ctx, "worker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.CommitEvents(ctx, lease, []D.AgentEvent{{Seq: 1, SessionID: session.ID, ExecutionID: "old", Kind: "kernel_message", MsgType: "stream", Content: json.RawMessage(`{"text":"old result","name":"stdout"}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Project(ctx); err != nil {
+		t.Fatal(err)
+	}
+	x, err := s.Execution(ctx, owner, session.ID, "old")
+	if err != nil || x.Projection != "conflict" {
+		t.Fatalf("ABA result published: %+v %v", x, err)
+	}
+	after, err := repo.Get(ctx, nb, owner)
+	if err != nil || after.Revision != changed.Hash || string(after.Cells[0].Outputs) != "[]" {
+		t.Fatal("stale result changed notebook")
+	}
+	// The projection failure must not finish or replace the actual runtime session.
+	active, err := s.ActiveNotebook(ctx, owner)
+	if err != nil || active != nb {
+		t.Fatalf("session badge: %d %v", active, err)
+	}
+}
+func TestProjectionAndAcknowledgementShareTransaction(t *testing.T) {
+	s, pool, owner, nb := integrationStore(t)
+	ctx := context.Background()
+	session, err := s.Start(ctx, newSession(owner, nb))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("print(42)"))
+	_, err = s.Admit(ctx, owner, session.ID, D.ExecuteRequest{ExecutionID: "run", CellID: "cell", SourceHash: hex.EncodeToString(sum[:]), TimeoutSeconds: 300})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, err := s.Claim(ctx, "worker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.CommitEvents(ctx, lease, []D.AgentEvent{{Seq: 1, SessionID: session.ID, ExecutionID: "run", Kind: "kernel_message", MsgType: "stream", Content: json.RawMessage(`{"text":"42","name":"stdout"}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.notebooks.Get(ctx, nb, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `CREATE FUNCTION fail_ack() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.data->'Public'->>'projection'='applied' THEN RAISE EXCEPTION 'injected projection acknowledgement failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_ack BEFORE UPDATE ON runtime_executions FOR EACH ROW EXECUTE FUNCTION fail_ack()`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Project(ctx); err == nil {
+		t.Fatal("expected acknowledgement failure")
+	}
+	after, err := s.notebooks.Get(ctx, nb, owner)
+	if err != nil || after.Revision != before.Revision || string(after.Cells[0].Outputs) != "[]" {
+		t.Fatal("notebook committed without projection acknowledgement")
 	}
 }

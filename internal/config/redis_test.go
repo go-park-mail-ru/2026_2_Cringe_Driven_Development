@@ -6,7 +6,7 @@ import (
 )
 
 func TestRedisSettings(t *testing.T) {
-	base := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff", "S3_NOTEBOOKS_BUCKET": "bucket", "REDIS_HOST": "localhost", "REDIS_PORT": "6380", "REDIS_PASSWORD": "local", "REDIS_DB": "2"}
+	base := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff", "REDIS_HOST": "localhost", "REDIS_PORT": "6380", "REDIS_PASSWORD": "local", "REDIS_DB": "2"}
 	c, err := LoadFrom(settings(base))
 	if err != nil {
 		t.Fatal(err)

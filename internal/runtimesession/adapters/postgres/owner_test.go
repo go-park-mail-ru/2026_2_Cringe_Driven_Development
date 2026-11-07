@@ -17,7 +17,7 @@ func TestConcurrentStartsDifferentNotebooksOneOwner(t *testing.T) {
 	s, pool, owner, nb := integrationStore(t)
 	ctx := context.Background()
 	var nb2 int64
-	if err := pool.QueryRow(ctx, "INSERT INTO notebooks(owner_id,name,file_key) VALUES($1,'second','key2') RETURNING id", owner).Scan(&nb2); err != nil {
+	if err := pool.QueryRow(ctx, "INSERT INTO notebooks(owner_id,name,revision) VALUES($1,'second','revision2') RETURNING id", owner).Scan(&nb2); err != nil {
 		t.Fatal(err)
 	}
 	if v, activeErr := s.Active(ctx, owner); activeErr != nil || v != nil {
@@ -75,7 +75,7 @@ func TestDifferentOwnersCanStartIndependently(t *testing.T) {
 	if err := p.QueryRow(ctx, "INSERT INTO users(login,password_hash) VALUES('other','hash') RETURNING id").Scan(&owner2); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.QueryRow(ctx, "INSERT INTO notebooks(owner_id,name,file_key) VALUES($1,'other','other') RETURNING id", owner2).Scan(&nb2); err != nil {
+	if err := p.QueryRow(ctx, "INSERT INTO notebooks(owner_id,name,revision) VALUES($1,'other','other') RETURNING id", owner2).Scan(&nb2); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Start(ctx, newSession(owner, nb)); err != nil {

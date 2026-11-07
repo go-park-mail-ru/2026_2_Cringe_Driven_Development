@@ -18,8 +18,6 @@ type Worker struct {
 	env Environments
 	// agent Внутренний клиент агента.
 	agent SessionAgent
-	// output Адаптер записи результата в ячейку.
-	output OutputWriter
 	// now Подменяемые часы для воспроизводимого поведения.
 	now Clock
 	// id Идентификатор фонового обработчика или тестового объекта.
@@ -27,11 +25,11 @@ type Worker struct {
 }
 
 // NewWorker собирает фоновый обработчик сессий с отдельным ID владельца задач и зависимостями через порты.
-func NewWorker(s Store, e Environments, a SessionAgent, out OutputWriter, now Clock) *Worker {
+func NewWorker(s Store, e Environments, a SessionAgent, now Clock) *Worker {
 	if now == nil {
 		now = time.Now
 	}
-	return &Worker{s, e, a, out, now, uuid.NewString()}
+	return &Worker{s, e, a, now, uuid.NewString()}
 }
 
 // Run периодически обрабатывает сохранённые сессии до отмены контекста.
@@ -52,8 +50,8 @@ func (w *Worker) Run(ctx context.Context) error {
 			if err != nil && !errors.Is(err, D.ErrNotFound) && !errors.Is(err, D.ErrLeaseLost) && ctx.Err() == nil {
 				slog.WarnContext(ctx, "runtime session work deferred", "error_code", "runtime_store_failed")
 			}
-			if w.output != nil {
-				if err = w.store.Project(ctx, w.output); err != nil && !errors.Is(err, D.ErrNotFound) && ctx.Err() == nil {
+			{
+				if err = w.store.Project(ctx); err != nil && !errors.Is(err, D.ErrNotFound) && ctx.Err() == nil {
 					slog.WarnContext(ctx, "runtime output projection deferred", "error_code", "runtime_projection_failed")
 				}
 			}

@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,8 +13,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 )
 
-// GetNotebookContent возвращает согласованный снимок исходников, версии и последних сохранённых результатов
-// блокнота.
 func (h *Handler) GetNotebookContent(ctx context.Context, req api.GetNotebookContentRequestObject) (api.GetNotebookContentResponseObject, error) {
 	result, err := h.uc.Content(ctx, req.Id, userID(ctx))
 	if errors.Is(err, usecase.ErrNotebookNotFound) {
@@ -24,11 +23,28 @@ func (h *Handler) GetNotebookContent(ctx context.Context, req api.GetNotebookCon
 	}
 	cells := make([]api.NotebookContent_Cells_Item, 0, len(result.Cells))
 	for _, cell := range result.Cells {
-		v, err := contentCell(cell)
-		if err != nil {
-			return nil, err
+		var item api.NotebookContent_Cells_Item
+		if cell.Kind == domain.CellKindCode {
+			outputs := []map[string]interface{}{}
+			if len(cell.Outputs) > 0 {
+				decoder := json.NewDecoder(bytes.NewReader(cell.Outputs))
+				decoder.UseNumber()
+				if err := decoder.Decode(&outputs); err != nil {
+					return nil, err
+				}
+			}
+			if outputs == nil {
+				outputs = []map[string]interface{}{}
+			}
+			if err := item.FromNotebookContentCells1(api.NotebookContentCells1{Id: cell.ID, Kind: api.NotebookContentCells1Kind(cell.Kind), Source: cell.Source, Outputs: outputs, ExecutionCount: cell.ExecutionCount, OutputTruncated: cell.OutputTruncated}); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := item.FromNotebookContentCells0(api.NotebookContentCells0{Id: cell.ID, Kind: api.NotebookContentCells0Kind(cell.Kind), Source: cell.Source}); err != nil {
+				return nil, err
+			}
 		}
-		cells = append(cells, v)
+		cells = append(cells, item)
 	}
 	return api.GetNotebookContent200JSONResponse{Body: api.NotebookContent{Hash: result.Hash, Cells: cells}, Headers: api.GetNotebookContent200ResponseHeaders{ETag: quotedETag(result.Hash)}}, nil
 }
@@ -66,7 +82,7 @@ func editingError(err error) (int, api.NotebookEditingError) {
 	case errors.Is(err, usecase.ErrNotebookNotFound), errors.Is(err, usecase.ErrCellNotFound):
 		status = http.StatusNotFound
 		code = api.NotebookEditingErrorCodeNotFound
-	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidCellKind), errors.Is(err, usecase.ErrInvalidHash):
+	case errors.Is(err, usecase.ErrIndexOutOfRange), errors.Is(err, usecase.ErrInvalidCellKind), errors.Is(err, usecase.ErrInvalidHash), errors.Is(err, usecase.ErrInvalidDocument):
 	default:
 		return 0, api.NotebookEditingError{}
 	}
@@ -159,28 +175,4 @@ func (h *Handler) RemoveNotebookCell(ctx context.Context, req api.RemoveNotebook
 		}
 	}
 	return api.RemoveNotebookCell200JSONResponse{Body: api.NotebookContentChange{Hash: result}, Headers: api.RemoveNotebookCell200ResponseHeaders{ETag: quotedETag(result)}}, nil
-}
-
-// contentCell собирает публичную ячейку: для кода добавляет сохранённый результат, а для Markdown оставляет
-// исходник.
-func contentCell(c domain.Cell) (api.NotebookContent_Cells_Item, error) {
-	var out api.NotebookContent_Cells_Item
-	if c.Kind == domain.CellKindMarkdown {
-		err := out.FromNotebookContentCells0(api.NotebookContentCells0{Id: c.ID, Kind: "markdown", Source: c.Source})
-		return out, err
-	}
-	v := api.NotebookContentCells1{Id: c.ID, Kind: "code", Source: c.Source, Outputs: []map[string]interface{}{}}
-	if c.Result != nil {
-		v.ExecutionCount = c.Result.ExecutionCount
-		v.OutputTruncated = c.Result.Truncated
-		for _, raw := range c.Result.Outputs {
-			var fields map[string]interface{}
-			if err := json.Unmarshal(raw, &fields); err != nil {
-				return out, err
-			}
-			v.Outputs = append(v.Outputs, fields)
-		}
-	}
-	err := out.FromNotebookContentCells1(v)
-	return out, err
 }

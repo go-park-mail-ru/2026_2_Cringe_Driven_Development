@@ -13,13 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	nbpg "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
-	nbs3 "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/s3"
 	nbhttp "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	nbuc "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	runtime "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime"
@@ -44,9 +39,9 @@ import (
 // TestRuntimeFullHTTPFlowWithFakeEnvironment проверяет полный HTTP-путь с настоящими хранилищами; окружение
 // тестовое, а агент может быть настоящим при RUNTIME_TEST_REAL_AGENT=1.
 func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
-	dsn, redisAddr, s3Endpoint := os.Getenv("RUNTIME_TEST_DATABASE_URL"), os.Getenv("REDIS_TEST_ADDR"), os.Getenv("RUNTIME_TEST_S3_ENDPOINT")
-	if dsn == "" || redisAddr == "" || s3Endpoint == "" {
-		t.Skip("set RUNTIME_TEST_DATABASE_URL, REDIS_TEST_ADDR, RUNTIME_TEST_S3_ENDPOINT for isolated integration")
+	dsn, redisAddr := os.Getenv("RUNTIME_TEST_DATABASE_URL"), os.Getenv("REDIS_TEST_ADDR")
+	if dsn == "" || redisAddr == "" {
+		t.Skip("set RUNTIME_TEST_DATABASE_URL, REDIS_TEST_ADDR for isolated integration")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
@@ -84,30 +79,14 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			_ = rc.Del(context.Background(), keys...).Err()
 		}
 	}()
-	s3 := awss3.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("local-test", "local-test", "")}, func(o *awss3.Options) { o.BaseEndpoint = aws.String(s3Endpoint); o.UsePathStyle = true })
-	bucket := strings.ReplaceAll(name, "_", "-")
-	if _, err = s3.CreateBucket(ctx, &awss3.CreateBucketInput{Bucket: &bucket}); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		out, e := s3.ListObjectsV2(context.Background(), &awss3.ListObjectsV2Input{Bucket: &bucket})
-		if e == nil {
-			for _, o := range out.Contents {
-				_, _ = s3.DeleteObject(context.Background(), &awss3.DeleteObjectInput{Bucket: &bucket, Key: o.Key})
-			}
-		}
-		_, _ = s3.DeleteBucket(context.Background(), &awss3.DeleteBucketInput{Bucket: &bucket})
-	}()
-	files := nbs3.NewFileStorage(s3, bucket)
-	writer := ipynb.RuntimeFiles{Files: files}
 	issuer := security.NewAccessToken([]byte("api13-integration-local-key"), time.Hour)
 	users := useruc.NewUserUsecase(userpg.NewUserRepository(pool), sessions, issuer, security.PasswordHasher{}, security.RefreshTokens{}, time.Hour)
-	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), files, ipynb.Codec{})
+	store := storepg.New(pool)
+	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store)
 	module, err := runtime.Build(ctx, config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := storepg.New(pool, writer)
 	sessionAgent := module.Agent
 	if os.Getenv("RUNTIME_TEST_REAL_AGENT") == "1" {
 		sessionAgent = newRealSessionAgent(t, func(ctx context.Context, id uuid.UUID) (string, error) {
@@ -117,7 +96,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		})
 	}
 	service := UC.NewService(store, UC.Settings{Enabled: true}, nil, sessionAgent)
-	worker := UC.NewWorker(store, env.New(module.Environments), sessionAgent, writer, nil)
+	worker := UC.NewWorker(store, env.New(module.Environments), sessionAgent, nil)
 	handler, err := transport.NewRouter(transport.Server{UserHandler: userhttp.NewHandler(users), NotebookHandler: nbhttp.NewHandler(notebooks), RuntimeHandler: delivery.NewHandler(service)}, issuer, sessions, "test-bff-key")
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +187,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 				t.Fatal(e)
 			}
 		}
-		if e = store.Project(ctx, writer); e != nil && !errors.Is(e, D.ErrNotFound) {
+		if e = store.Project(ctx); e != nil && !errors.Is(e, D.ErrNotFound) {
 			t.Fatal(e)
 		}
 	}
@@ -225,6 +204,23 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		t.Fatal("runtime condition timed out")
 	}
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && v.State == D.Ready })
+	assertBadge := func(want int64) {
+		t.Helper()
+		response := call("GET", "/notebooks", "", 200)
+		var list []struct {
+			ID     int64 `json:"id"`
+			Active bool  `json:"has_active_session"`
+		}
+		if decodeErr := json.Unmarshal(response.Body.Bytes(), &list); decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		for _, item := range list {
+			if item.Active != (want != 0 && item.ID == want) {
+				t.Fatalf("wrong runtime badge: %+v", item)
+			}
+		}
+	}
+	assertBadge(first.ID)
 	base := "/runtime-sessions/" + session.ID.String()
 	sum := sha256.Sum256([]byte("print(42)"))
 	executeBody := fmt.Sprintf(`{"execution_id":"run","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:]))
@@ -233,6 +229,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		x, e := store.Execution(ctx, user.ID, session.ID, "run")
 		return e == nil && x.State == "SUCCEEDED" && x.Projection == "applied"
 	})
+	assertBadge(first.ID)
 	w = call("GET", base+"/executions/run", "", 200)
 	if !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal(w.Body.String())
@@ -241,21 +238,13 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"next_cursor"`) || !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal(w.Body.String())
 	}
-	var fileKey string
-	if err = pool.QueryRow(ctx, "SELECT file_key FROM notebooks WHERE id=$1", first.ID).Scan(&fileKey); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := files.Get(ctx, fileKey)
-	if err != nil || !strings.Contains(string(raw), `42\n`) {
-		t.Fatal(string(raw), err)
-	}
 
 	saved, err := notebooks.Content(ctx, first.ID, user.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Hash != cell.Hash {
-		t.Fatal("output changed the editor hash")
+	if saved.Hash == cell.Hash {
+		t.Fatal("output did not change the notebook revision")
 	}
 	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
 	if !strings.Contains(w.Body.String(), `"output_truncated":false`) || !strings.Contains(w.Body.String(), `42\n`) {
@@ -336,7 +325,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			call("POST", base+"/executions", fmt.Sprintf(`{"execution_id":%q,"cell_id":%q,"source_hash":%q}`, id, added.Cell.ID, hex.EncodeToString(hash[:])), 202)
 			wait(func() bool {
 				x, e := store.Execution(ctx, user.ID, session.ID, id)
-				return e == nil && x.State == "SUCCEEDED" && x.Projection == "applied"
+				return e == nil && x.State == "SUCCEEDED" && ((i < 2 && x.Projection == "applied") || (i == 2 && x.Projection == "conflict"))
 			})
 			if i == 1 {
 				x, e := store.Execution(ctx, user.ID, session.ID, id)
@@ -386,12 +375,13 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	call("POST", base+"/stop", "", 202)
 	call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"while-stopping","language":"r"}`, 409)
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && v.State == D.Stopped })
+	assertBadge(0)
 	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
 	if !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal("results lost after stop", w.Body.String())
 	}
-	if os.Getenv("RUNTIME_TEST_REAL_AGENT") == "1" && !strings.Contains(w.Body.String(), `\u0000`) {
-		t.Fatal("NUL output missing from notebook after stop", w.Body.String())
+	if strings.Contains(w.Body.String(), `\u0000`) {
+		t.Fatal("NUL output must remain in the execution archive, not notebook JSONB", w.Body.String())
 	}
 	// Пользовательская сессия уже завершена, но тест также дожидается реальной очистки тестового окружения.
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && !v.CleanupError })

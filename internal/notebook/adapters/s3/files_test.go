@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/storage/s3client"
 )
 
 // TestFileStorage ходит в настоящий S3 и без S3_TEST_BUCKET пропускается.
@@ -16,7 +17,7 @@ func TestFileStorage(t *testing.T) {
 		t.Skip("S3_TEST_BUCKET не задан")
 	}
 	ctx := context.Background()
-	client, err := NewClient(ctx)
+	client, err := s3client.NewClient(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

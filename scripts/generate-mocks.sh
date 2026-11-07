@@ -10,7 +10,7 @@ generate() {
 }
 
 generate internal/user/usecase/dependencies_mock_test.go usecase internal/user/usecase UserStore,SessionStore,PasswordHasher,RefreshTokens,TokenIssuer
-generate internal/notebook/usecase/dependencies_mock_test.go usecase internal/notebook/usecase Metadata,Files,NotebookCodec
+generate internal/notebook/usecase/dependencies_mock_test.go usecase internal/notebook/usecase Repository,ActiveSessions
 generate internal/runtime/usecase/dependencies_mock_test.go usecase internal/runtime/usecase EnvironmentRepository,JobQueue,CloudProvider,HostConfigurator,AgentClient,Secrets,Clock
 for resource in user notebook; do
   generate "internal/$resource/delivery/http/usecase_mock_test.go" delivery "internal/$resource/usecase" Usecase
@@ -18,8 +18,8 @@ for resource in user notebook; do
 done
 generate internal/transport/http/user_mock_test.go httptransport internal/user/usecase Usecase -mock_names=Usecase=MockUserUsecase
 generate internal/transport/http/notebook_mock_test.go httptransport internal/notebook/usecase Usecase -mock_names=Usecase=MockNotebookUsecase
-generate internal/transport/http/notebook_ports_mock_test.go httptransport internal/notebook/usecase Metadata,Files
+generate internal/transport/http/notebook_ports_mock_test.go httptransport internal/notebook/usecase Repository
 generate internal/transport/http/security/dependencies_mock_test.go security internal/transport/http/security TokenParser
 
 # Моки портов пользовательских runtime-сессий для изолированных тестов сценариев.
-generate internal/runtimesession/usecase/dependencies_mock_test.go usecase internal/runtimesession/usecase Store,Environments,SessionAgent,OutputWriter
+generate internal/runtimesession/usecase/dependencies_mock_test.go usecase internal/runtimesession/usecase Store,Environments,SessionAgent

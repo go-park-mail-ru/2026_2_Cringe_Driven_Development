@@ -15,7 +15,7 @@ func TestMandatoryBFFKey(t *testing.T) {
 		{"current", "current-test-key", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			values := map[string]string{"JWT_SECRET": "jwt", "S3_NOTEBOOKS_BUCKET": "bucket", "BFF_API_KEY": tc.key}
+			values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": tc.key}
 			c, err := LoadFrom(settings(values))
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("unexpected configuration error: %v", err)
@@ -31,7 +31,7 @@ func TestMandatoryBFFKey(t *testing.T) {
 }
 
 func TestBFFStartupNeedsNoBrowserSecrets(t *testing.T) {
-	_, err := LoadFrom(settings(map[string]string{"JWT_SECRET": "jwt", "S3_NOTEBOOKS_BUCKET": "bucket", "BFF_API_KEY": "current-test-key"}))
+	_, err := LoadFrom(settings(map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "current-test-key"}))
 	if err != nil {
 		t.Fatalf("server contract must not require browser configuration: %v", err)
 	}

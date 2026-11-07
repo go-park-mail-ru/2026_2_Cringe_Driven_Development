@@ -156,6 +156,8 @@ type Session struct {
 // Execution хранит неизменные параметры попытки и накопленный результат; служебные поля не выдаются через
 // API.
 type Execution struct {
+	// SourceVersion identifies the exact persisted source admitted for execution.
+	SourceVersion string `json:"-"`
 	// Kind Вид команды, события или ячейки, определяющий обработку.
 	Kind string `json:"-"`
 	// SessionID UUID runtime-сессии.

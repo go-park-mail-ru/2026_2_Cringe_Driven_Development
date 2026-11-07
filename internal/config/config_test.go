@@ -15,7 +15,7 @@ func TestLogLevel(t *testing.T) {
 		want  slog.Level
 	}{{"", slog.LevelInfo}, {"debug", slog.LevelDebug}, {"info", slog.LevelInfo}, {"warn", slog.LevelWarn}, {"error", slog.LevelError}} {
 		t.Run(tc.value, func(t *testing.T) {
-			values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "bucket"}
+			values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
 			if tc.value != "" {
 				values["LOG_LEVEL"] = tc.value
 			}
@@ -25,7 +25,7 @@ func TestLogLevel(t *testing.T) {
 			}
 		})
 	}
-	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "bucket", "LOG_LEVEL": "trace-SECRET"}
+	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "LOG_LEVEL": "trace-SECRET"}
 	_, err := LoadFrom(settings(values))
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("invalid level error=%v", err)
@@ -47,7 +47,7 @@ func settings(values map[string]string) func(string) (string, bool) {
 	}
 }
 func TestLoadDefaultsAndOverrides(t *testing.T) {
-	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "notebooks"}
+	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
 	c, err := LoadFrom(settings(values))
 	if err != nil {
 		t.Fatal(err)
@@ -67,9 +67,9 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	}
 }
 func TestMissingRequiredSettings(t *testing.T) {
-	for _, key := range []string{"JWT_SECRET", "BFF_API_KEY", "S3_NOTEBOOKS_BUCKET"} {
+	for _, key := range []string{"JWT_SECRET", "BFF_API_KEY"} {
 		t.Run(key, func(t *testing.T) {
-			v := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "S3_NOTEBOOKS_BUCKET": "bucket"}
+			v := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
 			delete(v, key)
 			_, err := LoadFrom(settings(v))
 			if err == nil || !strings.Contains(err.Error(), key) {

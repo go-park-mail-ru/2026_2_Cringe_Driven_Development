@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,22 +26,16 @@ type DB interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
-// CodeReader читает сохранённый код ячейки по ключу согласованного файла блокнота.
-type CodeReader interface {
-	// ReadCode читает сохранённый исходник кодовой ячейки по её устойчивому ID.
-	ReadCode(context.Context, string, string) (string, error)
-}
-
 // Store хранит сессии, команды, события и владение фоновыми задачами в PostgreSQL.
 type Store struct {
 	// db Подключение к PostgreSQL.
 	db DB
-	// reader Чтение согласованного исходника из блокнота.
-	reader CodeReader
+	// notebooks shares the transaction used to publish cell results.
+	notebooks *notebookpostgres.NotebookRepository
 }
 
 // New подключает PostgreSQL и чтение исходников к хранилищу runtime-сессий.
-func New(db DB, reader CodeReader) *Store { return &Store{db: db, reader: reader} }
+func New(db DB) *Store { return &Store{db: db, notebooks: notebookpostgres.NewNotebookRepository(db)} }
 
 // sessionRecord сохраняет публичную сессию вместе с внутренними флагами восстановления и очистки.
 type sessionRecord struct {
@@ -120,8 +115,8 @@ func (s *Store) Start(ctx context.Context, v domain.Session) (domain.Session, er
 	} else if e != nil {
 		return v, e
 	}
-	var key string
-	e = tx.QueryRow(ctx, "SELECT file_key FROM notebooks WHERE id=$1 AND owner_id=$2 FOR UPDATE", v.NotebookID, v.OwnerID).Scan(&key)
+	var notebookID int64
+	e = tx.QueryRow(ctx, "SELECT id FROM notebooks WHERE id=$1 AND owner_id=$2 FOR UPDATE", v.NotebookID, v.OwnerID).Scan(&notebookID)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}
@@ -301,4 +296,16 @@ func (s *Store) Active(ctx context.Context, owner int64) (*domain.Session, error
 		return nil, err
 	}
 	return &v, nil
+}
+
+// ActiveNotebook supplies notebook summaries from the same authoritative session state.
+func (s *Store) ActiveNotebook(ctx context.Context, owner int64) (int64, error) {
+	session, err := s.Active(ctx, owner)
+	if err != nil {
+		return 0, err
+	}
+	if session == nil {
+		return 0, nil
+	}
+	return session.NotebookID, nil
 }

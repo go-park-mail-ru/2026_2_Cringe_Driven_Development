@@ -37,7 +37,7 @@ func TestCreateReplyLostReusesSessionID(t *testing.T) {
 	e.EXPECT().RequestCreate(gomock.Any(), D.EnvironmentRequest{SessionID: l.Session.ID, Language: "python", Profile: "default"}).Return(D.Environment{}, errors.New("reply lost"))
 	var saved D.Session
 	s.EXPECT().Save(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error { saved = v; return nil })
-	if err := NewWorker(s, e, a, nil, nil).Step(ctx, l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(ctx, l); err != nil {
 		t.Fatal(err)
 	}
 	if saved.ID != l.Session.ID || !saved.CreateUnknown || saved.State != D.Provisioning {
@@ -58,7 +58,7 @@ func TestArchiveDBFailureDoesNotAuthorizeDeletion(t *testing.T) {
 	a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return([]D.AgentEvent{{Seq: 1, SessionID: l.Session.ID, Kind: "kernel_message"}}, nil)
 	fail := errors.New("db failed")
 	s.EXPECT().CommitEvents(gomock.Any(), l, gomock.Any()).Return(fail)
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); !errors.Is(err, fail) {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); !errors.Is(err, fail) {
 		t.Fatal(err)
 	}
 }
@@ -83,7 +83,7 @@ func TestArchiveCommitsBeforeRequestDelete(t *testing.T) {
 		}
 		return nil
 	})
-	if err := NewWorker(s, e, a, nil, func() time.Time { return time.Unix(100, 0) }).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, func() time.Time { return time.Unix(100, 0) }).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -104,7 +104,7 @@ func TestReconnectRecoversAfterCompleteFlow(t *testing.T) {
 		}
 		return nil
 	})
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -124,7 +124,7 @@ func TestReconnectHealthCannotHideBrokenEvents(t *testing.T) {
 		}
 		return nil
 	})
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -150,7 +150,7 @@ func TestSixJournalFailuresAllowIncompleteDelete(t *testing.T) {
 	})
 	e.EXPECT().RequestDelete(gomock.Any(), l.Session.ID, "agent_unreachable").Return(nil)
 	s.EXPECT().Save(gomock.Any(), l, gomock.Any()).Return(nil)
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -167,7 +167,7 @@ func TestAgentLostAfterProvisioningDoesNotHoldStartupForever(t *testing.T) {
 		}
 		return nil
 	})
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -188,7 +188,7 @@ func TestProtocolFailureStartsCleanupInsteadOfRetryingDBForever(t *testing.T) {
 		}
 		return nil
 	})
-	if err := NewWorker(s, e, a, nil, nil).Step(context.Background(), l); err != nil {
+	if err := NewWorker(s, e, a, nil).Step(context.Background(), l); err != nil {
 		t.Fatal(err)
 	}
 }

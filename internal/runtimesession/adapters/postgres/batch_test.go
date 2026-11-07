@@ -13,15 +13,6 @@ import (
 	D "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
 )
 
-// ReadBatch читает один снимок исходников и проверяет, что выбранные ячейки сохранили свой порядок.
-func (constantCode) ReadBatch(_ context.Context, _ string, ids []string) ([]string, error) {
-	out := make([]string, len(ids))
-	for i := range out {
-		out[i] = "print(42)"
-	}
-	return out, nil
-}
-
 // TestBatchConcurrentRetryAndStableQueue проверяет один пакет при конкурентном повторе и устойчивый порядок
 // ячеек в очереди.
 func TestBatchConcurrentRetryAndStableQueue(t *testing.T) {

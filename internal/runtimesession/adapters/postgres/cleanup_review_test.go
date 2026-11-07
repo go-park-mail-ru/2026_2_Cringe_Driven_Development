@@ -71,7 +71,7 @@ func TestCleanupFailureReleasesSlotAndSurvivesRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = U.NewWorker(s, env, agent, nil, nil).Step(ctx, l); err != nil {
+	if err = U.NewWorker(s, env, agent, nil).Step(ctx, l); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := s.Owned(ctx, owner, v.ID)
@@ -98,7 +98,7 @@ func TestCleanupFailureReleasesSlotAndSurvivesRestart(t *testing.T) {
 	if err != nil || l.Session.ID != v.ID {
 		t.Fatal("cleanup lost after restart", l, err)
 	}
-	if err = U.NewWorker(s, env, agent, nil, nil).Step(ctx, l); err != nil {
+	if err = U.NewWorker(s, env, agent, nil).Step(ctx, l); err != nil {
 		t.Fatal(err)
 	}
 	if env.requests != 2 || agent.stops != 1 {
@@ -112,7 +112,7 @@ func TestCleanupFailureReleasesSlotAndSurvivesRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = U.NewWorker(s, env, agent, nil, nil).Step(ctx, l); err != nil {
+	if err = U.NewWorker(s, env, agent, nil).Step(ctx, l); err != nil {
 		t.Fatal(err)
 	}
 	saved, err = s.Owned(ctx, owner, v.ID)

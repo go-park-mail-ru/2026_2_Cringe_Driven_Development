@@ -2,42 +2,66 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 )
 
-var (
-	ErrFileNotFound = errors.New("notebook file not found")
+var ErrFileNotFound = errors.New("notebook file not found")
+var ErrStaleSource = errors.New("executed source is no longer current")
+var ErrInvalidDocument = errors.New("invalid notebook data")
+var ErrMigrationRequired = errors.New("notebook migration required")
+
+type OperationKind string
+
+const (
+	Insert OperationKind = "insert"
+	Edit   OperationKind = "edit"
+	Move   OperationKind = "move"
+	Delete OperationKind = "delete"
 )
 
-// Metadata хранит строки блокнотов; чужой блокнот для неё — ErrNotebookNotFound.
-// MetadataUpdate описывает переход на уже записанный неизменяемый объект.
-// Changed=false оставляет метаданные, включая updated_at, без изменений.
-type MetadataUpdate struct {
-	FileKey    string
-	CellsCount int
-	Changed    bool
+// Operation transmits only the requested change; Index selects legacy operations
+// only after the notebook revision has been checked under its row lock.
+type Operation struct {
+	Kind     OperationKind
+	CellID   string
+	CellKind domain.CellKind
+	Source   string
+	Index    *int
+}
+type Change struct {
+	Hash string
+	Cell domain.Cell
+}
+type Repository interface {
+	Create(context.Context, domain.Notebook) (domain.Notebook, error)
+	List(context.Context, int64) ([]domain.NotebookSummary, error)
+	Get(context.Context, int64, int64) (domain.Notebook, error)
+	Apply(context.Context, int64, int64, string, Operation) (Change, error)
 }
 
-type Metadata interface {
-	// Create заполняет у n поля ID, CreatedAt и UpdatedAt.
-	Create(ctx context.Context, n domain.Notebook) (domain.Notebook, error)
-	List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error)
-	Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error)
-	// Modify блокирует строку до завершения fn и атомарно сохраняет новую редакцию.
-	Modify(ctx context.Context, id, ownerID int64, fn func(n domain.Notebook) (MetadataUpdate, error)) error
+// ActiveSessions is supplied by #13. Notebook ID zero means no active session.
+// It is unrelated to authentication sessions and provisioned environments.
+type ActiveSessions interface {
+	ActiveNotebook(context.Context, int64) (int64, error)
 }
 
-// Files хранит файлы .ipynb по ключу.
-type Files interface {
-	Get(ctx context.Context, key string) ([]byte, error)
-	Put(ctx context.Context, key string, data []byte) error
-}
+// NoActiveSessions supports standalone notebook tests; app uses the runtime session store.
+type NoActiveSessions struct{}
 
-// NotebookCodec отделяет формат ipynb от сценариев блокнота.
-type NotebookCodec interface {
-	Parse(data []byte) ([]domain.Cell, error)
-	Build(cells []domain.Cell) ([]byte, error)
-	Rewrite(data []byte, cells []domain.Cell) ([]byte, error)
+func (NoActiveSessions) ActiveNotebook(context.Context, int64) (int64, error) { return 0, nil }
+
+// ExecutionSource binds a dispatched execution to a stable cell and source version.
+type ExecutionSource struct{ CellID, Source, SourceVersion string }
+type CellResult struct {
+	OutputTruncated       bool
+	CellID, SourceVersion string
+	Outputs               json.RawMessage
+	ExecutionCount        *int64
+}
+type Results interface {
+	ExecutionSource(context.Context, int64, int64, string) (ExecutionSource, error)
+	SaveResult(context.Context, int64, int64, CellResult) (string, error)
 }
