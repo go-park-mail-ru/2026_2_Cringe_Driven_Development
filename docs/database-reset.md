@@ -1,0 +1,68 @@
+# Однократный полный сброс БД приложения
+
+Решение владельца по backend#79: старые тестовые блокноты из S3 в PostgreSQL не переносятся.
+БД приложения создаётся заново один раз. Пользователи, блокноты, настройки 2FA, runtime-сессии
+и остальные данные приложения не сохраняются; после восстановления регистрируемся заново.
+S3-бакеты и объекты не удаляются. Сброс — ручная операция оператора: он не выполняется ни при
+старте API, ни при деплое.
+
+Production-команды (VPS2, `/opt/cellestial`, Vault, порядок CD) — в
+[RUNBOOK infra, «Восстановление API: полный сброс БД приложения»](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/RUNBOOK.md#восстановление-api-полный-сброс-бд-приложения-infra112);
+здесь — что и в каком порядке сбрасывается. Порядок шагов в обоих документах один.
+
+## Перед сбросом
+
+До остановки API убедиться, что ветка восстановления включает актуальную цепочку
+[CI → CD → Ansible](release.md#production): CI получает registry digest из
+`docker/build-push-action`, передаёт полный
+`backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`
+через output job `docker` и input reusable CD в `deploy-backend.yml` из `infra/main`.
+`backend_image_tag` и SHA-тег вместо digest не принимаются. Изменения этой цепочки
+из backend#83 должны быть включены в ветку backend#80 до восстановления.
+До сброса проверить передачу ref и validation Ansible без выкладки на production.
+
+1. В Vault есть постоянный `TOTP_ENCRYPTION_KEY` (base64 32 байт): без него API не стартует
+   (`startup_config`). Сброс не меняет ключ.
+2. API и воркеры остановлены, других процессов, пишущих в ту же БД, нет. До конца операции
+   не запускается CD и не мержатся PR в `main` backend и infra.
+3. Облачные ресурсы runtime-сессий завершены. ID лежат в `runtime_environments`:
+
+   ```sql
+   SELECT session_id, state, server_id, volume_id, port_id
+   FROM runtime_environments
+   WHERE state NOT IN ('DELETED') OR server_id IS NOT NULL OR volume_id IS NOT NULL OR port_id IS NOT NULL;
+   ```
+
+   Удалить найденные ресурсы и проверить, что по меткам `cellestial_runtime=1` и
+   `cellestial_env=<RUNTIME_ENV_NAME>` ничего не осталось —
+   [runtime-provisioning.md, «Ручная очистка»](runtime-provisioning.md#ручная-очистка).
+   После сброса таблица пустая, и reconcile уже не найдёт эти ресурсы по сессиям.
+4. Снята резервная копия: `pg_dump -Fc`, проверка `pg_restore --list` и пробное восстановление
+   в отдельную БД (в ней есть `goose_db_version`), после проверки эта БД удаляется. Ошибка —
+   остановиться, БД приложения не трогать.
+
+## Сброс
+
+1. Пересоздать пустую БД приложения (`dropdb` и `createdb` с прежним владельцем).
+   Схему отдельно не создавать: SQL-миграции goose применяет API при старте.
+2. Очистить Redis приложения (`FLUSHDB` базы `REDIS_DB`): сессии `auth_session:*`,
+   `refresh_session:*`, версии сессий и счётчики попыток входа. `redis-cli` — с `-e`: без него
+   отказ Redis (`WRONGPASS`, `NOAUTH`) завершается кодом 0 и сброс не останавливается. После
+   очистки `DBSIZE` = 0. Доступ проверяется по записи
+   сессии в Redis, поэтому старые access/refresh-токены и cookie BFF перестают действовать,
+   даже если новые пользователи получат прежние ID.
+3. Только после завершения сброса разрешить merge ветки восстановления в `main`:
+   при `PRODUCTION_ENABLED=true` он автоматически запускает CI/CD. CI публикует
+   образ, проверяет его публичность и анонимную доступность опубликованного digest,
+   затем CD передаёт `backend_image_ref` в Ansible. Не подставлять прежний SHA-тег
+   и не отключать digest-валидацию infra. При старте API применяются все миграции,
+   включая удаление `notebook_legacy_sources`.
+
+## Приёмка
+
+- API healthy, в логах нет `startup_config`, `totp_init`, `database_migrate`.
+- Новая регистрация и вход; старый логин не работает.
+- Создание блокнота, правка ячеек, повторное открытие.
+- Загрузка нового аватара и его отображение.
+
+Сохранность прежних пользователей и блокнотов не проверяется: они удалены намеренно.

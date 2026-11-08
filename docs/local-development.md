@@ -154,7 +154,7 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 
 Локальный override запускает SeaweedFS 4.48 для аватаров с бакетом
 `S3_AVATARS_BUCKET` (`cellestial-avatars-local`). Блокноты хранятся по ячейкам
-в PostgreSQL; перенос старых ipynb описан в [notebook-migration.md](notebook-migration.md). Одноразовый сервис `s3-init`
+в PostgreSQL; старые ipynb не переносятся — [однократный сброс БД](database-reset.md). Одноразовый сервис `s3-init`
 выдаёт `anonymous` только `Read` на бакет аватаров; API ждёт его успешного
 завершения. Чтение блокнотов и список объектов остаются закрытыми.
 Инициализация повторяется при `make up`, существующие данные сохраняются.

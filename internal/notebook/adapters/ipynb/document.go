@@ -263,7 +263,7 @@ func object(raw json.RawMessage) (map[string]json.RawMessage, error) {
 }
 func take(m map[string]json.RawMessage, k string) json.RawMessage { v := m[k]; delete(m, k); return v }
 
-// DecodeDocument is used only at import/migration boundaries.
+// DecodeDocument is used only at import boundaries.
 func DecodeDocument(raw []byte) (domain.Document, []domain.Cell, error) {
 	var doc domain.Document
 	normalized, err := CanonicalJSON(raw)

@@ -37,8 +37,9 @@ func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 	if err != nil {
 		return n, err
 	}
+	// После полного сброса БД у каждого блокнота есть редакция: она создаётся вместе с ним
 	if revision == nil {
-		return n, usecase.ErrMigrationRequired
+		return n, errors.New("notebook has no revision")
 	}
 	n.Revision = *revision
 	return n, nil

@@ -138,8 +138,8 @@ GET content возвращает code-ячейки с outputs, execution_count �
 Редакция для If-Match — непрозрачный токен всего документа: меняется при изменении
 source, порядка и результатов. source_hash исполнения остаётся отдельным SHA-256
 исходника конкретной ячейки для HTTP-контракта; внутренняя версия source дополнительно
-защищает публикацию от ABA. Полное хранение, размеры и offline-перенос —
-[notebook-editing.md](notebook-editing.md) и [notebook-migration.md](notebook-migration.md).
+защищает публикацию от ABA. Полное хранение и размеры —
+[notebook-editing.md](notebook-editing.md); вместо переноса — [сброс БД](database-reset.md).
 Агент и EnvironmentService не обращаются к S3/PostgreSQL и не требуют изменений
 для хранения по ячейкам.
 

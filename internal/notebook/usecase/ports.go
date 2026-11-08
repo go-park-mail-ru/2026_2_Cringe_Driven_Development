@@ -11,7 +11,6 @@ import (
 var ErrFileNotFound = errors.New("notebook file not found")
 var ErrStaleSource = errors.New("executed source is no longer current")
 var ErrInvalidDocument = errors.New("invalid notebook data")
-var ErrMigrationRequired = errors.New("notebook migration required")
 
 type OperationKind string
 
