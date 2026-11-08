@@ -3,8 +3,8 @@ name: CD
 on:
   workflow_call:
     inputs:
-      backend_image_tag:
-        description: Published SHA tag from the CI docker job
+      backend_image_ref:
+        description: Published backend image digest reference from the CI docker job
         required: true
         type: string
 
@@ -14,7 +14,6 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
-      packages: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -69,13 +68,11 @@ jobs:
       - name: Deploy backend
         working-directory: infra/ansible
         env:
-          BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKEND_IMAGE_REF: ${{ inputs.backend_image_ref }}
         run: |
-          [[ "$BACKEND_IMAGE_TAG" =~ ^sha-[0-9a-f]{7,40}$ ]]
+          [[ "$BACKEND_IMAGE_REF" =~ ^ghcr[.]io/cringe-driven-development-team/backend@sha256:[0-9a-f]{64}$ ]]
           ansible-playbook -i inventory/ci.yml deploy-backend.yml \
-            -e "backend_image_tag=$BACKEND_IMAGE_TAG" \
+            -e "backend_image_ref=$BACKEND_IMAGE_REF" \
             -e "deploy_key_path=$RUNNER_TEMP/backend-deploy/ci-key" \
             -e "jump_known_hosts=$RUNNER_TEMP/backend-deploy/known_hosts" \
             --ssh-common-args="-o UserKnownHostsFile=$RUNNER_TEMP/backend-deploy/known_hosts -o StrictHostKeyChecking=yes"
@@ -91,11 +88,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID || vars.TELEGRAM_TOPIC_ID }}
           DEPLOY_RESULT: ${{ job.status }}
-          BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
+          BACKEND_IMAGE_REF: ${{ inputs.backend_image_ref }}
         run: |
           [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]
           text="Backend production: $DEPLOY_RESULT
-          Image: $BACKEND_IMAGE_TAG
+          Image: $BACKEND_IMAGE_REF
           $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           args=(--data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text")
           if [[ -n "$TELEGRAM_TOPIC_ID" ]]; then
