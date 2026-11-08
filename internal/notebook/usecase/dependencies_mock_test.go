@@ -71,6 +71,20 @@ func (mr *MockRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRepository)(nil).Create), arg0, arg1)
 }
 
+// DeleteNotebook mocks base method.
+func (m *MockRepository) DeleteNotebook(arg0 context.Context, arg1, arg2 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNotebook", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteNotebook indicates an expected call of DeleteNotebook.
+func (mr *MockRepositoryMockRecorder) DeleteNotebook(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNotebook", reflect.TypeOf((*MockRepository)(nil).DeleteNotebook), arg0, arg1, arg2)
+}
+
 // Get mocks base method.
 func (m *MockRepository) Get(arg0 context.Context, arg1, arg2 int64) (domain.Notebook, error) {
 	m.ctrl.T.Helper()

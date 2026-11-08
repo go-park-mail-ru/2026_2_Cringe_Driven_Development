@@ -23,6 +23,7 @@ var (
 	ErrInvalidHash      = errors.New("notebook hash is required")
 	ErrInvalidCellKind  = errors.New("cell kind must be code or markdown")
 	ErrNotebookNotFound = errors.New("notebook not found")
+	ErrNotebookInUse    = errors.New("notebook is in use")
 	ErrCellNotFound     = errors.New("cell not found")
 	ErrEmptyName        = errors.New("notebook name is empty")
 	ErrIndexOutOfRange  = errors.New("cell index is out of range")
@@ -36,6 +37,8 @@ type Usecase interface {
 	// Create кладёт в новый блокнот один пустой блок кода.
 	Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error)
 	Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error)
+	// DeleteNotebook removes the notebook only after its runtime work has finished.
+	DeleteNotebook(ctx context.Context, id, ownerID int64) error
 	// CreateCell вставляет пустой блок на место index, а без index — в конец.
 	CreateCell(ctx context.Context, id, ownerID int64, hash string, kind domain.CellKind, index *int) (domain.Cell, error)
 	DeleteCell(ctx context.Context, id, ownerID int64, hash string, index int) error
