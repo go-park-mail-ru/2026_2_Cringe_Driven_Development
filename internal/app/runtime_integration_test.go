@@ -125,7 +125,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := func(method, path, body, key, token string) *httptest.ResponseRecorder {
+	request := func(method, path, body, key, token string, hash ...string) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(method, transport.BaseURL+path, strings.NewReader(body))
 		if body != "" {
@@ -137,13 +137,16 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		if token != "" {
 			r.Header.Set("Authorization", "Bearer "+token)
 		}
+		if len(hash) > 0 {
+			r.Header.Set("If-Match", `"`+hash[0]+`"`)
+		}
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	call := func(method, path, body string, want int) *httptest.ResponseRecorder {
+	call := func(method, path, body string, want int, hash ...string) *httptest.ResponseRecorder {
 		t.Helper()
-		w := request(method, path, body, "test-bff-key", auth.AccessToken)
+		w := request(method, path, body, "test-bff-key", auth.AccessToken, hash...)
 		if w.Code != want {
 			t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body.String())
 		}
@@ -222,6 +225,8 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	}
 	assertBadge(first.ID)
 	base := "/runtime-sessions/" + session.ID.String()
+	contentPath := fmt.Sprintf("/notebooks/%d/content", first.ID)
+	beforeETag := call("GET", contentPath, "", 200).Header().Get("ETag")
 	sum := sha256.Sum256([]byte("print(42)"))
 	executeBody := fmt.Sprintf(`{"execution_id":"run","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:]))
 	call("POST", base+"/executions", executeBody, 202)
@@ -243,12 +248,92 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Hash == cell.Hash {
-		t.Fatal("output did not change the notebook revision")
+	if saved.Hash != cell.Hash {
+		t.Fatal("output changed the notebook revision")
 	}
-	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
+	w = call("GET", contentPath, "", 200)
+	if beforeETag == "" || w.Header().Get("ETag") != beforeETag {
+		t.Fatal("output changed the content ETag")
+	}
 	if !strings.Contains(w.Body.String(), `"output_truncated":false`) || !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal("saved content result missing", w.Body.String())
+	}
+	// Each result field independently stays outside the editor's hash/ETag.
+	resultRepo := nbpg.NewNotebookRepository(pool)
+	executionSource, err := resultRepo.ExecutionSource(ctx, first.ID, user.ID, cell.Cell.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := int64(12)
+	for _, result := range []nbuc.CellResult{
+		{Outputs: json.RawMessage(`[{"text":"42\n43\n"}]`)},
+		{Outputs: json.RawMessage(`[{"text":"42\n43\n"}]`), ExecutionCount: &count},
+		{Outputs: json.RawMessage(`[{"text":"42\n43\n"}]`), ExecutionCount: &count, OutputTruncated: true},
+	} {
+		result.CellID, result.SourceVersion = cell.Cell.ID, executionSource.SourceVersion
+		if _, err = resultRepo.SaveResult(ctx, first.ID, user.ID, result); err != nil {
+			t.Fatal(err)
+		}
+		w = call("GET", contentPath, "", 200)
+		var snapshot struct {
+			Hash  string `json:"hash"`
+			Cells []struct {
+				ID              string          `json:"id"`
+				Outputs         json.RawMessage `json:"outputs"`
+				ExecutionCount  *int64          `json:"execution_count"`
+				OutputTruncated bool            `json:"output_truncated"`
+			} `json:"cells"`
+		}
+		if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || snapshot.Hash != cell.Hash || w.Header().Get("ETag") != beforeETag {
+			t.Fatal("result-only change invalidated content hash/ETag", err, w.Body.String())
+		}
+		found := false
+		for _, c := range snapshot.Cells {
+			if c.ID == cell.Cell.ID {
+				found = true
+				if string(c.Outputs) != string(result.Outputs) || (c.ExecutionCount == nil) != (result.ExecutionCount == nil) || (c.ExecutionCount != nil && *c.ExecutionCount != count) || c.OutputTruncated != result.OutputTruncated {
+					t.Fatal("GET content lost result fields", w.Body.String())
+				}
+			}
+		}
+		if !found {
+			t.Fatal("GET content lost executed cell")
+		}
+	}
+	// Edit with the hash read before execution; source changes still invalidate it.
+	cellPath := contentPath + "/cells/" + cell.Cell.ID
+	w = call("PATCH", cellPath, `{"source":"print(43)"}`, 200, cell.Hash)
+	var edited struct {
+		Hash string `json:"hash"`
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &edited); err != nil || edited.Hash == "" || edited.Hash == cell.Hash {
+		t.Fatal("source edit did not change hash", err, w.Body.String())
+	}
+	call("PATCH", cellPath, `{"source":"stale"}`, 409, cell.Hash)
+
+	// Execute the edited source and then create with the hash read before that run.
+	beforeETag = call("GET", contentPath, "", 200).Header().Get("ETag")
+	sum = sha256.Sum256([]byte("print(43)"))
+	call("POST", base+"/executions", fmt.Sprintf(`{"execution_id":"run-before-create","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:])), 202)
+	wait(func() bool {
+		x, e := store.Execution(ctx, user.ID, session.ID, "run-before-create")
+		return e == nil && x.State == "SUCCEEDED" && x.Projection == "applied"
+	})
+	w = call("GET", contentPath, "", 200)
+	if w.Header().Get("ETag") != beforeETag {
+		t.Fatal("subsequent execution changed ETag")
+	}
+	w = call("POST", contentPath+"/cells", `{"kind":"code","source":"print(99)"}`, 201, edited.Hash)
+	var added struct {
+		Hash string `json:"hash"`
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &added); err != nil || added.Hash == "" || added.Hash == edited.Hash {
+		t.Fatal("cell creation did not change hash", err, w.Body.String())
+	}
+	call("POST", contentPath+"/cells", `{"kind":"code","source":"stale"}`, 409, edited.Hash)
+	saved, err = notebooks.Content(ctx, first.ID, user.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
 	call("POST", base+"/variables", `{"execution_id":"inspect-1"}`, 202)
 	wait(func() bool {
@@ -377,7 +462,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && v.State == D.Stopped })
 	assertBadge(0)
 	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
-	if !strings.Contains(w.Body.String(), `42\n`) {
+	if !strings.Contains(w.Body.String(), `43\n`) {
 		t.Fatal("results lost after stop", w.Body.String())
 	}
 	if strings.Contains(w.Body.String(), `\u0000`) {

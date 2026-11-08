@@ -5,15 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	D "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
 )
 
-// TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt проверяет повтор сохранения после сбоя и
+// TestProjectionRetryPreservesRevisionAndCannotOverwriteNewAttempt проверяет повтор сохранения после сбоя и
 // защиту результата более новой попытки.
-func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T) {
+func TestProjectionRetryPreservesRevisionAndCannotOverwriteNewAttempt(t *testing.T) {
 	s, p, owner, nb := integrationStore(t)
 	ctx := context.Background()
 	v, err := s.Start(ctx, newSession(owner, nb))
@@ -56,8 +57,12 @@ func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T
 	if err = s.Project(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err = p.QueryRow(ctx, "SELECT revision FROM notebooks WHERE id=$1", nb).Scan(&revision); err != nil || revision == before {
+	if err = p.QueryRow(ctx, "SELECT revision FROM notebooks WHERE id=$1", nb).Scan(&revision); err != nil || revision != before {
 		t.Fatal(revision, err)
+	}
+	notebook, err := s.notebooks.Get(ctx, nb, owner)
+	if err != nil || string(notebook.Cells[0].Outputs) != `[{"name":"stdout","output_type":"stream","text":"42"}]` {
+		t.Fatal("retry did not save result", err)
 	}
 	r.ExecutionID = "newer"
 	if _, err = s.Admit(ctx, owner, v.ID, r); err != nil {
@@ -72,11 +77,16 @@ func TestProjectionRetryPublishesNewKeyAndCannotOverwriteNewAttempt(t *testing.T
 		t.Fatal(err)
 	}
 	before = revision
+	beforeResult := string(notebook.Cells[0].Outputs)
 	if err = s.Project(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err = p.QueryRow(ctx, `SELECT revision FROM notebooks WHERE id=$1`, nb).Scan(&revision); err != nil || revision != before {
 		t.Fatal("old attempt projected over newer attempt")
+	}
+	notebook, err = s.notebooks.Get(ctx, nb, owner)
+	if err != nil || string(notebook.Cells[0].Outputs) != beforeResult {
+		t.Fatal("old attempt changed result", err)
 	}
 	x, err := s.Execution(ctx, owner, v.ID, "first")
 	if err != nil || x.Projection != "conflict" {
@@ -201,7 +211,7 @@ func TestProjectionAndAcknowledgementShareTransaction(t *testing.T) {
 		t.Fatal("expected acknowledgement failure")
 	}
 	after, err := s.notebooks.Get(ctx, nb, owner)
-	if err != nil || after.Revision != before.Revision || string(after.Cells[0].Outputs) != "[]" {
+	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatal("notebook committed without projection acknowledgement")
 	}
 }
