@@ -7,14 +7,15 @@ S3-бакеты и объекты не удаляются. Сброс — руч
 старте API, ни при деплое.
 
 Production-команды (VPS2, `/opt/cellestial`, Vault, порядок CD) — в
-[RUNBOOK infra](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/RUNBOOK.md);
-здесь — что и в каком порядке сбрасывается.
+[RUNBOOK infra, «Восстановление API: полный сброс БД приложения»](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/RUNBOOK.md#восстановление-api-полный-сброс-бд-приложения-infra112);
+здесь — что и в каком порядке сбрасывается. Порядок шагов в обоих документах один.
 
 ## Перед сбросом
 
 1. В Vault есть постоянный `TOTP_ENCRYPTION_KEY` (base64 32 байт): без него API не стартует
    (`startup_config`). Сброс не меняет ключ.
-2. API и воркеры остановлены, других процессов, пишущих в ту же БД, нет.
+2. API и воркеры остановлены, других процессов, пишущих в ту же БД, нет. До конца операции
+   не запускается CD и не мержатся PR в `main` backend и infra.
 3. Облачные ресурсы runtime-сессий завершены. ID лежат в `runtime_environments`:
 
    ```sql
@@ -27,7 +28,9 @@ Production-команды (VPS2, `/opt/cellestial`, Vault, порядок CD) �
    `cellestial_env=<RUNTIME_ENV_NAME>` ничего не осталось —
    [runtime-provisioning.md, «Ручная очистка»](runtime-provisioning.md#ручная-очистка).
    После сброса таблица пустая, и reconcile уже не найдёт эти ресурсы по сессиям.
-4. Снята резервная копия: `pg_dump -Fc`, проверка `pg_restore --list`.
+4. Снята резервная копия: `pg_dump -Fc`, проверка `pg_restore --list` и пробное восстановление
+   в отдельную БД (в ней есть `goose_db_version`), после проверки эта БД удаляется. Ошибка —
+   остановиться, БД приложения не трогать.
 
 ## Сброс
 
