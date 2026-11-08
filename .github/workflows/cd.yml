@@ -14,7 +14,6 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
-      packages: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -70,8 +69,6 @@ jobs:
         working-directory: infra/ansible
         env:
           BACKEND_IMAGE_REF: ${{ inputs.backend_image_ref }}
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           [[ "$BACKEND_IMAGE_REF" =~ ^ghcr[.]io/cringe-driven-development-team/backend@sha256:[0-9a-f]{64}$ ]]
           ansible-playbook -i inventory/ci.yml deploy-backend.yml \

@@ -6,9 +6,11 @@
 
 На каждом PR запускаются `lint` (golangci-lint), `test` (`go mod tidy -diff`, сборка и тесты с race detector) и `docker` (сборка образа без публикации). Покрытие выводится в summary; минимального порога нет. Новый push в PR отменяет предыдущие проверки этого PR. Запуски `main` не отменяют друг друга; выкатки сериализуются отдельно.
 
-После успешных проверок push в `main` публикует приватный образ `ghcr.io/cringe-driven-development-team/backend` с тегами `sha-<short>` и `main`. Тег `latest` не публикуется. SHA-тег может быть перезаписан повторным запуском для того же коммита; для строго неизменяемой ссылки используйте digest.
+После успешных проверок push в `main` публикует образ `ghcr.io/cringe-driven-development-team/backend` с тегами `sha-<short>` и `main`. Тег `latest` не публикуется. SHA-тег может быть перезаписан повторным запуском для того же коммита; для выкатки CI передаёт неизменяемый digest из результата `docker/build-push-action`.
 
-CI публикует образ через `GITHUB_TOKEN`. Job выкатки получает `packages: read` и передаёт свой временный `GITHUB_TOKEN` в Ansible через окружение. Постоянный PAT для production не нужен. При 403 передайте ментору ссылку на запуск для проверки прав package и организации; личные токены для обхода не используйте.
+Backend package должен быть публичным. После каждой публикации (push в `main` или ручной запуск) CI проверяет через GitHub API видимость `public` и привязку package к командному репозиторию, затем выполняет анонимный `docker manifest inspect` именно опубликованного digest с пустым Docker config. При ошибке CD не запускается. PR CI только собирает образ и не проверяет доступность опубликованного package.
+
+CI публикует образ через `GITHUB_TOKEN` с `packages: write`. CD не требует `packages: read` и не передаёт GHCR credentials в Ansible. Перед первой реальной выкаткой владелец package должен переключить его видимость в Public; изменение workflows само по себе видимость не меняет. При 401/403 передайте ментору ссылку на запуск для проверки доступа к package; личные токены для обхода не используйте.
 
 ## Учебная копия
 
@@ -18,15 +20,15 @@ CI публикует образ через `GITHUB_TOKEN`. Job выкатки �
 
 ## Production
 
-После успешных проверок `ci.yml` вызывает `cd.yml` через `workflow_call` и передаёт SHA-тег из job `docker`. Выкатка запускается при `PRODUCTION_ENABLED=true` из `main` в environment `production`. CD запускает `deploy-backend.yml` из `infra/main`; production Compose, Caddyfile, Vault и серверная конфигурация принадлежат репозиторию [infra](https://github.com/Cringe-Driven-Development-Team/infra). Местный `docker-compose.yml` служит только для разработки.
+После успешных проверок `ci.yml` вызывает `cd.yml` через `workflow_call` и передаёт полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>` из job `docker`. CD проверяет формат ref и передаёт его в Ansible; теги не принимаются. Выкатка запускается при `PRODUCTION_ENABLED=true` из `main` в environment `production`. CD запускает `deploy-backend.yml` из `infra/main`; production Compose, Caddyfile, Vault и серверная конфигурация принадлежат репозиторию [infra](https://github.com/Cringe-Driven-Development-Team/infra). Местный `docker-compose.yml` служит только для разработки.
 
-`DEPLOY_SSH_KEY`, `SSH_KNOWN_HOSTS` и `ANSIBLE_VAULT_PASSWORD` хранятся как secrets environment. Для командного CI установлен отдельный public key `infra/ansible/files/authorized_keys/ci-team-backend.pub`; личные SSH-ключи и Selectel credentials в CI не передаются. Ansible временно авторизуется в GHCR, скачивает образ и всегда выполняет logout.
+`DEPLOY_SSH_KEY`, `SSH_KNOWN_HOSTS` и `ANSIBLE_VAULT_PASSWORD` хранятся как secrets environment. Для командного CI установлен отдельный public key `infra/ansible/files/authorized_keys/ci-team-backend.pub`; личные SSH-ключи и Selectel credentials в CI не передаются. Ansible скачивает выбранный digest анонимно с временным пустым Docker config и удаляет этот config после попытки скачивания.
 
 Playbook ждёт `/health` внутри Compose и проверяет через HTTPS `/api/v1/users/me`: без токена ожидается JSON с HTTP 401. Миграции goose выполняются API при старте; отдельного шага миграций нет. Ошибка Telegram показывается предупреждением и не подменяет результат деплоя.
 
 Параметры S3 роль `app` передаёт из infra vars и Vault. API использует `S3_NOTEBOOKS_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` и `AWS_ENDPOINT_URL_S3`. Локально используется SeaweedFS, в production — Selectel.
 
-Откат выполняется из infra прежним опубликованным SHA-тегом по [инструкции Ansible](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/ansible/README.md). Миграции Down автоматически не запускаются: старый бинарник должен быть совместим с уже применённой схемой. Перед откатом сверяйте digest образа с исходным запуском публикации.
+Откат выполняется из infra с прежним опубликованным digest через `backend_image_ref` по [инструкции Ansible](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/ansible/README.md). Миграции Down автоматически не запускаются. Перед откатом сверяйте digest с исходным запуском публикации и проверяйте, что выбранный бинарник работает с текущей схемой БД.
 
 ## Выпуск перехода на Redis
 

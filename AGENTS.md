@@ -122,8 +122,10 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 
 Фактический [CI backend](.github/workflows/ci.yml) публикует
 `ghcr.io/cringe-driven-development-team/backend`: теги `sha-<short>` и `main`,
-без `latest`. Пакет приватный; job выкатки передаёт временный `GITHUB_TOKEN`
-с `packages: read` через окружение Ansible. Постоянного GHCR-токена в Vault нет.
+без `latest`. Пакет должен быть публичным: CI проверяет видимость `public`, привязку
+к репозиторию и анонимную доступность опубликованного digest с пустым Docker config.
+Публикация использует `GITHUB_TOKEN` с `packages: write`; CD и Ansible скачивают
+образ анонимно, без GHCR credentials и deploy-only `packages: read`.
 Выкатывается полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
 Deploy требует PRODUCTION_ENABLED=true; sync — COURSE_SYNC_ENABLED=true,
 needs lint/test/docker, независимо от deploy. Повтор sync принимает только ci_run_id.

@@ -234,17 +234,21 @@ jobs:
           [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "image_ref=$IMAGE_NAME@$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
 
-      - name: Verify private package
-        if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Verify public package and anonymous digest access
+        if: github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
+          BACKEND_IMAGE_REF: ${{ steps.deployment.outputs.image_ref }}
         run: |
           set -euo pipefail
           metadata=$(gh api orgs/Cringe-Driven-Development-Team/packages/container/backend)
           jq -e --arg repository "$EXPECTED_REPOSITORY" \
-            '.visibility == "private" and .repository.full_name == $repository' <<< "$metadata" > /dev/null
+            '.visibility == "public" and .repository.full_name == $repository' <<< "$metadata" > /dev/null
           jq '{visibility, repository: .repository.full_name}' <<< "$metadata"
+          docker_config=$(mktemp -d)
+          trap 'rm -rf "$docker_config"' EXIT
+          docker --config "$docker_config" manifest inspect "$BACKEND_IMAGE_REF" > /dev/null
 
   deploy:
     name: deploy
@@ -252,7 +256,6 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
-      packages: read
     uses: ./.github/workflows/cd.yml
     with:
       backend_image_ref: ${{ needs.docker.outputs.image_ref }}
