@@ -56,3 +56,8 @@ func (uc *NotebookUsecase) DeleteCell(ctx context.Context, id, ownerID int64, ha
 	_, err := uc.repo.Apply(ctx, id, ownerID, hash, Operation{Kind: Delete, Index: &index})
 	return err
 }
+
+// DeleteNotebook delegates the ownership and runtime checks to one storage transaction.
+func (uc *NotebookUsecase) DeleteNotebook(ctx context.Context, id, ownerID int64) error {
+	return uc.repo.DeleteNotebook(ctx, id, ownerID)
+}

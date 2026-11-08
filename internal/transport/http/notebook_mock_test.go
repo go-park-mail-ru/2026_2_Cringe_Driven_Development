@@ -115,6 +115,20 @@ func (mr *MockNotebookUsecaseMockRecorder) DeleteCell(ctx, id, ownerID, hash, in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCell", reflect.TypeOf((*MockNotebookUsecase)(nil).DeleteCell), ctx, id, ownerID, hash, index)
 }
 
+// DeleteNotebook mocks base method.
+func (m *MockNotebookUsecase) DeleteNotebook(ctx context.Context, id, ownerID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNotebook", ctx, id, ownerID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteNotebook indicates an expected call of DeleteNotebook.
+func (mr *MockNotebookUsecaseMockRecorder) DeleteNotebook(ctx, id, ownerID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNotebook", reflect.TypeOf((*MockNotebookUsecase)(nil).DeleteNotebook), ctx, id, ownerID)
+}
+
 // EditCell mocks base method.
 func (m *MockNotebookUsecase) EditCell(ctx context.Context, id, ownerID int64, hash, cellID, source string) (domain.CellChange, error) {
 	m.ctrl.T.Helper()

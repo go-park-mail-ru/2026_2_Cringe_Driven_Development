@@ -38,6 +38,7 @@ type Repository interface {
 	Create(context.Context, domain.Notebook) (domain.Notebook, error)
 	List(context.Context, int64) ([]domain.NotebookSummary, error)
 	Get(context.Context, int64, int64) (domain.Notebook, error)
+	DeleteNotebook(context.Context, int64, int64) error
 	Apply(context.Context, int64, int64, string, Operation) (Change, error)
 }
 

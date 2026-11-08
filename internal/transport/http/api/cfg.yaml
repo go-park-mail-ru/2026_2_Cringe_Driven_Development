@@ -23,6 +23,7 @@ output-options:
     - listNotebooks
     - createNotebook
     - getNotebook
+    - deleteNotebook
     - createCell
     - deleteCell
     - getNotebookContent
