@@ -113,18 +113,20 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 - S3 используется аватарами: `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`; блокноты в S3 не хранятся и не переносятся.
   Локально SeaweedFS: anonymous Read только аватарам через `s3-init`; production S3/CDN — infra.
 - `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
-  `workflow_call` с SHA-тегом из job `docker`. CD в environment `production`
+  `workflow_call` с полным digest-ref опубликованного образа из job `docker`. CD в environment `production`
   запускает `deploy-backend.yml` из `infra/main`. Inventory статический;
   Selectel credentials и Pulumi в CI не используются.
 - Merge в `main` требует review ментора, кроме YarikMix; отдельного approval environment нет.
   Деплой только из `main`, без отмены выполняющейся выкатки.
-- Откат — тот же playbook с прежним SHA-тегом, без автоматических миграций Down.
+- Откат — тот же playbook с прежним digest-ref через `backend_image_ref`, без автоматических миграций Down.
 
 Фактический [CI backend](.github/workflows/ci.yml) публикует
 `ghcr.io/cringe-driven-development-team/backend`: теги `sha-<short>` и `main`,
-без `latest`. Пакет приватный; job выкатки передаёт временный `GITHUB_TOKEN`
-с `packages: read` через окружение Ansible. Постоянного GHCR-токена в Vault нет.
-Выкатывается SHA-тег; строго неизменяемая ссылка — digest.
+без `latest`. Пакет должен быть публичным: CI проверяет видимость `public`, привязку
+к репозиторию и анонимную доступность опубликованного digest с пустым Docker config.
+Публикация использует `GITHUB_TOKEN` с `packages: write`; CD и Ansible скачивают
+образ анонимно, без GHCR credentials и deploy-only `packages: read`.
+Выкатывается полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
 Deploy требует PRODUCTION_ENABLED=true; sync — COURSE_SYNC_ENABLED=true,
 needs lint/test/docker, независимо от deploy. Повтор sync принимает только ci_run_id.
 Pull старого GHCR path требует old sha-tag и прежний read credential.

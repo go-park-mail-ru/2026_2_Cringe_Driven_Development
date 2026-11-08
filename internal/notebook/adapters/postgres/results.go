@@ -36,6 +36,7 @@ func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, 
 
 // SaveResultTx applies a result within the caller's PostgreSQL transaction.
 // It uses the same notebook lock, source-version check and size accounting as SaveResult.
+// Results do not change the revision used to edit sources and cell structure.
 func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ownerID int64, result usecase.CellResult) (string, error) {
 
 	if result.SourceVersion == "" {
@@ -98,9 +99,9 @@ func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ow
 	if err != nil {
 		return "", err
 	}
-	revision, err := publish(ctx, tx, n)
+	_, err = tx.Exec(ctx, `UPDATE notebooks SET size_bytes=$2,updated_at=clock_timestamp() WHERE id=$1`, n.ID, n.SizeBytes)
 	if err != nil {
 		return "", err
 	}
-	return revision, nil
+	return n.Revision, nil
 }

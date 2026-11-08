@@ -469,17 +469,14 @@ func TestRuntimeResultRacesWithCellOperations(t *testing.T) {
 			}()
 			close(start)
 			saveErr, changeErr := <-saved, <-changed
-			if changeErr != nil && !errors.Is(changeErr, usecase.ErrNotebookConflict) {
+			if changeErr != nil {
 				t.Fatal(changeErr)
 			}
 			if saveErr != nil && !errors.Is(saveErr, usecase.ErrStaleSource) {
 				t.Fatal(saveErr)
 			}
-			if changeErr != nil && saveErr != nil {
-				t.Fatalf("both failed: %v %v", changeErr, saveErr)
-			}
-			if changeErr == nil && kind != usecase.Move && !errors.Is(saveErr, usecase.ErrStaleSource) {
-				t.Fatalf("result applied after source change/deletion: %v", saveErr)
+			if kind == usecase.Move && saveErr != nil {
+				t.Fatalf("move rejected result for unchanged source: %v", saveErr)
 			}
 			got, err := repo.Get(ctx, n.ID, 1)
 			if err != nil {
