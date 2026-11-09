@@ -249,6 +249,10 @@ async def test_docker_limits_no_mounts_and_permission_tampering(docker_settings)
         assert config["Memory"] == config["MemorySwap"] == 1024**3
         assert config["NanoCpus"] == 1_000_000_000
         assert config["PidsLimit"] == 128
+        assert config["Tmpfs"]["/packages"] == "rw,exec,nosuid,nodev,size=512m,mode=1777"
+        env = container.attrs["Config"]["Env"]
+        assert "PYTHONUSERBASE=/packages" in env
+        assert "PIP_NO_CACHE_DIR=1" in env
         assert not config.get("Binds")
         assert not config.get("PortBindings")
         assert container.attrs["Config"]["User"] == "65532:65532"
@@ -259,6 +263,9 @@ assert 'RUNTIME_TOKEN' not in os.environ
 assert not Path('/var/run/docker.sock').exists()
 assert not Path('/control').exists()
 assert not Path('/var/lib/cellestial-agent').exists()
+import site, sys
+assert site.getusersitepackages().startswith('/packages/')
+assert site.getusersitepackages() in sys.path
 for base in ('/workspace', '/tmp'):
     directory = Path(base) / 'hostile'
     directory.mkdir()

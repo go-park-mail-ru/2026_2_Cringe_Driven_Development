@@ -173,10 +173,14 @@ class Containers:
                         tmpfs={
                             "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
                             "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
+                            # Docker tmpfs defaults to noexec; C extensions (numpy) need mmap exec.
+                            "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
                         },
                         environment={
                             "JUPYTER_TOKEN": token,
                             "HOME": "/tmp",
+                            "PYTHONUSERBASE": "/packages",
+                            "PIP_NO_CACHE_DIR": "1",
                             "JUPYTER_RUNTIME_DIR": "/tmp/jupyter",
                             "JUPYTER_CONFIG_DIR": "/tmp/config",
                         },
