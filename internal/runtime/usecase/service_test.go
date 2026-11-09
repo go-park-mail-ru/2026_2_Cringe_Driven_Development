@@ -60,9 +60,9 @@ func existing(state domain.State, lang string) domain.Environment {
 
 func TestRequestCreateSameParamsReturnsExisting(t *testing.T) {
 	svc, repo := newSvc(t, true)
-	ex := existing(domain.StateCreating, "r")
+	ex := existing(domain.StateCreating, "python")
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).Return(ex, false, nil)
-	env, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: ex.SessionID, Language: "r", Profile: "default"})
+	env, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: ex.SessionID, Language: "python", Profile: "default"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,8 @@ func TestRequestCreateSameParamsReturnsExisting(t *testing.T) {
 
 func TestRequestCreateDifferentParamsConflict(t *testing.T) {
 	svc, repo := newSvc(t, true)
-	ex := existing(domain.StateCreating, "r")
+	ex := existing(domain.StateCreating, "python")
+	ex.Profile = "gpu"
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).Return(ex, false, nil)
 	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: ex.SessionID, Language: "python"})
 	if gotErr := err; !errors.Is(gotErr, ErrConflict) {
@@ -94,11 +95,14 @@ func TestRequestCreateFinishedReturnedAsIs(t *testing.T) {
 	}
 }
 
+// R не поддерживает агент runtime-VPS (backend#89): запрос отклоняется до записи в БД.
 func TestRequestCreateInvalidLanguage(t *testing.T) {
 	svc, _ := newSvc(t, true)
-	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "julia"})
-	if gotErr := err; !errors.Is(gotErr, ErrInvalidLanguage) {
-		t.Fatalf("got %v, want %v", gotErr, ErrInvalidLanguage)
+	for _, lang := range []string{"julia", "r"} {
+		_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: lang})
+		if !errors.Is(err, ErrInvalidLanguage) {
+			t.Fatalf("%s: got %v, want %v", lang, err, ErrInvalidLanguage)
+		}
 	}
 }
 
@@ -112,7 +116,7 @@ func TestRequestCreateNilSession(t *testing.T) {
 
 func TestRequestCreateUnknownProfile(t *testing.T) {
 	svc, _ := newSvc(t, true)
-	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "r", Profile: "big"})
+	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "python", Profile: "big"})
 	if gotErr := err; !errors.Is(gotErr, ErrUnknownProfile) {
 		t.Fatalf("got %v, want %v", gotErr, ErrUnknownProfile)
 	}
@@ -120,7 +124,7 @@ func TestRequestCreateUnknownProfile(t *testing.T) {
 
 func TestRequestCreateDisabled(t *testing.T) {
 	svc, _ := newSvc(t, false)
-	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "r"})
+	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "python"})
 	if gotErr := err; !errors.Is(gotErr, ErrDisabled) {
 		t.Fatalf("got %v, want %v", gotErr, ErrDisabled)
 	}

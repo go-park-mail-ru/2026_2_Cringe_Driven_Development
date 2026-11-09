@@ -49,7 +49,8 @@ class LocalJupyter:
     async def recover(self):
         pass
 
-    async def start(self, sid, language):
+    async def start(self):
+        sid = "kernel"
         directory = self.settings.state_dir.parent / "local-jupyter" / sid
         directory.mkdir(parents=True)
         config = Path(__file__).parents[1] / "images/jupyter_server_config.py"
@@ -77,7 +78,7 @@ class LocalJupyter:
             stderr=asyncio.subprocess.STDOUT,
             start_new_session=True,
         )
-        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only", language)
+        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only", "python")
         try:
             await transport.start(30)
             return transport
@@ -85,13 +86,13 @@ class LocalJupyter:
             await transport.close()
             log.seek(0)
             print(log.read())
-            await self.remove(sid)
+            await self.remove()
             raise
 
-    async def alive(self, sid):
-        return self.processes[sid].returncode is None
+    async def alive(self):
+        return "kernel" in self.processes and self.processes["kernel"].returncode is None
 
-    async def remove(self, sid):
+    async def remove(self, sid="kernel"):
         process = self.processes.pop(sid, None)
         if process and process.returncode is None:
             os.killpg(process.pid, signal.SIGTERM)
@@ -129,12 +130,10 @@ async def real_agent(settings, request):
 
 @pytest.mark.jupyter
 @pytest.mark.docker
-@pytest.mark.parametrize("language", ["python", "r"])
+@pytest.mark.parametrize("language", ["python"])
 async def test_real_execution_inspection_interrupt_restart(real_agent, language):
     agent, backend = real_agent
-    if backend == "local" and language == "r":
-        pytest.skip("R is provided by the Docker image")
-    sid, session = await new_session(agent, language)
+    sid, session = await new_session(agent)
     assert session.ready, agent.snapshot()
     code = "x = 42\nprint(x)\nx * 2" if language == "python" else "x <- 42; print(x); x * 2"
     agent.accept(command(code=code))
@@ -242,7 +241,7 @@ async def test_docker_limits_no_mounts_and_permission_tampering(docker_settings)
         sid, runtime = await new_session(agent)
         assert runtime.ready
         container = await asyncio.to_thread(
-            agent.containers.client.containers.get, agent.containers.name(sid)
+            agent.containers.client.containers.get, agent.containers.name()
         )
         config = container.attrs["HostConfig"]
         assert config["ReadonlyRootfs"]
@@ -275,7 +274,7 @@ else:
         assert (await completed(agent, sid, "run-1"))["state"] == "SUCCEEDED"
         await runtime.finish()
         assert runtime.closed
-        assert not await agent.containers.alive(sid)
+        assert not await agent.containers.alive()
         assert agent.snapshot()["reason"] == "requested"
 
 
@@ -330,7 +329,7 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
             recovered = app.state.agent
             await asyncio.to_thread(foreign.reload)
             assert foreign.status == "running"
-            assert not await recovered.containers.alive(sid)
+            assert not await recovered.containers.alive()
             assert recovered.journal.execution(sid, "run-1")["state"] == "UNKNOWN"
             assert recovered.snapshot()["reason"] == "agent_restarted"
             assert not recovered.session.ready

@@ -1,6 +1,7 @@
 """Define validated API command models and application errors."""
 
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +36,20 @@ class Inspect(Command):
     """
 
     execution_id: ExecutionID
+
+
+class Assign(Command):
+    """Describe the one-time assignment of the agent to a session.
+
+    Attributes:
+        session_id (UUID): Session served by this VPS.
+        language (str): Kernel language; only python is accepted by the agent.
+        token (str): Bearer token for all following session requests.
+    """
+
+    session_id: UUID
+    language: str = Field(max_length=32)
+    token: str = Field(min_length=32, max_length=256, pattern=r"^[!-~]+$")
 
 
 class AgentError(Exception):

@@ -96,8 +96,8 @@ UFW и отсутствие опубликованных портов сами �
 - Подготовить IPv4 bridge, DNS и исходящий NAT согласно таблице выше.
 - Установить firewall до запуска агента, включая INPUT хоста и peers bridge.
 - Настроить порядок systemd и восстановление правил после Docker/reboot.
-- При назначении VPS передавать SESSION_ID, KERNEL_LANGUAGE, KERNEL_NETWORK,
-  KERNEL_DNS и свежий RUNTIME_TOKEN; не переиспользовать прежний STATE_DIR.
+- Передавать агенту KERNEL_NETWORK и KERNEL_DNS; сессию, язык и токен назначает Go API
+  запросом `POST /assign` (backend#89). Не переиспользовать прежний STATE_DIR.
 - Доставить шаблоны сервиса и образы без включения production-конфигурации в backend.
 
 ### Приёмка

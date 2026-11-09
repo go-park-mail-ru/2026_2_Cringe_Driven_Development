@@ -152,12 +152,13 @@ class Journal:
             raise AgentError(404, "Session not found")
         return {"session_id": row["id"], **{k: row[k] for k in row.keys() if k != "id"}}
 
-    def create(self, session_id, language):
-        """Atomically create a STARTING session and its initial event.
+    def create(self, session_id, language, token):
+        """Atomically record the assignment: a STARTING session, its token and event.
 
         Args:
             session_id (str): Canonical UUID of the session.
-            language (str): Validated kernel language, python or r.
+            language (str): Validated kernel language.
+            token (str): Bearer token of the session API.
 
         Raises:
             sqlite3.IntegrityError: The session ID is already stored.
@@ -167,7 +168,26 @@ class Journal:
                 "INSERT INTO sessions VALUES (?, ?, 'STARTING', NULL, NULL, ?)",
                 (session_id, language, time.time()),
             )
+            self.db.execute("INSERT INTO metadata VALUES ('token', ?)", (token,))
             self._event(session_id, "session_state", state="STARTING", reason=None)
+
+    def assignment(self):
+        """Read the recorded assignment.
+
+        Returns:
+            tuple[str, str, str] | None: Session ID, language and token, or None
+            before the assignment.
+
+        Raises:
+            RuntimeError: The state directory holds more than one session.
+        """
+        rows = self.db.execute("SELECT id, language FROM sessions").fetchall()
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise RuntimeError("STATE_DIR holds several sessions; reprovision the VPS")
+        token = self.db.execute("SELECT value FROM metadata WHERE key='token'").fetchone()
+        return rows[0]["id"], rows[0]["language"], token[0] if token else ""
 
     def session_state(self, session_id, state, reason=None, generation=None):
         """Commit a session state change and its event.

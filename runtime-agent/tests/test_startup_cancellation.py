@@ -1,4 +1,4 @@
-"""Cancellation must not outlive container creation or application cleanup."""
+"""Shutdown during the waiting kernel startup must not outlive creation or cleanup."""
 
 import asyncio
 import sqlite3
@@ -162,7 +162,7 @@ async def test_cancelled_start_waits_for_creation_and_cleanup(
         assert not client.created
         assert client.order.index("creation_finished") < client.order.index("removed")
         assert client.order.index("removed") < client.order.index("client_closed")
-        assert app.state.agent.session.closed
+        assert app.state.agent.warm is None and app.state.agent.session is None
         with pytest.raises(sqlite3.ProgrammingError):
             app.state.agent.journal.db.execute("SELECT 1")
 
@@ -175,12 +175,11 @@ async def test_creation_failure_after_cancel_is_observed(settings, docker_lifecy
         task.cancel()
         await assert_waiting(task)
         client.allow_create.set()
-        with pytest.raises(asyncio.CancelledError) as cancelled:
+        with pytest.raises(asyncio.CancelledError):
             await task
-        assert cancelled.value.__cause__ is client.creation_error
         assert not client.created
         assert client.order.index("creation_finished") < client.order.index("client_closed")
-        assert app.state.agent.session.closed
+        assert app.state.agent.warm is None
 
 
 async def test_cleanup_failure_after_cancel_is_recovered(settings, docker_lifecycle):
@@ -194,32 +193,28 @@ async def test_cleanup_failure_after_cancel_is_recovered(settings, docker_lifecy
         with pytest.raises(asyncio.CancelledError):
             await task
         assert client.created
-        assert not app.state.agent.session.closed
     journal = Journal(settings.state_dir)
     try:
-        state = journal.session(settings.session_id)
-        assert state["state"] == "DRAINING"
-        assert state["reason"] == "cleanup_failed"
+        assert journal.assignment() is None
     finally:
         journal.close()
     client.removal_error = None
     recovered = create_app(settings)
     async with recovered.router.lifespan_context(recovered):
-        assert not client.created
-        assert recovered.state.agent.snapshot()["state"] == "STOPPED"
-        assert recovered.state.agent.snapshot()["reason"] == "agent_restarted"
-        assert client.run_calls == 1
+        # recover() removed the stale container before a new waiting kernel starts
+        assert client.order.count("removed") == 1
+        assert recovered.state.agent.snapshot()["state"] == "WAITING"
 
 
-async def test_creation_failure_without_cancel_keeps_failed_state(settings, docker_lifecycle):
+async def test_creation_failure_without_cancel_keeps_agent_waiting(settings, docker_lifecycle):
     client = docker_lifecycle
     client.creation_error = APIError("controlled creation failure")
     client.allow_create.set()
     app = create_app(settings)
     async with app.router.lifespan_context(app):
+        await asyncio.wait_for(asyncio.shield(app.state.agent.warming), 2)
         state = app.state.agent.snapshot()
-        assert state["state"] == "FAILED"
-        assert state["reason"] == "startup_failed"
+        assert state["state"] == "WAITING"
         assert not state["ready"]
     assert not client.created
     assert client.run_calls == 1

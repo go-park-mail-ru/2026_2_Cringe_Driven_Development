@@ -38,16 +38,19 @@ type Environment struct {
 	Resources                Resources
 	Endpoint, AgentVersion   string
 	LastError, CleanupResult string
-	Version                  int64
-	CreatedAt, UpdatedAt     time.Time
+	// PoolID VPS пула, из которой получено окружение; uuid.Nil — VPS создана для сессии.
+	PoolID               uuid.UUID
+	Version              int64
+	CreatedAt, UpdatedAt time.Time
 }
 
 func transitions() map[State]map[State]struct{} {
 	return map[State]map[State]struct{}{
-		StateQueued:         {StateCreating: {}, StateDeleting: {}},
-		StateCreating:       {StateConfiguring: {}, StateDeleting: {}, StateCleanupPending: {}},
-		StateConfiguring:    {StateVerifying: {}, StateDeleting: {}, StateCleanupPending: {}},
-		StateVerifying:      {StateReady: {}, StateDeleting: {}, StateCleanupPending: {}},
+		StateQueued:      {StateCreating: {}, StateVerifying: {}, StateDeleting: {}},
+		StateCreating:    {StateConfiguring: {}, StateDeleting: {}, StateCleanupPending: {}},
+		StateConfiguring: {StateVerifying: {}, StateDeleting: {}, StateCleanupPending: {}},
+		// VERIFYING → CREATING: VPS пула не приняла назначение, окружение создаёт новую VPS.
+		StateVerifying:      {StateReady: {}, StateCreating: {}, StateDeleting: {}, StateCleanupPending: {}},
 		StateReady:          {StateDeleting: {}},
 		StateDeleting:       {StateDeleted: {}, StateCleanupPending: {}},
 		StateCleanupPending: {StateDeleting: {}, StateFailed: {}},
@@ -63,5 +66,9 @@ func CanTransition(from, to State) bool {
 // Finished сообщает, что состояние конечное.
 func (s State) Finished() bool { return s == StateDeleted || s == StateFailed }
 
-// ValidLanguage проверяет язык ядра.
-func ValidLanguage(l string) bool { return l == "python" || l == "r" }
+// ValidLanguage проверяет язык ядра: агент runtime-VPS поддерживает только python.
+func ValidLanguage(l string) bool { return l == "python" }
+
+// IsPoolVPS сообщает, что окружение описывает VPS пула без сессии (SessionID = PoolID): облачный
+// адаптер помечает её ресурсы pool_id, а не session_id.
+func (e Environment) IsPoolVPS() bool { return e.PoolID != uuid.Nil && e.PoolID == e.SessionID }

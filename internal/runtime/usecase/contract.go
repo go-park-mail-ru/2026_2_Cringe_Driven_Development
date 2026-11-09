@@ -22,7 +22,7 @@ var (
 // CreateEnvironment — запрос на создание окружения.
 type CreateEnvironment struct {
 	SessionID uuid.UUID
-	Language  string // python | r
+	Language  string // только python
 	Profile   string // серверный allowlist, для MVP: default
 }
 

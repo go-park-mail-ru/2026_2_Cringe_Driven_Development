@@ -56,13 +56,14 @@ type parts struct {
 // worker создаёт воркер с заданными владельцем и lease.
 func (p parts) worker(owner string, lease time.Duration) *usecase.Worker {
 	cfg := p.cfg
-	return usecase.NewWorker(p.repo, p.repo, p.cloud, p.host, p.ag, p.sec, systemClock{}, usecase.WorkerSettings{
+	return usecase.NewWorker(p.repo, p.repo, p.repo, p.cloud, p.host, p.ag, p.sec, systemClock{}, usecase.WorkerSettings{
 		Owner:       owner,
 		Concurrency: cfg.MaxConcurrentOps, Lease: lease, PollInterval: workerPoll,
 		ReconcileInterval: cfg.ReconcileInterval, StartupTimeout: cfg.StartupTimeout,
 		AnsibleTimeout: cfg.AnsibleTimeout, DrainTimeout: cfg.DrainTimeout, DeleteTimeout: cfg.DeleteTimeout,
-		PythonImage: cfg.PythonImage, RImage: cfg.RImage, KernelDNS: cfg.KernelDNS,
+		PythonImage: cfg.PythonImage, KernelDNS: cfg.KernelDNS,
 		BlockedPublicIPs: cfg.BlockedPublicIPs, EnvName: cfg.EnvName,
+		PoolSize: cfg.WarmPoolSize, ImageID: cfg.ImageID, AgentVersion: cfg.AgentVersion,
 	})
 }
 
@@ -246,7 +247,7 @@ func artifacts(caCertFile string) (ansible.Artifacts, string, error) {
 			return ansible.Artifacts{}, "", fmt.Errorf("runtime: artifact %s: %w", filepath.Base(p), err)
 		}
 	}
-	return art, filepath.Join(base, "deploy", "runtime", "site.yml"), nil
+	return art, filepath.Join(base, "deploy", "runtime", "prepare.yml"), nil
 }
 
 // throwawayCA создаёт одноразовый CA в памяти для RUNTIME_PROVIDER=fake.

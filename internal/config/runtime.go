@@ -31,8 +31,9 @@ type RuntimeConfig struct {
 	BlockedPublicIPs []string
 	EnvName          string
 	PythonImage      string
-	RImage           string
 	AgentVersion     string
+	// WarmPoolSize — число заранее подготовленных VPS (RUNTIME_WARM_POOL_SIZE); 0 выключает пул.
+	WarmPoolSize int
 
 	StartupTimeout, AnsibleTimeout, DrainTimeout time.Duration
 	DeleteTimeout, ReconcileInterval             time.Duration
@@ -100,11 +101,18 @@ func loadRuntime(lookup func(string) (string, bool)) (RuntimeConfig, error) {
 	r.KernelDNS = get("RUNTIME_KERNEL_DNS", "1.1.1.1")
 	r.EnvName = get("RUNTIME_ENV_NAME", "")
 	r.PythonImage = get("RUNTIME_PYTHON_IMAGE", "cellestial-kernel-python:local")
-	r.RImage = get("RUNTIME_R_IMAGE", "cellestial-kernel-r:local")
 	r.AgentVersion = get("RUNTIME_AGENT_VERSION", "dev")
 	r.RootDiskGiB = integer("RUNTIME_ROOT_DISK_GIB", 20)
 	r.MaxConcurrentOps = integer("RUNTIME_MAX_CONCURRENT_OPS", 2)
 	r.MaxActive = integer("RUNTIME_MAX_ACTIVE", 3)
+	r.WarmPoolSize = 2
+	if raw := get("RUNTIME_WARM_POOL_SIZE", ""); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 {
+			fail("RUNTIME_WARM_POOL_SIZE", "expected a non-negative integer")
+		}
+		r.WarmPoolSize = n
+	}
 	r.StartupTimeout = dur("RUNTIME_STARTUP_TIMEOUT", 20*time.Minute)
 	r.AnsibleTimeout = dur("RUNTIME_ANSIBLE_TIMEOUT", 15*time.Minute)
 	r.DrainTimeout = dur("RUNTIME_DRAIN_TIMEOUT", 30*time.Second)

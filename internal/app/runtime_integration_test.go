@@ -469,9 +469,10 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		t.Fatal("NUL output must remain in the execution archive, not notebook JSONB", w.Body.String())
 	}
 	// Пользовательская сессия уже завершена, но тест также дожидается реальной очистки тестового окружения.
+	// Вторая сессия — Python: R агент runtime-VPS не поддерживает (backend#89).
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && !v.CleanupError })
 	call("GET", "/runtime-sessions/active", "", 200)
-	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"r-session","language":"r"}`, 202)
+	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"second-session","language":"python"}`, 202)
 	var rSession struct {
 		ID uuid.UUID `json:"id"`
 	}

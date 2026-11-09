@@ -280,7 +280,7 @@ func setup() (smoke.Deps, *fake.Cloud, *fake.Host) {
 	return smoke.Deps{
 		Service: svc, Repo: st, Secrets: sec, Agent: ag, Cloud: cloud,
 		NewWorker: func(owner string, lease time.Duration) *usecase.Worker {
-			return usecase.NewWorker(st, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
+			return usecase.NewWorker(st, nil, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
 				Owner: owner, Concurrency: 1, Lease: lease, PollInterval: 10 * time.Millisecond, EnvName: "smoke-test",
 			})
 		},

@@ -4,7 +4,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from runtime_agent.api import create_app
 
-from .conftest import AUTH, FakeContainers, new_session
+from .conftest import AUTH, FakeContainers, assignment, new_session
 
 
 async def test_authentication_validation_and_body_limit(env):
@@ -54,6 +54,9 @@ async def test_event_pagination_is_scoped(env):
 def test_websocket_auth_replay_and_multiple_subscribers(settings):
     app = create_app(settings, FakeContainers)
     with TestClient(app, headers=AUTH) as client:
+        while client.get("/health").status_code != 200:
+            pass
+        assert client.post("/assign", json=assignment()).status_code == 200
         path = "/events/ws"
         for suffix, headers in [
             ("", {"Authorization": "bad"}),
