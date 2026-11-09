@@ -172,3 +172,23 @@ async def test_invalid_assignment_is_rejected(waiting, body):
     agent, backend, client = waiting
     assert (await client.post("/assign", json=body)).status_code == 422
     assert agent.session is None
+
+
+async def test_waiting_kernel_channel_is_read(waiting):
+    # Jupyter закрывает непрочитанный канал (нет pong на ping): он читается до назначения
+    agent, backend, client = waiting
+    kernel = backend.kernel
+    kernel.emit("x", "status", {"execution_state": "idle"})
+    await until(lambda: kernel.messages.empty())
+    assert agent.warm is kernel
+    response = await client.post("/assign", json=assignment())
+    assert response.status_code == 200 and agent.session.transport is kernel
+
+
+async def test_closed_waiting_channel_is_replaced(waiting):
+    agent, backend, client = waiting
+    backend.kernel.messages.put_nowait(ConnectionError())
+    await until(lambda: agent.warm is None)
+    await agent.check_session()
+    await until(lambda: agent.warm is not None)
+    assert backend.started == 2
