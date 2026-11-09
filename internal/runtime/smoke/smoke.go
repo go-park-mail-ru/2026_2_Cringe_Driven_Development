@@ -79,6 +79,8 @@ type SessionReport struct {
 	AgentSession bool    `json:"agent_session_matches"`
 	WorkerKilled bool    `json:"worker_killed"`
 	Seconds      float64 `json:"seconds"`
+	// ReadySeconds — от запроса окружения до READY (с VPS пула — без создания VPS).
+	ReadySeconds float64 `json:"ready_seconds"`
 	Error        string  `json:"error,omitempty"`
 }
 
@@ -237,6 +239,7 @@ func (s *sessionRun) cleanup(ctx context.Context) error {
 func (s *sessionRun) owner(role string) string { return "smoke-" + s.id.String()[:8] + "-" + role }
 
 func (s *sessionRun) scenario(ctx context.Context) error {
+	start := time.Now()
 	if _, err := s.deps.Service.RequestCreate(ctx, usecase.CreateEnvironment{
 		SessionID: s.id, Language: s.opts.Language, Profile: smokeProfile,
 	}); err != nil {
@@ -246,6 +249,7 @@ func (s *sessionRun) scenario(ctx context.Context) error {
 		return err
 	}
 	s.rep.Ready = true
+	s.rep.ReadySeconds = time.Since(start).Seconds()
 	if err := s.check(ctx); err != nil {
 		return err
 	}

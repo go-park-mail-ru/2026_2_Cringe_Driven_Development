@@ -54,6 +54,9 @@ func (r *jobRun) leavePool(env domain.Environment, cause error) error {
 	return nil
 }
 
+// poolCheckInterval — период сверки пула с БД; запрос — один count под advisory-lock.
+const poolCheckInterval = 30 * time.Second
+
 func (w *Worker) kickPool() {
 	select {
 	case w.poolKick <- struct{}{}:
@@ -61,17 +64,21 @@ func (w *Worker) kickPool() {
 	}
 }
 
-// poolLoop пополняет пул при старте и по сигналу (захват, reconcile, конец backoff); подготовка
-// каждой VPS идёт в своей горутине и не занимает слоты заданий.
+// poolLoop пополняет пул при старте, по сигналу (свой захват, reconcile, конец backoff) и раз в
+// poolCheckInterval: VPS мог захватить другой процесс (реплика API, runtime-smoke), чей сигнал сюда не
+// доходит. Подготовка каждой VPS идёт в своей горутине и не занимает слоты заданий.
 func (w *Worker) poolLoop(ctx context.Context) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	t := time.NewTicker(poolCheckInterval)
+	defer t.Stop()
 	for {
 		w.replenish(ctx, &wg)
 		select {
 		case <-ctx.Done():
 			return
 		case <-w.poolKick:
+		case <-t.C:
 		}
 	}
 }
