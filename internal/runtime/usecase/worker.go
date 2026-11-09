@@ -38,6 +38,8 @@ var (
 	errDeleteRequested = errors.New("delete requested")
 	// errStartupTimeout — окружение не стало READY за StartupTimeout от CreatedAt.
 	errStartupTimeout = errors.New("startup timeout exceeded")
+	// errAgentStopped — сессия агента завершилась (например, kernel не стартовал): ждать бесполезно.
+	errAgentStopped = errors.New("agent session stopped")
 )
 
 // Worker выполняет задания создания и удаления окружений.
