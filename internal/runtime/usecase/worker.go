@@ -17,19 +17,26 @@ type WorkerSettings struct {
 	Concurrency                                                 int
 	Lease, PollInterval, ReconcileInterval                      time.Duration
 	StartupTimeout, AnsibleTimeout, DrainTimeout, DeleteTimeout time.Duration
-	PythonImage, RImage, KernelDNS                              string
+	PythonImage, KernelDNS                                      string
 	BlockedPublicIPs                                            []string
 	EnvName                                                     string
+	// PoolSize — RUNTIME_WARM_POOL_SIZE; 0 выключает пул целиком: нет захвата, подготовки и пополнения.
+	PoolSize int
+	// ImageID и AgentVersion — текущие образ VPS и версия агента; VPS пула с другими удаляются.
+	ImageID, AgentVersion string
 }
 
 const (
 	agentPort             = "8443"
 	httpStatusOK          = 200
+	httpStatusBadRequest  = 400
+	httpStatusConflict    = 409
 	backoffBase           = 10 * time.Second
 	backoffMax            = 10 * time.Minute
 	maxStaleRetries       = 5
 	defaultVerifyInterval = 5 * time.Second
 	defaultHealthTimeout  = 10 * time.Second
+	defaultAssignTimeout  = time.Minute
 	maxReconcilePass      = 2 * time.Minute
 )
 
@@ -38,11 +45,14 @@ var (
 	errDeleteRequested = errors.New("delete requested")
 	// errStartupTimeout — окружение не стало READY за StartupTimeout от CreatedAt.
 	errStartupTimeout = errors.New("startup timeout exceeded")
+	// errAssignRejected — агент отклонил назначение (400/409): повтор бесполезен.
+	errAssignRejected = errors.New("agent rejected the assignment")
 )
 
 // Worker выполняет задания создания и удаления окружений.
 type Worker struct {
 	repo           EnvironmentRepository
+	pool           PoolRepository
 	q              JobQueue
 	cloud          CloudProvider
 	host           HostConfigurator
@@ -53,10 +63,16 @@ type Worker struct {
 	log            *slog.Logger
 	verifyInterval time.Duration
 	healthTimeout  time.Duration // лимит одного вызова /health при проверке
+	assignTimeout  time.Duration // лимит одного вызова /assign
+	poolKick       chan struct{}
+	poolMu         sync.Mutex
+	poolFailures   int       // подряд неудачных подготовок VPS пула
+	poolRetryAt    time.Time // до этого момента пул не пополняется (backoff)
 }
 
-// NewWorker создаёт воркер; нулевые настройки заменяются умолчаниями.
-func NewWorker(repo EnvironmentRepository, q JobQueue, cloud CloudProvider, host HostConfigurator,
+// NewWorker создаёт воркер; нулевые настройки заменяются умолчаниями. pool = nil допустим только при
+// PoolSize = 0 (тесты и smoke без таблицы пула): тогда reconcile не трогает пул.
+func NewWorker(repo EnvironmentRepository, pool PoolRepository, q JobQueue, cloud CloudProvider, host HostConfigurator,
 	agent AgentClient, sec Secrets, clock Clock, s WorkerSettings,
 ) *Worker {
 	s.Concurrency = max(s.Concurrency, 1)
@@ -68,10 +84,12 @@ func NewWorker(repo EnvironmentRepository, q JobQueue, cloud CloudProvider, host
 	s.DrainTimeout = orDefault(s.DrainTimeout, 30*time.Second)
 	s.DeleteTimeout = orDefault(s.DeleteTimeout, 10*time.Minute)
 	return &Worker{
-		repo: repo, q: q, cloud: cloud, host: host, agent: agent, sec: sec, clock: clock, s: s,
+		repo: repo, pool: pool, q: q, cloud: cloud, host: host, agent: agent, sec: sec, clock: clock, s: s,
 		log:            slog.Default().With("component", "runtime-worker", "owner", s.Owner),
 		verifyInterval: defaultVerifyInterval,
 		healthTimeout:  defaultHealthTimeout,
+		assignTimeout:  defaultAssignTimeout,
+		poolKick:       make(chan struct{}, 1),
 	}
 }
 
@@ -92,6 +110,13 @@ func (w *Worker) Run(ctx context.Context) error {
 		defer wg.Done()
 		w.reconcileLoop(ctx)
 	}()
+	if w.s.PoolSize > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			w.poolLoop(ctx)
+		}()
+	}
 	sem := make(chan struct{}, w.s.Concurrency)
 	poll := time.NewTicker(w.s.PollInterval)
 	defer poll.Stop()

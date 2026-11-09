@@ -11,7 +11,7 @@ generate() {
 
 generate internal/user/usecase/dependencies_mock_test.go usecase internal/user/usecase UserStore,SessionStore,PasswordHasher,RefreshTokens,TokenIssuer
 generate internal/notebook/usecase/dependencies_mock_test.go usecase internal/notebook/usecase Repository,ActiveSessions
-generate internal/runtime/usecase/dependencies_mock_test.go usecase internal/runtime/usecase EnvironmentRepository,JobQueue,CloudProvider,HostConfigurator,AgentClient,Secrets,Clock
+generate internal/runtime/usecase/dependencies_mock_test.go usecase internal/runtime/usecase EnvironmentRepository,PoolRepository,JobQueue,CloudProvider,HostConfigurator,AgentClient,Secrets,Clock
 for resource in user notebook; do
   generate "internal/$resource/delivery/http/usecase_mock_test.go" delivery "internal/$resource/usecase" Usecase
   generate "internal/$resource/delivery/http/security_mock_test.go" delivery internal/transport/http/security TokenParser

@@ -91,13 +91,13 @@ func (c *recordingCloud) ListOwned(ctx context.Context) ([]usecase.CloudResource
 	return c.Cloud.ListOwned(ctx)
 }
 
-// hangingHealth — агент, чей /health не отвечает до отмены ctx.
-type hangingHealth struct {
+// hangingAssign — агент, чей /assign не отвечает до отмены ctx.
+type hangingAssign struct {
 	*fake.Agent
 	calls atomic.Int32
 }
 
-func (a *hangingHealth) Health(ctx context.Context, _ usecase.AgentEndpoint) (usecase.AgentHealth, int, error) {
+func (a *hangingAssign) Assign(ctx context.Context, _ usecase.AgentEndpoint, _ uuid.UUID, _ string) (usecase.AgentHealth, int, error) {
 	a.calls.Add(1)
 	<-ctx.Done()
 	return usecase.AgentHealth{}, 0, ctx.Err()
@@ -138,8 +138,8 @@ func newHarness(t *testing.T) *harness {
 			Owner: "w1", Concurrency: 2, Lease: testLease, PollInterval: 5 * time.Millisecond,
 			ReconcileInterval: time.Hour, StartupTimeout: 20 * time.Minute, AnsibleTimeout: time.Minute,
 			DrainTimeout: time.Second, DeleteTimeout: time.Minute,
-			PythonImage: "py:1", RImage: "r:1", KernelDNS: "1.1.1.1", BlockedPublicIPs: []string{"203.0.113.1"},
-			EnvName: "test",
+			PythonImage: "py:1", KernelDNS: "1.1.1.1", BlockedPublicIPs: []string{"203.0.113.1"},
+			EnvName: "test", ImageID: "img-1", AgentVersion: "0.1.0",
 		},
 	}
 }
@@ -147,7 +147,7 @@ func newHarness(t *testing.T) *harness {
 func (h *harness) worker(owner string) *usecase.Worker {
 	s := h.s
 	s.Owner = owner
-	w := usecase.NewWorker(h.store, h.store, h.cloud, h.cfg, h.ac, h.sec, h.clock, s)
+	w := usecase.NewWorker(h.store, h.store, h.store, h.cloud, h.cfg, h.ac, h.sec, h.clock, s)
 	usecase.SetVerifyInterval(w, 2*time.Millisecond)
 	return w
 }
@@ -230,9 +230,9 @@ func TestCreateHappyPath(t *testing.T) {
 		}
 	}
 	c := h.host.Last()
-	if c.SessionID != sid || c.Language != "python" || c.PrivateIP != r.PrivateIP || c.Token != "token-1" ||
+	if c.Name != sid || c.PrivateIP != r.PrivateIP ||
 		c.HostPublicKey != "ssh-ed25519 AAAApublic" || string(c.ServerCertPEM) != "cert-"+r.PrivateIP ||
-		c.PythonImage != "py:1" || c.RImage != "r:1" || c.KernelDNS != "1.1.1.1" || len(c.BlockedPublicIPs) != 1 {
+		c.PythonImage != "py:1" || c.KernelDNS != "1.1.1.1" || len(c.BlockedPublicIPs) != 1 {
 		t.Fatalf("host config = %+v", c)
 	}
 	sec, _ := h.store.LoadSecrets(context.Background(), sid)
@@ -416,7 +416,7 @@ func runVerifyTimeout(t *testing.T, h *harness, sid uuid.UUID) {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() { _, err := runOnce(t, h.worker("w1")); done <- err }()
-	waitFor(t, "health polls", func() bool { return h.agent.Calls("Health") >= 3 })
+	waitFor(t, "assign attempts", func() bool { return h.agent.Calls("Assign") >= 3 })
 	if s := h.env(sid).State; s != domain.StateVerifying {
 		t.Fatalf("state while polling = %s", s)
 	}
@@ -452,22 +452,26 @@ func TestVerifyTimeoutCleansUp(t *testing.T) {
 	}
 }
 
-func TestVerifyRejectsForeignSession(t *testing.T) {
+// Агент VPS уже назначен другой сессии: /assign отвечает 409, ждать StartupTimeout бесполезно.
+func TestAssignRejectedCleansUpWithoutWaiting(t *testing.T) {
 	h := newHarness(t)
 	h.cfg = agentHost(h, func(c usecase.HostConfig) {
-		h.agent.Register("https://"+c.PrivateIP+":8443", c.Token, uuid.New(), c.Language)
+		h.agent.Register("https://"+c.PrivateIP+":8443", "other-token", uuid.New(), "python")
 	})
 	sid := h.request()
-	runVerifyTimeout(t, h, sid)
-}
-
-func TestVerifyRejectsForeignLanguage(t *testing.T) {
-	h := newHarness(t)
-	h.cfg = agentHost(h, func(c usecase.HostConfig) {
-		h.agent.Register("https://"+c.PrivateIP+":8443", c.Token, c.SessionID, "r")
-	})
-	sid := h.request()
-	runVerifyTimeout(t, h, sid)
+	if _, err := runOnce(t, h.worker("w1")); err != nil {
+		t.Fatal(err)
+	}
+	env := h.env(sid)
+	if env.State != domain.StateFailed || !strings.Contains(env.LastError, "rejected") {
+		t.Fatalf("env = %+v", env)
+	}
+	if n := h.agent.Calls("Assign"); n != 1 {
+		t.Fatalf("assign calls = %d", n)
+	}
+	if n := h.resources(); n != 0 {
+		t.Fatalf("resources left = %d", n)
+	}
 }
 
 func (h *harness) requestDelete(sid uuid.UUID) {
@@ -904,16 +908,16 @@ func TestCreateStuckServerTimesOut(t *testing.T) {
 	assertFailedClean(t, h, sid, "startup timeout exceeded")
 }
 
-func TestHealthHangDoesNotBlockTimeout(t *testing.T) {
+func TestAssignHangDoesNotBlockTimeout(t *testing.T) {
 	h := newHarness(t)
-	ha := &hangingHealth{Agent: h.agent}
+	ha := &hangingAssign{Agent: h.agent}
 	h.ac = ha
 	sid := h.request()
 	w := h.worker("w1")
-	usecase.SetHealthTimeout(w, 5*time.Millisecond)
+	usecase.SetAssignTimeout(w, 5*time.Millisecond)
 	done := make(chan error, 1)
 	go func() { _, err := runOnce(t, w); done <- err }()
-	waitFor(t, "health calls", func() bool { return ha.calls.Load() >= 2 })
+	waitFor(t, "assign calls", func() bool { return ha.calls.Load() >= 2 })
 	h.clock.Advance(h.s.StartupTimeout)
 	select {
 	case err := <-done:
@@ -921,7 +925,7 @@ func TestHealthHangDoesNotBlockTimeout(t *testing.T) {
 			t.Fatalf("RunOnce err = %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("hung health call blocked the startup timeout")
+		t.Fatal("hung assign call blocked the startup timeout")
 	}
 	assertFailedClean(t, h, sid, "startup timeout exceeded")
 }

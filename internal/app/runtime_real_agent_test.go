@@ -99,7 +99,8 @@ func (a *realSessionAgent) process(ctx context.Context, id uuid.UUID) (*realAgen
 	token := strings.Repeat("local-protocol-test-", 3)
 	script := fmt.Sprintf(`from runtime_agent.api import create_app; import uvicorn; uvicorn.run(create_app(), host="127.0.0.1", port=%d, access_log=False, log_level="warning")`, port)
 	cmd := exec.Command(filepath.Join(root, ".venv/bin/python"), "-c", script)
-	cmd.Env = append(os.Environ(), "PYTHONPATH="+filepath.Join(root, "src"), "SESSION_ID="+id.String(), "KERNEL_LANGUAGE="+language, "RUNTIME_TOKEN="+token, "STATE_DIR="+filepath.Join(dir, "state"), "KERNEL_NETWORK="+a.network, "KERNEL_DNS=1.1.1.1")
+	// Агент стартует без сессии и ждёт POST /assign, как на runtime-VPS после prepare.yml.
+	cmd.Env = append(os.Environ(), "PYTHONPATH="+filepath.Join(root, "src"), "STATE_DIR="+filepath.Join(dir, "state"), "KERNEL_NETWORK="+a.network, "KERNEL_DNS=1.1.1.1")
 	cmd.Stdout = log
 	cmd.Stderr = log
 	if err = cmd.Start(); err != nil {
@@ -157,6 +158,21 @@ func (a *realSessionAgent) process(ctx context.Context, id uuid.UUID) (*realAgen
 		return nil, err
 	}
 	p := &realAgentProcess{client: client, endpoint: U.AgentEndpoint{BaseURL: relay.URL, Token: token}}
+	// Kernel ожидания может ещё подниматься: /assign повторяется, пока агент не ответит готовой сессией.
+	for {
+		h, status, assignErr := client.Assign(ctx, p.endpoint, id, language)
+		if assignErr == nil && status == 200 && h.Ready {
+			break
+		}
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("local agent was not assigned: HTTP %d: %w", status, assignErr)
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 	a.sessions[id] = p
 	return p, nil
 }

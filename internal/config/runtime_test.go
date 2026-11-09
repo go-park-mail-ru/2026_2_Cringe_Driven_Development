@@ -52,7 +52,7 @@ func TestRuntimeDefaults(t *testing.T) {
 		r.StartupTimeout != 20*time.Minute || r.AnsibleTimeout != 15*time.Minute || r.DrainTimeout != 30*time.Second ||
 		r.DeleteTimeout != 10*time.Minute || r.ReconcileInterval != 5*time.Minute ||
 		r.MaxConcurrentOps != 2 || r.MaxActive != 3 || r.WorkDir != "/var/lib/cellestial/runtime" ||
-		r.AgentVersion != "dev" || r.PythonImage != "cellestial-kernel-python:local" || r.RImage != "cellestial-kernel-r:local" ||
+		r.AgentVersion != "dev" || r.PythonImage != "cellestial-kernel-python:local" || r.WarmPoolSize != 2 ||
 		len(r.SecretsKey) != 32 {
 		t.Fatalf("unexpected defaults: %+v", r)
 	}
@@ -147,7 +147,7 @@ func TestRuntimeUnknownProvider(t *testing.T) {
 }
 
 func TestRuntimeInvalidNumbersAndDurations(t *testing.T) {
-	for k, val := range map[string]string{"RUNTIME_MAX_ACTIVE": "0", "RUNTIME_MAX_CONCURRENT_OPS": "x", "RUNTIME_STARTUP_TIMEOUT": "soon", "RUNTIME_ROOT_DISK_GIB": "-1"} {
+	for k, val := range map[string]string{"RUNTIME_MAX_ACTIVE": "0", "RUNTIME_MAX_CONCURRENT_OPS": "x", "RUNTIME_STARTUP_TIMEOUT": "soon", "RUNTIME_ROOT_DISK_GIB": "-1", "RUNTIME_WARM_POOL_SIZE": "-1"} {
 		v := runtimeBase()
 		v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
 		v[k] = val
@@ -162,5 +162,23 @@ func TestRuntimeInvalidEnabled(t *testing.T) {
 	v["RUNTIME_ENABLED"] = "maybe"
 	if _, err := LoadFrom(settings(v)); err == nil || !strings.Contains(err.Error(), "RUNTIME_ENABLED") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRuntimeWarmPoolSize(t *testing.T) {
+	for raw, want := range map[string]int{"0": 0, "5": 5} {
+		v := runtimeBase()
+		v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+		v["RUNTIME_WARM_POOL_SIZE"] = raw
+		c, err := LoadFrom(settings(v))
+		if err != nil || c.Runtime.WarmPoolSize != want {
+			t.Fatalf("RUNTIME_WARM_POOL_SIZE=%s: %d, %v", raw, c.Runtime.WarmPoolSize, err)
+		}
+	}
+	v := runtimeBase()
+	v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+	v["RUNTIME_WARM_POOL_SIZE"] = "two"
+	if _, err := LoadFrom(settings(v)); err == nil || !strings.Contains(err.Error(), "RUNTIME_WARM_POOL_SIZE") {
+		t.Fatalf("err = %v", err)
 	}
 }

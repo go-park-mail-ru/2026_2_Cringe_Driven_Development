@@ -13,8 +13,8 @@ const AgentPort = "8443"
 // Host — in-memory usecase.HostConfigurator вместо Ansible.
 //
 // FailNext["Configure"] — ошибка следующего вызова (один раз). Block, если не nil, задерживает
-// Configure до закрытия канала или отмены ctx. Agent, если задан, после успешной настройки
-// регистрирует сессию по адресу https://<private_ip>:8443 с токеном из HostConfig.
+// Configure до закрытия канала или отмены ctx. Agent, если задан, после успешной подготовки
+// запускает агента в режиме ожидания по адресу https://<private_ip>:8443.
 type Host struct {
 	FailNext map[string]error
 	Block    chan struct{}
@@ -34,7 +34,7 @@ func (h *Host) Fail(method string, err error) {
 	h.FailNext[method] = err
 }
 
-// Configure «настраивает» VPS: учитывает вызов, ждёт Block и регистрирует сессию в Agent.
+// Configure «готовит» VPS: учитывает вызов, ждёт Block и запускает в Agent агента в режиме ожидания.
 func (h *Host) Configure(ctx context.Context, c usecase.HostConfig) error {
 	h.mu.Lock()
 	h.configs = append(h.configs, c)
@@ -55,7 +55,7 @@ func (h *Host) Configure(ctx context.Context, c usecase.HostConfig) error {
 		return err
 	}
 	if h.Agent != nil {
-		h.Agent.Register("https://"+c.PrivateIP+":"+AgentPort, c.Token, c.SessionID, c.Language)
+		h.Agent.RegisterWaiting("https://" + c.PrivateIP + ":" + AgentPort)
 	}
 	return nil
 }

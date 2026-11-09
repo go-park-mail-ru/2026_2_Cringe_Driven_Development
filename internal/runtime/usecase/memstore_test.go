@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -67,6 +68,8 @@ type memStore struct {
 	renewErr    error
 	completeErr error
 	renewCalls  int
+	pool        []*domain.PoolVPS
+	reserves    int
 }
 
 var (
@@ -352,4 +355,123 @@ func (m *memStore) renews() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.renewCalls
+}
+
+var _ usecase.PoolRepository = (*memStore)(nil)
+
+// Пул в памяти: та же семантика, что у адаптера Postgres (ReservePool считает PREPARING+READY текущих
+// образа и версии, ClaimPool переносит VPS в окружение QUEUED атомарно, ListPool — старые первыми).
+
+func (m *memStore) ReservePool(_ context.Context, size int, imageID, agentVersion string) ([]domain.PoolVPS, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	have := 0
+	for _, p := range m.pool {
+		if (p.State == domain.PoolPreparing || p.State == domain.PoolReady) && p.ImageID == imageID && p.AgentVersion == agentVersion {
+			have++
+		}
+	}
+	out := make([]domain.PoolVPS, 0, max(size-have, 0))
+	for range size - have {
+		now := m.clock.Now()
+		p := &domain.PoolVPS{ID: uuid.New(), State: domain.PoolPreparing, ImageID: imageID, AgentVersion: agentVersion,
+			CreatedAt: now, UpdatedAt: now}
+		m.pool = append(m.pool, p)
+		out = append(out, *p)
+	}
+	m.reserves++
+	return out, nil
+}
+
+func (m *memStore) poolLocked(id uuid.UUID) *domain.PoolVPS {
+	for _, p := range m.pool {
+		if p.ID == id {
+			return p
+		}
+	}
+	return nil
+}
+
+func (m *memStore) SavePreparing(_ context.Context, v domain.PoolVPS) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p := m.poolLocked(v.ID)
+	if p == nil || p.State != domain.PoolPreparing {
+		return usecase.ErrStale
+	}
+	p.State, p.Resources, p.HostPrivateKey, p.HostPublicKey = v.State, v.Resources, bytes.Clone(v.HostPrivateKey), v.HostPublicKey
+	p.UpdatedAt = m.clock.Now()
+	return nil
+}
+
+func (m *memStore) ClaimPool(_ context.Context, env domain.Environment, owner, imageID, agentVersion string) (domain.Environment, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var p *domain.PoolVPS
+	for _, c := range m.pool {
+		if c.State == domain.PoolReady && c.ImageID == imageID && c.AgentVersion == agentVersion {
+			p = c
+			break
+		}
+	}
+	if p == nil {
+		return env, false, nil
+	}
+	e, ok := m.envs[env.SessionID]
+	if !ok || e.env.Version != env.Version || e.env.State != domain.StateQueued || !m.ownsLocked(env.SessionID, owner) {
+		return env, false, usecase.ErrStale
+	}
+	p.State, p.SessionID = domain.PoolClaimed, env.SessionID
+	e.env.State, e.env.PoolID, e.env.Resources = domain.StateVerifying, p.ID, p.Resources
+	e.env.Version++
+	e.secrets.HostPrivateKey, e.secrets.HostPublicKey = bytes.Clone(p.HostPrivateKey), p.HostPublicKey
+	e.history = append(e.history, domain.StateVerifying)
+	return e.env, true, nil
+}
+
+func (m *memStore) MarkPoolDeleting(_ context.Context, id uuid.UUID, reason string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if p := m.poolLocked(id); p != nil && p.State != domain.PoolDeleting {
+		p.State, p.LastError = domain.PoolDeleting, reason
+	}
+	return nil
+}
+
+func (m *memStore) ListPool(context.Context) ([]domain.PoolVPS, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]domain.PoolVPS, 0, len(m.pool))
+	for _, p := range m.pool {
+		out = append(out, *p)
+	}
+	return out, nil
+}
+
+func (m *memStore) DeletePool(_ context.Context, id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pool = slices.DeleteFunc(m.pool, func(p *domain.PoolVPS) bool { return p.ID == id })
+	return nil
+}
+
+// poolStates возвращает состояния VPS пула по порядку создания.
+func (m *memStore) poolStates() []domain.PoolState {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]domain.PoolState, 0, len(m.pool))
+	for _, p := range m.pool {
+		out = append(out, p.State)
+	}
+	return out
+}
+
+// addPool добавляет VPS пула в обход подготовки.
+func (m *memStore) addPool(p domain.PoolVPS) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if p.CreatedAt.IsZero() {
+		p.CreatedAt = m.clock.Now()
+	}
+	m.pool = append(m.pool, &p)
 }

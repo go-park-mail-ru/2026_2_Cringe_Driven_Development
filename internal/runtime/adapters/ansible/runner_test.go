@@ -3,7 +3,6 @@ package ansible
 import (
 	"bytes"
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,8 +16,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 )
-
-const secretToken = "tok-super-secret-123"
 
 type lockedBuf struct {
 	mu sync.Mutex
@@ -75,10 +72,9 @@ func setup(t *testing.T) env {
 
 func cfg() usecase.HostConfig {
 	return usecase.HostConfig{
-		SessionID: uuid.New(), Language: "python", PrivateIP: "10.0.0.5",
-		HostPublicKey: "ssh-ed25519 AAAATESTKEY", Token: secretToken,
+		Name: uuid.New(), PrivateIP: "10.0.0.5", HostPublicKey: "ssh-ed25519 AAAATESTKEY",
 		ServerCertPEM: []byte("CERT"), ServerKeyPEM: []byte("KEY"),
-		PythonImage: "py:1", RImage: "r:1", KernelDNS: "1.1.1.1",
+		PythonImage: "py:1", KernelDNS: "1.1.1.1",
 		BlockedPublicIPs: []string{"1.2.3.4"},
 	}
 }
@@ -111,9 +107,6 @@ func TestRunnerPassesNoSecretsInArgs(t *testing.T) {
 		t.Fatal(gotErr)
 	}
 	args := readHome(t, e, "args.txt")
-	if strings.Contains(args, secretToken) {
-		t.Fatalf("%q contains %q", args, secretToken)
-	}
 	if strings.Contains(args, "KEY") {
 		t.Fatalf("%q contains %q", args, "KEY")
 	}
@@ -165,24 +158,6 @@ func TestRunnerRemovesWorkDir(t *testing.T) {
 	}
 }
 
-func TestRunnerLogsMaskToken(t *testing.T) {
-	e := setup(t)
-	buf := &lockedBuf{}
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(buf, nil)))
-	t.Cleanup(func() { slog.SetDefault(old) })
-	if gotErr := e.runner.Configure(context.Background(), cfg()); gotErr != nil {
-		t.Fatal(gotErr)
-	}
-	out := buf.String()
-	if !strings.Contains(out, "using token ***") {
-		t.Fatalf("%q does not contain %q", out, "using token ***")
-	}
-	if strings.Contains(out, secretToken) {
-		t.Fatalf("%q contains %q", out, secretToken)
-	}
-}
-
 func TestRunnerVarsContent(t *testing.T) {
 	e := setup(t)
 	c := cfg()
@@ -192,14 +167,10 @@ func TestRunnerVarsContent(t *testing.T) {
 	}
 	// Полный набор ключей: лишний ключ (например, host key) или пропавший — ошибка.
 	if diff := cmp.Diff(map[string]any{
-		"session_id":         c.SessionID.String(),
-		"language":           "python",
 		"private_ip":         "10.0.0.5",
-		"token":              secretToken,
 		"server_cert_pem":    "CERT",
 		"server_key_pem":     "KEY",
 		"python_image":       "py:1",
-		"r_image":            "r:1",
 		"kernel_dns":         "1.1.1.1",
 		"blocked_public_ips": []string{"1.2.3.4"},
 		"agent_wheel":        "/a/agent.whl",
@@ -285,7 +256,7 @@ func TestNewFailsWhenWorkDirUncreatable(t *testing.T) {
 
 func TestNewFailsWhenWorkDirLocked(t *testing.T) {
 	dir := t.TempDir()
-	_, err := New(dir, "site.yml", "key", "root", "ansible-playbook", Artifacts{})
+	_, err := New(dir, "prepare.yml", "key", "root", "ansible-playbook", Artifacts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +264,7 @@ func TestNewFailsWhenWorkDirLocked(t *testing.T) {
 	if gotErr := os.Mkdir(stale, 0o700); gotErr != nil {
 		t.Fatal(gotErr)
 	}
-	_, err = New(dir, "site.yml", "key", "root", "ansible-playbook", Artifacts{})
+	_, err = New(dir, "prepare.yml", "key", "root", "ansible-playbook", Artifacts{})
 	if err == nil {
 		t.Fatal("expected error")
 	}

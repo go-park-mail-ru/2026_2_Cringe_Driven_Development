@@ -41,7 +41,7 @@
 - HTTP: `net/http`, Gorilla mux; PostgreSQL: `pgx/v5/pgxpool`.
 - Локально: Docker Compose с Go API, PostgreSQL 18, Redis 8 и SeaweedFS (S3).
 - `runtime-agent/`: Python 3.13 сервис systemd; одна VPS, одна сессия, один контейнер/kernel.
-  SESSION_ID и KERNEL_LANGUAGE задаются при запуске. SQLite и токен — только на хосте.
+  Агент ждёт с готовым kernel; сессию назначает Go API (`POST /assign`). SQLite и токен — только на хосте.
   Jupyter — закрытый TCP без host mounts; сеть и firewall реализует infra (роль `runtime_host`) по docs/runtime-agent-network.md.
 
 Нужны Go, C-компилятор (`-race`), Make, curl, Docker с Compose. `.env` — см. [.env.example](.env.example). Команды из корня:
@@ -104,7 +104,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 
 - Backend отвечает за Go API, данные и бизнес-логику; местный Compose — для разработки.
 - Агент сам VPS не создаёт: создание, настройку (воркер запускает playbook) и удаление runtime-VPS выполняет
-  `internal/runtime` ([docs](docs/runtime-provisioning.md)). Роли (`runtime_host`, `runtime_agent`, `site.yml`, mount `/app/deploy/runtime`): установка агента/systemd, mTLS-доступ Go API
+  `internal/runtime` ([docs](docs/runtime-provisioning.md)). Роли (`runtime_host`, `runtime_agent`, `prepare.yml`, mount `/app/deploy/runtime`): установка агента/systemd, mTLS-доступ Go API
   к агенту, сеть/firewall и секреты — в `infra`; запускает их воркер `internal/runtime`.
 - `infra`: Pulumi, Ansible Vault, production Compose и Caddyfile. Не переноси
   production-конфигурацию в backend и не коммить открытые секреты.

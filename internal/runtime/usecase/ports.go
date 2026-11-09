@@ -60,6 +60,23 @@ type EnvironmentRepository interface {
 	ListByState(ctx context.Context, state domain.State) ([]domain.Environment, error)
 }
 
+// PoolRepository хранит VPS пула (runtime_pool).
+type PoolRepository interface {
+	// ReservePool под advisory-lock добавляет VPS в PREPARING, пока PREPARING+READY с этими образом
+	// и версией агента меньше size; возвращает добавленные.
+	ReservePool(ctx context.Context, size int, imageID, agentVersion string) ([]domain.PoolVPS, error)
+	// SavePreparing сохраняет ресурсы, host key и состояние VPS, пока она в PREPARING; иначе ErrStale.
+	SavePreparing(ctx context.Context, p domain.PoolVPS) error
+	// ClaimPool в одной транзакции берёт самую старую READY-VPS с этими образом и версией
+	// (FOR UPDATE SKIP LOCKED), переводит её в CLAIMED и переносит ресурсы и host key в окружение
+	// QUEUED → VERIFYING (те же условия, что у Save). false — READY-VPS нет.
+	ClaimPool(ctx context.Context, env domain.Environment, owner, imageID, agentVersion string) (domain.Environment, bool, error)
+	// MarkPoolDeleting переводит VPS в DELETING с причиной; уже DELETING или отсутствующая — no-op.
+	MarkPoolDeleting(ctx context.Context, id uuid.UUID, reason string) error
+	ListPool(ctx context.Context) ([]domain.PoolVPS, error)
+	DeletePool(ctx context.Context, id uuid.UUID) error
+}
+
 // JobQueue — очередь заданий с lease.
 type JobQueue interface {
 	Claim(ctx context.Context, owner string, lease time.Duration) (Job, bool, error)
@@ -68,10 +85,10 @@ type JobQueue interface {
 	Retry(ctx context.Context, job Job, owner string, at time.Time) error
 }
 
-// CloudResource — облачный ресурс, помеченный metadata рантайма.
+// CloudResource — облачный ресурс, помеченный metadata рантайма: session_id или pool_id.
 type CloudResource struct {
-	Kind, ID  string
-	SessionID uuid.UUID
+	Kind, ID          string
+	SessionID, PoolID uuid.UUID
 }
 
 // CloudProvider управляет облачными ресурсами окружения. Адаптеры оборачивают ErrCloudTransient/ErrCloudPermanent.
@@ -85,21 +102,22 @@ type CloudProvider interface {
 	ListOwned(ctx context.Context) ([]CloudResource, error)
 }
 
-// HostConfig — параметры настройки VPS.
+// HostConfig — параметры подготовки VPS без сессии (prepare.yml).
 type HostConfig struct {
-	SessionID                                 uuid.UUID
-	Language, PrivateIP, HostPublicKey, Token string
-	ServerCertPEM, ServerKeyPEM               []byte
-	PythonImage, RImage, KernelDNS            string
-	BlockedPublicIPs                          []string
+	// Name — ID сессии или VPS пула: каталог операции и поле логов.
+	Name                        uuid.UUID
+	PrivateIP, HostPublicKey    string
+	ServerCertPEM, ServerKeyPEM []byte
+	PythonImage, KernelDNS      string
+	BlockedPublicIPs            []string
 }
 
-// HostConfigurator настраивает VPS (Ansible).
+// HostConfigurator готовит VPS и запускает агента в режиме ожидания (Ansible).
 type HostConfigurator interface {
 	Configure(ctx context.Context, c HostConfig) error
 }
 
-// AgentEndpoint — адрес и токен агента.
+// AgentEndpoint — адрес и токен агента; пустой Token — запрос без авторизации (агент в режиме ожидания).
 type AgentEndpoint struct{ BaseURL, Token string }
 
 // AgentHealth — ответ /health агента.
@@ -121,6 +139,9 @@ type AgentHealth struct {
 // AgentClient — клиент управления агентом.
 type AgentClient interface {
 	Health(ctx context.Context, ep AgentEndpoint) (AgentHealth, int, error) // health, HTTP status
+	// Assign назначает агента сессии (POST /assign, токен сессии — ep.Token); ответ — снимок сессии
+	// после готовности kernel и HTTP status.
+	Assign(ctx context.Context, ep AgentEndpoint, sessionID uuid.UUID, language string) (AgentHealth, int, error)
 	Drain(ctx context.Context, ep AgentEndpoint) error
 	Stop(ctx context.Context, ep AgentEndpoint) error
 }

@@ -21,12 +21,13 @@ type DB interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-// Repository реализует usecase.EnvironmentRepository и usecase.JobQueue.
+// Repository реализует usecase.EnvironmentRepository, usecase.PoolRepository и usecase.JobQueue.
 type Repository struct{ db DB }
 
 var (
 	_ usecase.EnvironmentRepository = (*Repository)(nil)
 	_ usecase.JobQueue              = (*Repository)(nil)
+	_ usecase.PoolRepository        = (*Repository)(nil)
 )
 
 // NewRepository принимает пул соединений.
@@ -37,7 +38,7 @@ const (
 	envColumns      = `session_id, operation_id, language, profile, state, desired_state,
 		COALESCE(server_id, ''), COALESCE(volume_id, ''), COALESCE(port_id, ''), COALESCE(private_ip, ''),
 		COALESCE(endpoint, ''), agent_version, COALESCE(last_error, ''), COALESCE(cleanup_result, ''),
-		version, created_at, updated_at`
+		COALESCE(pool_id, '00000000-0000-0000-0000-000000000000'), version, created_at, updated_at`
 	selectEnvSQL   = `SELECT ` + envColumns + ` FROM runtime_environments WHERE session_id = $1`
 	countActiveSQL = `SELECT count(*) FROM runtime_environments WHERE state NOT IN ('DELETED','FAILED')`
 	insertEnvSQL   = `INSERT INTO runtime_environments (session_id, operation_id, language, profile, state, desired_state, agent_version)
@@ -53,6 +54,7 @@ const (
 		desired_state = CASE WHEN e.desired_state = 'DELETED' THEN 'DELETED' ELSE $4 END, server_id = NULLIF($5, ''),
 		volume_id = NULLIF($6, ''), port_id = NULLIF($7, ''), private_ip = NULLIF($8, ''), endpoint = NULLIF($9, ''),
 		agent_version = $10, last_error = NULLIF($11, ''), cleanup_result = NULLIF($12, ''),
+		pool_id = NULLIF($14, '00000000-0000-0000-0000-000000000000'::uuid),
 		version = e.version + 1, updated_at = now()
 		WHERE e.session_id = $1 AND e.version = $2 AND EXISTS (
 			SELECT 1 FROM runtime_jobs j WHERE j.session_id = e.session_id AND j.status = 'running' AND j.lease_owner = $13)
@@ -72,7 +74,7 @@ func scanEnv(row pgx.Row) (domain.Environment, error) {
 	var state, desired string
 	err := row.Scan(&e.SessionID, &e.OperationID, &e.Language, &e.Profile, &state, &desired,
 		&e.Resources.ServerID, &e.Resources.VolumeID, &e.Resources.PortID, &e.Resources.PrivateIP,
-		&e.Endpoint, &e.AgentVersion, &e.LastError, &e.CleanupResult, &e.Version, &e.CreatedAt, &e.UpdatedAt)
+		&e.Endpoint, &e.AgentVersion, &e.LastError, &e.CleanupResult, &e.PoolID, &e.Version, &e.CreatedAt, &e.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Environment{}, usecase.ErrNotFound
 	}
@@ -172,7 +174,7 @@ func commit(ctx context.Context, tx pgx.Tx) error {
 func (r *Repository) Save(ctx context.Context, env domain.Environment, owner string) (domain.Environment, error) {
 	err := r.db.QueryRow(ctx, saveSQL, env.SessionID, env.Version, string(env.State), string(env.DesiredState),
 		env.Resources.ServerID, env.Resources.VolumeID, env.Resources.PortID, env.Resources.PrivateIP,
-		env.Endpoint, env.AgentVersion, env.LastError, env.CleanupResult, owner,
+		env.Endpoint, env.AgentVersion, env.LastError, env.CleanupResult, owner, env.PoolID,
 	).Scan(&env.Version, &env.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Environment{}, usecase.ErrStale

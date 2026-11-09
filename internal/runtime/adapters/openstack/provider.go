@@ -24,6 +24,7 @@ const (
 	keyRuntime   = "cellestial_runtime"
 	keyEnv       = "cellestial_env"
 	keySession   = "session_id"
+	keyPool      = "pool_id"
 	keyOperation = "operation_id"
 
 	kindServer = "server"
@@ -44,38 +45,64 @@ func newProvider(compute, volume, network *gophercloud.ServiceClient, cfg config
 	return &Provider{compute: compute, volume: volume, network: network, cfg: cfg, poll: defaultPoll}
 }
 
-func resourceName(env domain.Environment) string { return "runtime-" + env.SessionID.String() }
+// owner — владелец ресурса по metadata: сессия или VPS пула (ровно одно из полей).
+type owner struct{ session, pool uuid.UUID }
+
+func ownerOf(env domain.Environment) owner {
+	if env.IsPoolVPS() {
+		return owner{pool: env.SessionID}
+	}
+	return owner{session: env.SessionID}
+}
+
+// ownerKey — ключ metadata и тега владельца: pool_id у VPS пула, session_id у VPS сессии.
+func ownerKey(env domain.Environment) string {
+	if env.IsPoolVPS() {
+		return keyPool
+	}
+	return keySession
+}
+
+func resourceName(env domain.Environment) string {
+	if env.IsPoolVPS() {
+		return "runtime-pool-" + env.SessionID.String()
+	}
+	return "runtime-" + env.SessionID.String()
+}
 
 func (p *Provider) metadata(env domain.Environment) map[string]string {
 	return map[string]string{
-		keyRuntime:   "1",
-		keyEnv:       p.cfg.EnvName,
-		keySession:   env.SessionID.String(),
-		keyOperation: env.OperationID.String(),
+		keyRuntime:    "1",
+		keyEnv:        p.cfg.EnvName,
+		ownerKey(env): env.SessionID.String(),
+		keyOperation:  env.OperationID.String(),
 	}
 }
 
-// owned проверяет metadata ресурса: он создан рантаймом этого окружения; возвращает session_id.
-func (p *Provider) owned(md map[string]string) (uuid.UUID, bool) {
+// owned проверяет metadata ресурса: он создан рантаймом этого окружения; возвращает владельца.
+func (p *Provider) owned(md map[string]string) (owner, bool) {
 	if md[keyRuntime] != "1" || md[keyEnv] != p.cfg.EnvName {
-		return uuid.Nil, false
+		return owner{}, false
+	}
+	if id, err := uuid.Parse(md[keyPool]); err == nil {
+		return owner{pool: id}, true
 	}
 	id, err := uuid.Parse(md[keySession])
-	return id, err == nil
+	return owner{session: id}, err == nil
 }
 
-func (p *Provider) portTags(session uuid.UUID) []string {
-	return []string{keyRuntime + "=1", keyEnv + "=" + p.cfg.EnvName, keySession + "=" + session.String()}
+func (p *Provider) portTags(env domain.Environment) []string {
+	return []string{keyRuntime + "=1", keyEnv + "=" + p.cfg.EnvName, ownerKey(env) + "=" + env.SessionID.String()}
 }
 
 func (p *Provider) portDescription(env domain.Environment) string {
 	return fmt.Sprintf("%s=1 %s=%s %s=%s %s=%s", keyRuntime, keyEnv, p.cfg.EnvName,
-		keySession, env.SessionID, keyOperation, env.OperationID)
+		ownerKey(env), env.SessionID, keyOperation, env.OperationID)
 }
 
 // ownedPort разбирает description порта и его теги (теги имеют приоритет): порт мог остаться
 // без тегов после сбоя между созданием и PUT tags.
-func (p *Provider) ownedPort(port ports.Port) (uuid.UUID, bool) {
+func (p *Provider) ownedPort(port ports.Port) (owner, bool) {
 	md := map[string]string{}
 	for _, t := range append(strings.Fields(port.Description), port.Tags...) {
 		if k, v, ok := strings.Cut(t, "="); ok {
@@ -107,12 +134,12 @@ func (p *Provider) EnsurePort(ctx context.Context, env domain.Environment) (stri
 		port, err := ports.Get(ctx, p.network, id).Extract()
 		switch {
 		case err == nil:
-			return p.tagPort(ctx, *port, env.SessionID)
+			return p.tagPort(ctx, *port, env)
 		case !isNotFound(err):
 			return "", "", classify("get port", err)
 		}
 	}
-	found, err := p.listPorts(ctx, ports.ListOpts{Tags: strings.Join(p.portTags(env.SessionID), ",")})
+	found, err := p.listPorts(ctx, ports.ListOpts{Tags: strings.Join(p.portTags(env), ",")})
 	if err != nil {
 		return "", "", err
 	}
@@ -123,7 +150,7 @@ func (p *Provider) EnsurePort(ctx context.Context, env domain.Environment) (stri
 			return "", "", err
 		}
 		for _, port := range byName {
-			if s, ok := p.ownedPort(port); ok && s == env.SessionID {
+			if o, ok := p.ownedPort(port); ok && o == ownerOf(env) {
 				found = append(found, port)
 			}
 		}
@@ -145,18 +172,18 @@ func (p *Provider) EnsurePort(ctx context.Context, env domain.Environment) (stri
 		}
 		port = *created
 	}
-	return p.tagPort(ctx, port, env.SessionID)
+	return p.tagPort(ctx, port, env)
 }
 
 // tagPort дописывает порту недостающие теги рантайма (например, после сбоя между POST и PUT tags),
 // сохраняя прочие теги.
-func (p *Provider) tagPort(ctx context.Context, port ports.Port, session uuid.UUID) (string, string, error) {
+func (p *Provider) tagPort(ctx context.Context, port ports.Port, env domain.Environment) (string, string, error) {
 	have := map[string]bool{}
 	for _, t := range port.Tags {
 		have[t] = true
 	}
 	tags := append([]string(nil), port.Tags...)
-	for _, t := range p.portTags(session) {
+	for _, t := range p.portTags(env) {
 		if !have[t] {
 			tags = append(tags, t)
 		}
@@ -209,12 +236,12 @@ func (p *Provider) EnsureVolume(ctx context.Context, env domain.Environment) (st
 		}
 	}
 	if id == "" {
-		found, err := p.listVolumes(ctx, map[string]string{keyEnv: p.cfg.EnvName, keySession: env.SessionID.String()})
+		found, err := p.listVolumes(ctx, map[string]string{keyEnv: p.cfg.EnvName, ownerKey(env): env.SessionID.String()})
 		if err != nil {
 			return "", err
 		}
 		for _, v := range found {
-			if s, ok := p.owned(v.Metadata); ok && s == env.SessionID {
+			if o, ok := p.owned(v.Metadata); ok && o == ownerOf(env) {
 				id = v.ID
 				break
 			}
@@ -282,7 +309,7 @@ func (p *Provider) EnsureServer(ctx context.Context, env domain.Environment, use
 			return "", err
 		}
 		for _, s := range found {
-			if sid, ok := p.owned(s.Metadata); ok && sid == env.SessionID {
+			if o, ok := p.owned(s.Metadata); ok && o == ownerOf(env) {
 				id = s.ID
 				break
 			}
@@ -399,8 +426,8 @@ func (p *Provider) ListOwned(ctx context.Context) ([]usecase.CloudResource, erro
 		return nil, err
 	}
 	for _, s := range srvs {
-		if sid, ok := p.owned(s.Metadata); ok {
-			out = append(out, usecase.CloudResource{Kind: kindServer, ID: s.ID, SessionID: sid})
+		if o, ok := p.owned(s.Metadata); ok {
+			out = append(out, usecase.CloudResource{Kind: kindServer, ID: s.ID, SessionID: o.session, PoolID: o.pool})
 		}
 	}
 	vols, err := p.listVolumes(ctx, map[string]string{keyRuntime: "1", keyEnv: p.cfg.EnvName})
@@ -408,8 +435,8 @@ func (p *Provider) ListOwned(ctx context.Context) ([]usecase.CloudResource, erro
 		return nil, err
 	}
 	for _, v := range vols {
-		if sid, ok := p.owned(v.Metadata); ok {
-			out = append(out, usecase.CloudResource{Kind: kindVolume, ID: v.ID, SessionID: sid})
+		if o, ok := p.owned(v.Metadata); ok {
+			out = append(out, usecase.CloudResource{Kind: kindVolume, ID: v.ID, SessionID: o.session, PoolID: o.pool})
 		}
 	}
 	tagged, err := p.listPorts(ctx, ports.ListOpts{Tags: keyRuntime + "=1," + keyEnv + "=" + p.cfg.EnvName})
@@ -426,9 +453,9 @@ func (p *Provider) ListOwned(ctx context.Context) ([]usecase.CloudResource, erro
 		if seen[port.ID] {
 			continue
 		}
-		if sid, ok := p.ownedPort(port); ok {
+		if o, ok := p.ownedPort(port); ok {
 			seen[port.ID] = true
-			out = append(out, usecase.CloudResource{Kind: kindPort, ID: port.ID, SessionID: sid})
+			out = append(out, usecase.CloudResource{Kind: kindPort, ID: port.ID, SessionID: o.session, PoolID: o.pool})
 		}
 	}
 	return out, nil
