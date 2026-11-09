@@ -452,6 +452,31 @@ func TestVerifyTimeoutCleansUp(t *testing.T) {
 	}
 }
 
+// Kernel не стартовал: агент отвечает 503 с FAILED своей сессии — окружение падает сразу, не ждёт
+// StartupTimeout.
+func TestAssignFailsFastWhenAgentSessionFailed(t *testing.T) {
+	h := newHarness(t)
+	h.cfg = agentHost(h, func(c usecase.HostConfig) {
+		url := "https://" + c.PrivateIP + ":8443"
+		h.agent.Register(url, "token-1", c.Name, "python")
+		h.agent.SetState(url, "FAILED")
+	})
+	sid := h.request()
+	if _, err := runOnce(t, h.worker("w1")); err != nil {
+		t.Fatalf("RunOnce err = %v", err)
+	}
+	env := h.env(sid)
+	if env.State != domain.StateFailed || !strings.Contains(env.LastError, "agent state FAILED") {
+		t.Fatalf("env = %+v", env)
+	}
+	if n := h.agent.Calls("Assign"); n != 1 {
+		t.Fatalf("assign calls = %d, want 1", n)
+	}
+	if n := h.resources(); n != 0 {
+		t.Fatalf("resources left = %d", n)
+	}
+}
+
 // Агент VPS уже назначен другой сессии: /assign отвечает 409, ждать StartupTimeout бесполезно.
 func TestAssignRejectedCleansUpWithoutWaiting(t *testing.T) {
 	h := newHarness(t)

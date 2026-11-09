@@ -110,6 +110,15 @@ func (a *Agent) SetStatus(baseURL string, status int) {
 	}
 }
 
+// SetState задаёт состояние сессии агента по адресу baseURL (например, FAILED после неудачного старта kernel).
+func (a *Agent) SetState(baseURL, state string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if s, ok := a.agents[baseURL]; ok {
+		s.state = state
+	}
+}
+
 // Fail потокобезопасно задаёт ошибку следующего вызова method.
 func (a *Agent) Fail(method string, err error) {
 	a.mu.Lock()

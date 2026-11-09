@@ -1,93 +1,93 @@
 # Backend Colab
 
-Go API учебного проекта «Colab». Общепроектный контекст, текущую архитектуру и планы ищите на [сайте документации](https://docs.cellestial.ru/project-context). Этот README — точка входа в backend: запуск, код и рабочие правила.
+![Главная страница Cellestial со списком блокнотов](.github/assets/cellestial-home.png)
 
-## Быстрый старт
+Backend проекта «Colab» (Cellestial) команды «Cringe Driven Development»: Go API и агент исполнения Python/R.
 
-Нужны Go версии из [go.mod](go.mod), C-компилятор для тестов с `-race`, Make и Docker с Compose. Локальный Compose запускает API, PostgreSQL, Redis и SeaweedFS (S3). Секреты задаются только в `.env`, файл не коммитьте.
+[![Сервис cellestial.ru](https://img.shields.io/badge/cellestial.ru-7A5AF8?style=for-the-badge&logo=googlechrome&logoColor=white)](https://cellestial.ru)
+[![Доска задач](https://img.shields.io/badge/Доска_задач-1F6FEB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
+[![Макеты в Figma](https://img.shields.io/badge/Макеты-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/design/7iaVDGiwzQk2vZIB5ogVlq/Colab)
+[![Документация](https://img.shields.io/badge/Документация-5C73E7?style=for-the-badge&logo=vitepress&logoColor=white)](https://docs.cellestial.ru/documentation/)
+[![Контракт API в Apidog](.github/assets/apidog-badge.svg)](https://vb78fyael1.apidog.io/)
+[![Фронтенд](https://img.shields.io/badge/Фронтенд-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/Cringe-Driven-Development-Team/frontend)
 
-```bash
-cp -n .env.example .env
-# Задайте в .env разные JWT_SECRET и BFF_API_KEY.
-make doctor
-make up
-make health  # ожидается {"status": "alive"}
-make down    # volumes сохраняются
-```
+## Навигация
 
-`make up` ждёт healthcheck до 120 секунд. При отказе используйте `make logs` и `docker compose ps -a`. `/health` проверяет ответ API, но не все операции с БД и S3. Полный список команд, настройки портов и окружения — в [локальной разработке](docs/local-development.md). Хранение блокнотов — [по ячейкам в PostgreSQL](docs/notebook-editing.md); [однократный сброс БД](docs/database-reset.md) вместо переноса старых ipynb.
+- 🚀 Начало работы
+  - [Запуск Go API](docs/local-development.md#запуск-и-проверки)
+  - [Проверки перед PR](docs/local-development.md#проверки-перед-pr)
+- 📚 Документация
+  - [Локальная разработка](docs/local-development.md)
+  - [Контракт API](docs/apidog.md)
+  - [Окружения и исполнение Python/R](docs/runtime-sessions.md)
+  - [CI и выкатка](docs/release.md)
+  - [Архитектура проекта](https://docs.cellestial.ru/documentation/architecture/)
+  - [Wiki кода](openwiki/quickstart.md)
+- 🛠 Разработка
+  - [Go API](internal/)
+  - [Агент Python/R](runtime-agent/README.md)
+  - [Миграции БД](migrations/)
+  - <a id="как-работать-с-задачами"></a>[Правила работы с задачами](docs/local-development.md#как-работать-с-задачами)
+  - [Инструкции для агентов](AGENTS.md)
 
-## Агент исполнения Python/R
+## Команда
 
-[runtime-agent](runtime-agent/README.md) — Python 3.13 сервис systemd на выделенной
-VPS пользовательской сессии. Запускает один контейнер с одним Python или R kernel,
-принимает команды через внутренний HTTP/WebSocket API и хранит журнал SQLite.
-UUID сессии и язык задаются при запуске; лимиты — 1 CPU / 1 GiB RAM, простой — 15 минут.
-Контейнер без host mounts; связь агента с Jupyter — закрытый TCP без публикации порта.
-Доступ kernel к интернету ограничивает firewall infra по [контракту сети](docs/runtime-agent-network.md).
+<table>
+  <thead>
+    <tr>
+      <th>🎨 Frontend + Design</th>
+      <th>⚙️ DevOps</th>
+      <th colspan="2">🗄️ Backend</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <a href="https://github.com/ManInTheCoat"><img src=".github/assets/team/ManInTheCoat.png" width="80" height="80" alt="Аватар: Ерофей Гаранин"></a><br>
+        <a href="https://github.com/ManInTheCoat">Ерофей Гаранин</a>
+      </td>
+      <td align="center">
+        <a href="https://github.com/iRedTea"><img src=".github/assets/team/iRedTea.png" width="80" height="80" alt="Аватар: Денис Истратов"></a><br>
+        <a href="https://github.com/iRedTea">Денис Истратов</a>
+      </td>
+      <td align="center">
+        <a href="https://github.com/GrayMouse9"><img src=".github/assets/team/GrayMouse9.png" width="80" height="80" alt="Аватар: Дарья Шпакова"></a><br>
+        <a href="https://github.com/GrayMouse9">Дарья Шпакова</a>
+      </td>
+      <td align="center">
+        <a href="https://github.com/MrDuckVC"><img src=".github/assets/team/MrDuckVC.png" width="80" height="80" alt="Аватар: Валентин Кунев"></a><br>
+        <a href="https://github.com/MrDuckVC">Валентин Кунев</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-Создание, настройку и удаление VPS сессий в Selectel выполняет модуль `internal/runtime`:
-[docs/runtime-provisioning.md](docs/runtime-provisioning.md).
+### Менторы
 
-Проверки: `make agent-setup agent-lint agent-test agent-build`;
-с Docker — `make agent-images agent-integration`; локальный Python kernel —
-`make agent-test-jupyter`. Сетевая приёмка на отдельной VPS — `make agent-network-check`.
-VPS создаёт и удаляет backend; роли установки агента, реализация firewall и секреты
-принадлежат `infra`. Интеграция с пользователями и ipynb выполняется отдельно.
+<table>
+  <thead>
+    <tr>
+      <th>💻 Frontend</th>
+      <th>🗄️ Backend</th>
+      <th>🎨 UX</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <a href="https://github.com/YarikMix"><img src=".github/assets/team/YarikMix.png" width="80" height="80" alt="Аватар: Ярослав Михалёв"></a><br>
+        <a href="https://github.com/YarikMix">Ярослав Михалёв</a>
+      </td>
+      <td align="center">
+        <a href="https://github.com/blackHATred"><img src=".github/assets/team/blackHATred.png" width="80" height="80" alt="Аватар: Александр Батовкин"></a><br>
+        <a href="https://github.com/blackHATred">Александр Батовкин</a>
+      </td>
+      <td align="center">
+        <a href="https://t.me/dewon_d"><img src=".github/assets/team/dewon_d.png" width="80" height="80" alt="Аватар: Дарья Ченцова"></a><br>
+        <a href="https://t.me/dewon_d">Дарья Ченцова</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-## Wiki кода
-
-Собственная `openwiki/quickstart.md` после ручной генерации описывает код Go API на исходном SHA.
-Для поиска контекста: `openwiki_search` → `openwiki_read` с ID wiki из результата.
-При обычном чтении опубликованная wiki считается актуальной: если ответа достаточно
-и нет противоречий, остановитесь без проверки свежести, сравнения SHA и перепроверки
-по исходникам. Конкретный исходник нужен при пробеле, противоречии или для правки;
-явные ошибки инструментов не игнорируйте. Для простой правки известного файла поиск не обязателен.
-Актуальность обеспечивает процесс обновления и публикации. Для обслуживания и явной
-диагностики: `bun scripts/openwiki-check.ts --against <полный актуальный SHA backend/main>` (нужен Bun).
-До генерации используйте документацию и исходники ниже.
-[Brief генерации](openwiki/INSTRUCTIONS.md) задаёт корпус и границы; общий поиск четырёх репозиториев
-настраивается по [README docs](https://github.com/Cringe-Driven-Development-Team/docs#readme).
-Без MCP читайте quickstart и нужную Markdown-страницу с тем же правилом остановки.
-Код и wiki не доказывают состояние прода прямо сейчас: нужны соответствующие свидетельства.
-
-Изменения `openwiki/**` в `main` запускают [Publish docs wiki](.github/workflows/publish-docs-wiki.yml):
-он вызывает `pages.yml` в `docs/main`; для диагностики доступен ручной запуск.
-Нужен secret `DOCS_PAGES_TOKEN` с Actions: write только для репозитория docs;
-настройка и публичная wiki — в [README docs](https://github.com/Cringe-Driven-Development-Team/docs#readme).
-Локальная проверка dispatch без GitHub: `bun test scripts/openwiki-publish.test.ts`.
-
-## Код и документация
-
-- `cmd/main` — точка входа; `internal/app` собирает зависимости, `internal/config` читает окружение.
-- `internal/transport/http` — маршруты, авторизация и HTTP-политики; `internal/{user,notebook}` — domain, usecase, HTTP-обработчики и адаптеры хранения.
-- `migrations/` — SQL-миграции goose; `internal/transport/http/api/api.gen.go` — код, сгенерированный из Apidog, вручную не редактируйте.
-- [Сессии Redis](docs/redis-sessions.md) — конфигурация, отзыв, переключение и восстановление.
-- [Авторизация через BFF](docs/authentication.md) — JSON-токены, Bearer и обязательный S2S-ключ.
-- [Профиль пользователя](docs/user-profile.md) — логин, смена пароля и загрузка аватара.
-- [Редактирование ipynb](docs/notebook-editing.md) — операции над блоками, хеши и консистентность.
-- [Контракт API в Apidog](docs/apidog.md) — ветки, Merge Request и `make generate`.
-- [CI, образ и деплой](docs/release.md) — проверки и выпуск. Production-конфигурация принадлежит [infra](https://github.com/Cringe-Driven-Development-Team/infra).
-- [AGENTS.md](AGENTS.md) — локальные правила для агента; Claude Code подключает их через [CLAUDE.md](CLAUDE.md).
-
-Состав команды — в [профиле организации](https://github.com/Cringe-Driven-Development-Team/.github/tree/main/profile).
-
-## Как работать с задачами
-
-Задачи команды собраны на [доске Scrumban](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1).
-Правила оформления задач и ревью — в [CONTRIBUTING команды](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
-Перед передачей изменений выполните `make check` и `make docker-build`.
-
-## Типы коммитов
-
-Формат: `<тип>: <описание>` или `<тип>(<область>): <описание>`. Коммиты ветки сохраняются в истории как есть.
-
-| Тип | Когда использовать |
-| --- | --- |
-| `feat` | новая функциональность |
-| `fix` | исправление бага |
-| `refactor` | изменение кода без изменения поведения |
-| `style` | форматирование |
-| `test` | тесты |
-| `docs` | документация |
-| `chore` | конфиги, зависимости, сборка и CI |
+<img src=".github/assets/footer-wave.svg" width="100%" alt="">

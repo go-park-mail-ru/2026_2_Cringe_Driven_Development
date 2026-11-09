@@ -47,6 +47,8 @@ var (
 	errStartupTimeout = errors.New("startup timeout exceeded")
 	// errAssignRejected — агент отклонил назначение (400/409): повтор бесполезен.
 	errAssignRejected = errors.New("agent rejected the assignment")
+	// errAgentStopped — сессия агента завершилась (например, kernel не стартовал): ждать бесполезно.
+	errAgentStopped = errors.New("agent session stopped")
 )
 
 // Worker выполняет задания создания и удаления окружений.

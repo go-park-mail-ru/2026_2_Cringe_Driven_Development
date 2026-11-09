@@ -217,7 +217,8 @@ func (w *Worker) prepareHost(ctx context.Context, name uuid.UUID, ip, hostPublic
 
 // assign назначает агента сессии (POST /assign) и ждёт ответа о готовности её kernel. Новая VPS
 // повторяется до StartupTimeout: агент мог ещё не подняться. VPS пула не повторяется: её агент уже
-// проверен, и сбой — повод взять новую VPS (leavePool). Отказ агента (400/409) — постоянная ошибка.
+// проверен, и сбой — повод взять новую VPS (leavePool). Отказ агента (400/409) и завершённая сессия
+// агента (FAILED/STOPPED, например kernel не стартовал) — постоянные ошибки, ждать бесполезно.
 func (r *jobRun) assign(ctx context.Context, env domain.Environment) error {
 	s, err := r.w.repo.LoadSecrets(r.leaseCtx, r.job.SessionID)
 	if err != nil {
@@ -237,6 +238,8 @@ func (r *jobRun) assign(ctx context.Context, env domain.Environment) error {
 			return nil
 		case status == httpStatusBadRequest || status == httpStatusConflict:
 			return fmt.Errorf("%w: %s", errAssignRejected, reason)
+		case aerr == nil && h.SessionID == env.SessionID.String() && (h.State == "FAILED" || h.State == "STOPPED"):
+			return fmt.Errorf("%w: %s", errAgentStopped, reason)
 		case env.PoolID != uuid.Nil:
 			return fmt.Errorf("pool vps: %s", reason)
 		}
@@ -250,6 +253,9 @@ func (r *jobRun) assign(ctx context.Context, env domain.Environment) error {
 			return fmt.Errorf("%w: agent is not assigned: %s", errStartupTimeout, reason)
 		}
 		if err := sleepCtx(ctx, r.w.verifyInterval); err != nil {
+			if errors.Is(err, errStartupTimeout) {
+				return fmt.Errorf("%w: agent is not assigned: %s", errStartupTimeout, reason)
+			}
 			return err
 		}
 	}
@@ -259,6 +265,12 @@ func healthProblem(env domain.Environment, h AgentHealth, status int, err error)
 	switch {
 	case err != nil:
 		return "agent: " + err.Error()
+	case status != httpStatusOK && h.State != "":
+		problem := "agent: HTTP " + strconv.Itoa(status) + ", agent state " + h.State
+		if h.Reason != "" {
+			problem += " (" + h.Reason + ")"
+		}
+		return problem
 	case status != httpStatusOK:
 		return "agent: HTTP " + strconv.Itoa(status)
 	case h.SessionID != env.SessionID.String():
@@ -280,6 +292,7 @@ func (r *jobRun) createFailed(cause error) (bool, error) {
 		return true, fmt.Errorf("get environment: %w", err)
 	}
 	if provisioning(env.State) && (errors.Is(cause, ErrCloudPermanent) || errors.Is(cause, errAssignRejected) ||
+		errors.Is(cause, errAgentStopped) ||
 		errors.Is(cause, errStartupTimeout) || r.startupExpired(env)) {
 		env.LastError = "provisioning failed: " + cause.Error()
 		r.w.log.Warn("provisioning failed", "session_id", env.SessionID, "state", env.State, "error", cause)

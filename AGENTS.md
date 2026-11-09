@@ -1,6 +1,6 @@
 # Backend: инструкции для агента
 
-Разрабатываем аналог Google Colab: блокноты с блоками Python/R и текста. Правила работы с задачами, ветками и PR — в [README.md](README.md). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. README). Учебный repo — копия main без Actions и новых PR.
+Разрабатываем аналог Google Colab: блокноты с блоками Python/R и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
 
 ## Wiki и общий поиск
 
@@ -56,7 +56,7 @@ make docker-build     # собрать colab-backend:local
 make doctor           # инструменты, настройки и GitHub-доступы; ничего не меняет
 make check-fast       # gofmt и go vet; затем тесты изменённого пакета
 make check            # tidy, сборка всех пакетов, race-тесты, lint перед PR
-make up               # собрать и запустить API, PostgreSQL, SeaweedFS; ждать health
+make up               # собрать и запустить API, PostgreSQL, Redis, SeaweedFS; ждать health
 make health           # GET /health; make logs — последние логи; make down — остановка
 make run              # то же окружение с логами в терминале
 make agent-setup agent-lint agent-test agent-build # Python-агент: установка и проверки
@@ -141,12 +141,10 @@ infra/ansible/README.md: pull_policy never, только API, без мигра�
 docs: добавить инструкции для агента
 refactor(auth): вынести проверку токена в middleware
 ```
-
-Назначение типов — в [README](README.md#типы-коммитов).
+Назначение типов — в [локальной разработке](docs/local-development.md#типы-коммитов).
 
 ## Документация
 
 README содержит краткую, актуальную информацию о проекте и его использовании. Порядок выкатки конкретной задачи, временные зависимости и условия слияния описывай в задаче при необходимости, а не в README. Подробную общепроектную документацию размещай в репозитории организации [docs](https://github.com/Cringe-Driven-Development-Team/docs). Локальные инструкции backend по запуску, API и CI размещай в `docs/`, оставляя README коротким навигатором.
 ## Актуальность документа
-
 При изменении команд или архитектурных границ обновляй этот файл в том же изменении, размер этого документа не более 150 строк.
