@@ -1,11 +1,11 @@
 # Локальная разработка backend
 
-Подробности запуска и настройки инструментов для этого репозитория. Короткий старт — в [README](../README.md#быстрый-старт).
+Запуск Go API, проверки, рабочий процесс и карта документации. Общая навигация — в [README](../README.md).
 
 ## Запуск и проверки
 
 Для локальной работы нужны Go версии из `go.mod`, компилятор C для `-race`,
-Make и Docker с Compose. Команды:
+Make, curl и Docker с Compose. Секреты задавайте только в `.env`, файл не коммитьте. Команды:
 
 ```bash
 make lint          # статический анализ
@@ -21,6 +21,7 @@ make run           # API, PostgreSQL, Redis и SeaweedFS через Docker Compo
 cp -n .env.example .env
 # Задайте JWT_SECRET и BFF_API_KEY: два разных случайных значения.
 # Например, каждое получите командой: openssl rand -hex 32
+# Задайте отдельный TOTP_ENCRYPTION_KEY: openssl rand -base64 32
 make doctor
 make up           # PostgreSQL + Redis + SeaweedFS + API, health до 120 секунд
 make health       # {"status": "alive"}; по умолчанию http://localhost:8080/health
@@ -54,7 +55,7 @@ Codex читает [AGENTS.md](../AGENTS.md); Claude Code загружает е�
 подтвердите установку в клиенте. В Codex установите плагин из того же репозитория
 и убедитесь, что доступен скилл `cdd-tasks`. Перед работой читайте актуальный
 [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md):
-он имеет приоритет перед скиллом. Правила веток и PR — в [README](../README.md#как-работать-с-задачами).
+он имеет приоритет перед скиллом. Правила веток и PR — в разделе [работы с задачами](#как-работать-с-задачами).
 
 Установите проверенную версию gopls с поддержкой headless MCP:
 
@@ -109,9 +110,9 @@ Apidog-токен нужен только для изменения контра
    Docker-проверка не публикует образ. Контракт меняйте по [процессу Apidog](apidog.md).
 6. В PR запишите версии клиентов/gopls, результаты MCP, doctor, health и проверок.
    Недоступный клиент отмечайте как непроверенный; запуск MCP сам по себе
-   не подтверждает интеграцию с обоими клиентами. Правила ревью и исключение YarikMix — в [README](../README.md#как-работать-с-задачами).
+   не подтверждает интеграцию с обоими клиентами. Правила ревью и исключение YarikMix — в разделе [работы с задачами](#как-работать-с-задачами).
 
-Go API требует `JWT_SECRET`, `BFF_API_KEY`,
+Go API требует `JWT_SECRET`, `BFF_API_KEY`, `TOTP_ENCRYPTION_KEY` (base64 ровно 32 байт),
 `S3_AVATARS_BUCKET` и `S3_AVATARS_PUBLIC_URL`. Запросы к `/api/v1` передают
 `X-BFF-Key`, защищённые ручки — также Bearer. Контракт: [авторизация](authentication.md).
 
@@ -156,7 +157,7 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 `S3_AVATARS_BUCKET` (`cellestial-avatars-local`). Блокноты хранятся по ячейкам
 в PostgreSQL; старые ipynb не переносятся — [однократный сброс БД](database-reset.md). Одноразовый сервис `s3-init`
 выдаёт `anonymous` только `Read` на бакет аватаров; API ждёт его успешного
-завершения. Чтение блокнотов и список объектов остаются закрытыми.
+завершения. Список объектов остаётся закрытым; доступ к блокнотам проверяет Go API.
 Инициализация повторяется при `make up`, существующие данные сохраняются.
 Синтаксис нескольких бакетов и настройки доступа подтверждён в
 [mini SeaweedFS 4.48](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/command/mini.go)
@@ -169,7 +170,97 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 при работе с другим компьютером укажите доступное ему имя хоста вместо localhost.
 Диагностика инициализации: `docker compose logs s3-init`.
 
-При запуске только с `-f docker-compose.yml` задайте действительные AWS_* и оба
-бакета, а также публичный URL аватаров самостоятельно. Для production бакет,
+При запуске только с `-f docker-compose.yml` задайте действительные AWS_*,
+бакет аватаров и его публичный URL самостоятельно. Для production бакет,
 CDN и переменные приложения настраивает infra (infra#30); локальный init туда
 не переносится. Правила загрузки — в [профиле пользователя](user-profile.md).
+
+## Агент исполнения Python/R
+
+[runtime-agent](../runtime-agent/README.md) — Python 3.13 сервис systemd на выделенной
+VPS пользовательской сессии. Запускает один контейнер с одним Python или R kernel,
+принимает команды через внутренний HTTP/WebSocket API и хранит журнал SQLite.
+UUID сессии и язык задаются при запуске; лимиты — 1 CPU / 1 GiB RAM, простой — 15 минут.
+Контейнер без host mounts; связь агента с Jupyter — закрытый TCP без публикации порта.
+Доступ kernel к интернету ограничивает firewall infra по [контракту сети](runtime-agent-network.md).
+
+Создание, настройку и удаление VPS сессий в Selectel выполняет модуль `internal/runtime`:
+[provisioning окружений](runtime-provisioning.md).
+
+Проверки: `make agent-setup agent-lint agent-test agent-build`;
+с Docker — `make agent-images agent-integration`; локальный Python kernel —
+`make agent-test-jupyter`. Сетевая приёмка на отдельной VPS — `make agent-network-check`.
+VPS создаёт и удаляет backend; роли установки агента, реализация firewall и секреты
+принадлежат `infra`. Модуль `internal/runtimesession` уже связывает пользователя,
+блокнот и окружение, сохраняет команды и результаты в PostgreSQL —
+[пользовательские runtime-сессии](runtime-sessions.md).
+
+Локальный Compose включает `RUNTIME_PROVIDER=fake`: он не создаёт облачные VPS
+и не подтверждает реальное исполнение Python/R. Проверки с настоящими kernels
+описаны в [README агента](../runtime-agent/README.md#разработка-и-проверки),
+сквозной smoke на VPS — в [provisioning](runtime-provisioning.md).
+
+
+## Проверки перед PR
+
+Из корня репозитория:
+
+```bash
+make check         # shell-синтаксис, gofmt, go vet, tidy, сборка, race-тесты и lint
+make docker-build  # локальная сборка образа без публикации
+```
+
+`make test` запускает `scripts/test.sh`: `-race -count=1 -coverpkg=./...`, затем
+формирует `coverage.out` и печатает итоговое покрытие. `internal/transport/http/api`, `cmd/apidog`, `cmd/main` и `migrations`
+исключены из отчёта, `internal/app` учитывается; автоматического порога нет.
+Локальные интеграционные тесты PostgreSQL и Redis требуют отдельного тестового
+окружения (`TEST_POSTGRES_DSN`, `RUNTIME_TEST_DATABASE_URL`, `REDIS_TEST_ADDR`);
+команды — в [runtime-сессиях](runtime-sessions.md#запуск-и-проверки)
+и [Redis runbook](redis-sessions.md). CI поднимает эти сервисы сам.
+Проверки Python/R — в разделе [агента исполнения](#агент-исполнения-pythonr).
+Результаты и ограничения проверок укажите в PR.
+
+## Как работать с задачами
+
+Задачи команды собраны на [доске Scrumban](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1).
+Правила оформления задач и ревью — в [CONTRIBUTING команды](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
+Код, issues и PR находятся в `Cringe-Driven-Development-Team/backend`: ветка `api-N`,
+заголовок PR `API-N: <название задачи>`, в описании — `Closes #N`.
+Учебный репозиторий получает копию `main`, рабочие PR туда не открываются.
+
+Перед передачей изменений выполните [проверки перед PR](#проверки-перед-pr).
+Нужны успешные CI-проверки, разрешённые обсуждения и review backend-ментора Александра.
+По согласованному исключению `YarikMix` может мержить backend PR без Approve;
+обязательные PR, CI и защита `main` сохраняются.
+
+## Типы коммитов
+
+Формат: `<тип>: <описание>` или `<тип>(<область>): <описание>`. Коммиты ветки сохраняются в истории как есть.
+
+| Тип | Когда использовать |
+| --- | --- |
+| `feat` | новая функциональность |
+| `fix` | исправление бага |
+| `refactor` | изменение кода без изменения поведения |
+| `style` | форматирование |
+| `test` | тесты |
+| `docs` | документация |
+| `chore` | конфиги, зависимости, сборка и CI |
+
+## Код и документация
+
+- `cmd/main` — точка входа; `internal/app` собирает зависимости, `internal/config` читает окружение.
+- `internal/transport/http` — маршруты, авторизация и HTTP-политики; `internal/{user,notebook}` — domain, usecase, HTTP-обработчики и адаптеры хранения.
+- `migrations/` — SQL-миграции goose; `internal/transport/http/api/api.gen.go` — код, сгенерированный из Apidog, вручную не редактируйте.
+- [Сессии Redis](redis-sessions.md) — конфигурация, отзыв, переключение и восстановление.
+- [Авторизация через BFF](authentication.md) — JSON-токены, Bearer и обязательный S2S-ключ.
+- [Профиль пользователя](user-profile.md) — логин, смена пароля и загрузка аватара.
+- [Редактирование ipynb](notebook-editing.md) — операции над блоками, хеши и консистентность.
+- [Двухфакторная авторизация](two-factor-authentication.md) — настройка TOTP и ключа шифрования.
+- [Однократный сброс БД](database-reset.md) — переход на хранение блокнотов в PostgreSQL без переноса старых ipynb.
+- [Runtime-сессии](runtime-sessions.md) — пользователь, блокнот, очередь исполнения и результаты.
+- [Provisioning окружений](runtime-provisioning.md) — создание, настройка и удаление VPS; [сеть агента](runtime-agent-network.md).
+- [OpenWiki](openwiki.md) — поиск, ручное обновление и публикация wiki.
+- [Контракт API в Apidog](apidog.md) — ветки, Merge Request и `make generate`.
+- [CI, образ и деплой](release.md) — проверки и выпуск. Production-конфигурация принадлежит [infra](https://github.com/Cringe-Driven-Development-Team/infra).
+- [AGENTS.md](../AGENTS.md) — локальные правила для агента; Claude Code подключает их через [CLAUDE.md](../CLAUDE.md).
