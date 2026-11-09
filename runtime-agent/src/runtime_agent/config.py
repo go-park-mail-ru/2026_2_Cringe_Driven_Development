@@ -37,7 +37,8 @@ class Settings:
     kernel_dns: str
     max_output_bytes: int = 10 * 1024 * 1024
     idle_seconds: float = 900
-    startup_seconds: float = 30
+    # медленная VPS поднимает Jupyter дольше 30 с; после таймаута сессия FAILED без повтора
+    startup_seconds: float = 120
     interrupt_seconds: float = 5
     monitor_seconds: float = 2
     python_image: str = "cellestial-kernel-python:local"

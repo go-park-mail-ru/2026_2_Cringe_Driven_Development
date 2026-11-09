@@ -452,6 +452,28 @@ func TestVerifyTimeoutCleansUp(t *testing.T) {
 	}
 }
 
+// Kernel не стартовал: агент отвечает 503 с FAILED — окружение падает сразу, не ждёт StartupTimeout.
+func TestVerifyFailsFastWhenAgentSessionFailed(t *testing.T) {
+	h := newHarness(t)
+	h.cfg = agentHost(h, func(c usecase.HostConfig) {
+		h.agent.SetState("https://"+c.PrivateIP+":8443", "FAILED")
+	})
+	sid := h.request()
+	if _, err := runOnce(t, h.worker("w1")); err != nil {
+		t.Fatalf("RunOnce err = %v", err)
+	}
+	env := h.env(sid)
+	if env.State != domain.StateFailed || !strings.Contains(env.LastError, "agent state FAILED") {
+		t.Fatalf("env = %+v", env)
+	}
+	if n := h.agent.Calls("Health"); n != 1 {
+		t.Fatalf("health calls = %d, want 1", n)
+	}
+	if n := h.resources(); n != 0 {
+		t.Fatalf("resources left = %d", n)
+	}
+}
+
 func TestVerifyRejectsForeignSession(t *testing.T) {
 	h := newHarness(t)
 	h.cfg = agentHost(h, func(c usecase.HostConfig) {

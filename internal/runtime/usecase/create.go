@@ -207,8 +207,8 @@ func (r *jobRun) configure(ctx context.Context, env domain.Environment) error {
 	return nil
 }
 
-// verify опрашивает /health, пока агент не ответит готовностью своей сессии и языка
-// или не истечёт StartupTimeout. Каждый вызов ограничен healthTimeout, чтобы зависший запрос
+// verify опрашивает /health, пока агент не ответит готовностью своей сессии и языка,
+// не сообщит о завершённой сессии (FAILED/STOPPED — сразу ошибка) или не истечёт StartupTimeout. Каждый вызов ограничен healthTimeout, чтобы зависший запрос
 // не откладывал проверку StartupTimeout.
 func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
 	s, err := r.w.repo.LoadSecrets(r.leaseCtx, r.job.SessionID)
@@ -227,6 +227,9 @@ func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
 		if reason == "" {
 			return nil
 		}
+		if herr == nil && h.SessionID == env.SessionID.String() && (h.State == "FAILED" || h.State == "STOPPED") {
+			return fmt.Errorf("%w: %s", errAgentStopped, reason)
+		}
 		if ctx.Err() != nil {
 			if errors.Is(context.Cause(ctx), errStartupTimeout) {
 				return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
@@ -237,6 +240,9 @@ func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
 			return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
 		}
 		if err := sleepCtx(ctx, r.w.verifyInterval); err != nil {
+			if errors.Is(err, errStartupTimeout) {
+				return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
+			}
 			return err
 		}
 	}
@@ -246,6 +252,12 @@ func healthProblem(env domain.Environment, h AgentHealth, status int, err error)
 	switch {
 	case err != nil:
 		return "health: " + err.Error()
+	case status != httpStatusOK && h.State != "":
+		problem := "health: HTTP " + strconv.Itoa(status) + ", agent state " + h.State
+		if h.Reason != "" {
+			problem += " (" + h.Reason + ")"
+		}
+		return problem
 	case status != httpStatusOK:
 		return "health: HTTP " + strconv.Itoa(status)
 	case h.SessionID != env.SessionID.String():
@@ -266,7 +278,7 @@ func (r *jobRun) createFailed(cause error) (bool, error) {
 	if err != nil {
 		return true, fmt.Errorf("get environment: %w", err)
 	}
-	if provisioning(env.State) && (errors.Is(cause, ErrCloudPermanent) ||
+	if provisioning(env.State) && (errors.Is(cause, ErrCloudPermanent) || errors.Is(cause, errAgentStopped) ||
 		errors.Is(cause, errStartupTimeout) || r.startupExpired(env)) {
 		env.LastError = "provisioning failed: " + cause.Error()
 		r.w.log.Warn("provisioning failed", "session_id", env.SessionID, "state", env.State, "error", cause)
