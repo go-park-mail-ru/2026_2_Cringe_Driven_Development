@@ -26,30 +26,40 @@ Docker-тесты создают временную bridge-сеть для пр�
 
 ## Назначение и запуск
 
-VPS создаёт и настраивает модуль `internal/runtime` backend
+VPS создаёт и готовит модуль `internal/runtime` backend
 ([docs/runtime-provisioning.md](../docs/runtime-provisioning.md)): воркер запускает
-playbook infra (роль `runtime_host` готовит образы, bridge-сеть, DNS и firewall).
-Перед стартом сервиса он задаёт `SESSION_ID`, `KERNEL_LANGUAGE`, `KERNEL_NETWORK`, `KERNEL_DNS` и свежий
-`RUNTIME_TOKEN` в защищённом env-файле, затем запускает сервис. Без корректной
-конфигурации и существующей IPv4 bridge-сети агент не стартует; fallback нет.
-Язык — `python|r`, UUID канонизируется. Наличие сети не доказывает наличие firewall.
+`prepare.yml` infra (роль `runtime_host` готовит образы, bridge-сеть, DNS и firewall),
+env-файл содержит только `KERNEL_NETWORK`, `KERNEL_DNS` и лимиты — данных сессии в нём нет.
+Без корректной конфигурации и существующей IPv4 bridge-сети агент не стартует; fallback нет.
+Наличие сети не доказывает наличие firewall.
+
+**Режим ожидания.** Без назначения агент сразу поднимает свежий контейнер kernel Python,
+`/health` без токена отвечает `state=WAITING` (ready — kernel готов), остальные маршруты — 503.
+Idle timeout не действует; умерший или не поднявшийся kernel монитор заменяет новым.
+
+**Назначение.** `POST /assign {session_id, language, token}` принимается один раз и отвечает
+снимком сессии после готовности kernel: сессия получает уже поднятый контейнер, новый не стартует.
+Язык — только `python` (иначе 400). Повтор с той же сессией и токеном — тот же ответ, другая
+сессия или токен — 409. Авторизация `/assign` — mTLS прокси (клиент `cellestial-backend`);
+все следующие запросы — с токеном из назначения. Назначение и токен хранятся в SQLite.
 
 Один worker обязателен. SQLite и эксклюзивная блокировка находятся в `STATE_DIR`.
-Другой UUID или язык при том же каталоге состояния отклоняются. Первый запуск
-создаёт kernel; повторный запуск агента очищает его прежние контейнеры, помечает
-незавершённые команды `UNKNOWN`, сессию — `STOPPED`. Kernel автоматически не
-восстанавливается и код не повторяется. Для новой сессии backend создаёт новую
-VPS (`internal/runtime`), старую удаляет; журнал перед этим забирает backend.
+Повторный запуск агента с назначением очищает его прежние контейнеры, помечает
+незавершённые команды `UNKNOWN`, сессию — `STOPPED`, а назначение сохраняет. Kernel
+автоматически не восстанавливается и код не повторяется. Для новой сессии backend
+берёт другую VPS (`internal/runtime`), старую удаляет; журнал перед этим забирает backend.
 
 ## API
 
-Все HTTP-маршруты, включая `/health` и `/openapi.json`, и WS handshake требуют
-`Authorization: Bearer <RUNTIME_TOKEN>`. По умолчанию агент слушает `127.0.0.1:8000`.
+После назначения все HTTP-маршруты, включая `/health` и `/openapi.json`, и WS handshake
+требуют `Authorization: Bearer <токен из назначения>`; без токена — только `POST /assign`
+и, до назначения, `GET /health`. По умолчанию агент слушает `127.0.0.1:8000`.
 Production-доступ из Go API, защищённый транспорт и firewall настраивает infra.
 
 | Метод | Путь | Назначение |
 | --- | --- | --- |
-| GET | `/health` | UUID сессии, язык, состояние, ready/draining, generation, активная команда, очередь |
+| POST | `/assign` | `{session_id, language, token}` → снимок сессии после готовности kernel; 400/409 |
+| GET | `/health` | UUID сессии, язык, состояние (`WAITING` до назначения), ready/draining, generation, активная команда, очередь |
 | POST | `/executions` | `{execution_id, code, timeout_seconds?}` → 202 |
 | GET | `/executions/{execution_id}` | Состояние и результат исполнения |
 | POST | `/variables` | `{execution_id}` → 202; инспекция в общей очереди |
@@ -126,9 +136,8 @@ Kernel и Jupyter находятся в одной пользовательск�
 в контейнер не передаются. Уничтожить свой kernel пользователь может.
 
 `deploy/cellestial-agent.service` и `deploy/agent.env.example` — шаблоны для infra,
-не production-выкатка. Настройки: HOST, PORT, RUNTIME_TOKEN, STATE_DIR, SESSION_ID,
-KERNEL_LANGUAGE, KERNEL_NETWORK, KERNEL_DNS, IDLE_TIMEOUT_SECONDS, MAX_OUTPUT_BYTES,
-PYTHON_IMAGE, R_IMAGE. Автоматического удаления истории нет.
+не production-выкатка. Настройки: HOST, PORT, STATE_DIR, KERNEL_NETWORK, KERNEL_DNS,
+IDLE_TIMEOUT_SECONDS, MAX_OUTPUT_BYTES, PYTHON_IMAGE. Автоматического удаления истории нет.
 
 При Docker Desktop WSL обычно не имеет маршрута к bridge IP контейнера; native
 `agent-integration` тогда завершится timeout. Тесты нужно запускать на Linux Engine

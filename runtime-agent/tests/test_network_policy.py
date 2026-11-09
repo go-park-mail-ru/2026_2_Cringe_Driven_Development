@@ -11,7 +11,7 @@ import pytest
 
 from runtime_agent.api import create_app
 
-from .conftest import command
+from .conftest import command, new_session
 from .test_integration import completed
 
 
@@ -38,7 +38,8 @@ async def test_infra_firewall(settings):
     app = create_app(settings)
     async with app.router.lifespan_context(app):
         agent = app.state.agent
-        assert agent.session.ready, agent.snapshot()
+        sid, session = await new_session(agent)
+        assert session.ready, agent.snapshot()
         code = f"""import socket, subprocess, sys
 from pathlib import Path
 socket.getaddrinfo('pypi.org', 443, family=socket.AF_INET)
@@ -59,7 +60,7 @@ assert Path('/proc/sys/net/ipv6/conf/all/disable_ipv6').read_text().strip() == '
         assert result["state"] == "SUCCEEDED", result
         # A peer on the bridge must not reach Jupyter or a user listener either.
         container = await asyncio.to_thread(
-            agent.containers.client.containers.get, agent.containers.name(settings.session_id)
+            agent.containers.client.containers.get, agent.containers.name()
         )
         address = container.attrs["NetworkSettings"]["Networks"][settings.kernel_network][
             "IPAddress"
@@ -71,7 +72,7 @@ assert Path('/proc/sys/net/ipv6/conf/all/disable_ipv6').read_text().strip() == '
                 "listener.bind(('0.0.0.0', 9999))\nlistener.listen()",
             )
         )
-        assert (await completed(agent, settings.session_id, "listener"))["state"] == "SUCCEEDED"
+        assert (await completed(agent, sid, "listener"))["state"] == "SUCCEEDED"
         # Jupyter is the sole management exception for host -> container.
         with socket.create_connection((address, 8888), timeout=3):
             pass
@@ -99,32 +100,7 @@ for port in (8888, 9999):
 async def completed_with_deadline(agent, execution_id, seconds):
     async with asyncio.timeout(seconds):
         while True:
-            result = agent.journal.execution(agent.settings.session_id, execution_id)
+            result = agent.journal.execution(agent.session.id, execution_id)
             if result["state"] not in ("QUEUED", "RUNNING"):
                 return result
             await asyncio.sleep(0.05)
-
-
-@pytest.mark.network
-@pytest.mark.docker
-async def test_r_package_installation(settings):
-    if os.environ.get("RUN_NETWORK_TESTS") != "1":
-        pytest.skip("Run explicitly on a disposable VPS with infra firewall")
-    settings = replace(
-        settings,
-        language="r",
-        kernel_network=os.environ["KERNEL_NETWORK"],
-        kernel_dns=os.environ["KERNEL_DNS"],
-        startup_seconds=60,
-    )
-    app = create_app(settings)
-    async with app.router.lifespan_context(app):
-        agent = app.state.agent
-        assert agent.session.ready, agent.snapshot()
-        code = """dir.create('/tmp/r-package-probe')
-install.packages('crayon', lib='/tmp/r-package-probe', repos='https://cloud.r-project.org')
-stopifnot(requireNamespace('crayon', lib.loc='/tmp/r-package-probe', quietly=TRUE))
-"""
-        agent.accept(command("r-package", code, 120))
-        result = await completed_with_deadline(agent, "r-package", 150)
-        assert result["state"] == "SUCCEEDED", result

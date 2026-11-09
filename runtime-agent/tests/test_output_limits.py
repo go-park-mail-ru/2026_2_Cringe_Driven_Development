@@ -21,7 +21,7 @@ async def test_large_non_output_message_is_not_persisted(env, kind, extra):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, session = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     parent = kernel.sent[-1][2]
     if kind == "execute_reply":
@@ -43,7 +43,7 @@ async def test_reply_copies_share_budget(env):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, session = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     kernel.complete(payload=[{"data": "é" * 200}])
     await until(lambda: session.active is None)
@@ -68,7 +68,7 @@ async def test_metadata_and_buffers_are_bounded(env, extra):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, runtime = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     kernel.emit(kernel.sent[-1][2], "display_data", {"data": {}}, **extra)
     kernel.complete()
@@ -83,9 +83,10 @@ async def test_metadata_and_buffers_are_bounded(env, extra):
 async def test_inspection_result_obeys_budget(env, language):
     agent, backend, _ = env
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
-    sid, runtime = await new_session(agent, language)
+    sid, runtime = await new_session(agent)
+    runtime.language = language  # the R inspection path stays covered
     agent.accept({"execution_id": "inspect", "kind": "inspect", "timeout_seconds": 5.0})
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     values = [{"name": "x" * 200_000, "type": "str", "preview": "tiny"}]
     if language == "python":
@@ -108,7 +109,7 @@ async def test_unattributed_non_output_data_is_bounded(env):
     agent, backend, _ = env
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, _ = await new_session(agent)
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     kernel.emit("unknown", "custom", {"blob": "x" * 200_000})
     kernel.emit("unknown", "custom", {"blob": "x" * 200_000})
     await until(lambda: agent.session.unattributed_truncated)
