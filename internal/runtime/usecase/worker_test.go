@@ -70,6 +70,8 @@ type recordingCloud struct {
 	mu       sync.Mutex
 	userData string
 	hang     map[string]bool
+	// afterList, если задан, вызывается после ListOwned (до ответа).
+	afterList func()
 }
 
 func (c *recordingCloud) EnsureServer(ctx context.Context, env domain.Environment, userData string) (string, error) {
@@ -88,7 +90,11 @@ func (c *recordingCloud) ListOwned(ctx context.Context) ([]usecase.CloudResource
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	return c.Cloud.ListOwned(ctx)
+	owned, err := c.Cloud.ListOwned(ctx)
+	if c.afterList != nil {
+		c.afterList()
+	}
+	return owned, err
 }
 
 // hangingAssign — агент, чей /assign не отвечает до отмены ctx.

@@ -40,12 +40,16 @@ func (r *jobRun) claimPool(env domain.Environment) (bool, error) {
 func (r *jobRun) leavePool(env domain.Environment, cause error) error {
 	vps := domain.PoolVPS{ID: env.PoolID, Resources: env.Resources}
 	r.w.log.Warn("pool vps rejected, creating a new vps", "session_id", env.SessionID, "pool_id", vps.ID, "error", cause)
-	if err := r.w.pool.MarkPoolDeleting(r.leaseCtx, vps.ID, "assign failed: "+cause.Error()); err != nil {
-		return fmt.Errorf("mark pool vps deleting: %w", err)
+	marked, err := r.w.pool.MarkPoolDeleting(r.leaseCtx, vps.ID, domain.PoolClaimed, env.SessionID, "assign failed: "+cause.Error())
+	if err != nil {
+		return err
 	}
 	env.Resources, env.PoolID = domain.Resources{}, uuid.Nil
 	if _, err := r.save(env, domain.StateCreating); err != nil {
 		return err
+	}
+	if !marked {
+		return nil // VPS уже не этой сессии или удаляется: её ресурсы не трогаем
 	}
 	// Ошибка удаления не мешает сессии: строка DELETING остаётся, reconcile повторит.
 	ctx, cancel := context.WithTimeout(r.leaseCtx, r.w.s.DeleteTimeout)
@@ -123,13 +127,15 @@ func (w *Worker) preparePool(ctx context.Context, vps domain.PoolVPS) {
 			return
 		}
 	}
-	// Остановка API: VPS помечается к удалению, ресурсы удалит reconcile следующего запуска.
+	// Остановка API: VPS помечается к удалению, ресурсы удалит reconcile следующего запуска. Не удалось
+	// пометить — VPS уже в DELETING (её забрал reconcile), удаление за ним.
 	mctx, mcancel := context.WithTimeout(context.WithoutCancel(ctx), w.s.DrainTimeout)
 	defer mcancel()
-	if merr := w.pool.MarkPoolDeleting(mctx, vps.ID, "preparation failed: "+err.Error()); merr != nil {
+	marked, merr := w.pool.MarkPoolDeleting(mctx, vps.ID, domain.PoolPreparing, uuid.Nil, "preparation failed: "+err.Error())
+	if merr != nil {
 		w.log.Error("mark pool vps deleting", "pool_id", vps.ID, "error", merr)
 	}
-	if ctx.Err() != nil {
+	if ctx.Err() != nil || !marked {
 		return
 	}
 	w.poolMu.Lock()
@@ -283,9 +289,15 @@ func (w *Worker) reconcilePool(ctx context.Context, rows []domain.PoolVPS) error
 		if reason == "" {
 			continue
 		}
-		if vps.State != domain.PoolDeleting && vps.State != domain.PoolClaimed {
-			if err := w.pool.MarkPoolDeleting(ctx, vps.ID, reason); err != nil {
-				return fmt.Errorf("mark pool vps deleting: %w", err)
+		// Решение принято по снимку: VPS могли захватить или удалить после него. Ресурсы удаляются
+		// только после перехода из того же состояния, что в снимке.
+		if vps.State != domain.PoolDeleting {
+			marked, err := w.pool.MarkPoolDeleting(ctx, vps.ID, vps.State, vps.SessionID, reason)
+			if err != nil {
+				return err
+			}
+			if !marked {
+				continue
 			}
 		}
 		w.deletePoolVPS(ctx, vps, reason)

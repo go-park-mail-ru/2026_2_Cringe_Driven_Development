@@ -71,9 +71,11 @@ type PoolRepository interface {
 	// (FOR UPDATE SKIP LOCKED), переводит её в CLAIMED и переносит ресурсы и host key в окружение
 	// QUEUED → VERIFYING (те же условия, что у Save). false — READY-VPS нет.
 	ClaimPool(ctx context.Context, env domain.Environment, owner, imageID, agentVersion string) (domain.Environment, bool, error)
-	// MarkPoolDeleting переводит VPS в DELETING с причиной; уже DELETING или отсутствующая — no-op.
-	MarkPoolDeleting(ctx context.Context, id uuid.UUID, reason string) error
+	// MarkPoolDeleting переводит VPS в DELETING, только если она всё ещё в состоянии from (для CLAIMED —
+	// ещё и у сессии sessionID); false — VPS уже в другом состоянии или удалена, её ресурсы трогать нельзя.
+	MarkPoolDeleting(ctx context.Context, id uuid.UUID, from domain.PoolState, sessionID uuid.UUID, reason string) (bool, error)
 	ListPool(ctx context.Context) ([]domain.PoolVPS, error)
+	// DeletePool удаляет строку VPS в DELETING.
 	DeletePool(ctx context.Context, id uuid.UUID) error
 }
 

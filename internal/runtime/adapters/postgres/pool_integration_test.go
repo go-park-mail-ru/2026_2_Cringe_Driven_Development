@@ -145,8 +145,22 @@ func TestPoolRepositoryLifecycle(t *testing.T) {
 			t.Fatalf("pool row = %+v", row)
 		}
 	}
-	if err = r.MarkPoolDeleting(ctx, vps.ID, "assign failed"); err != nil {
+	// Решение по устаревшему снимку (VPS считалась READY) не трогает захваченную VPS; CLAIMED —
+	// только для своей сессии. Строка удаляется только из DELETING.
+	if ok, err := r.MarkPoolDeleting(ctx, vps.ID, domain.PoolReady, uuid.Nil, "pool size reduced"); err != nil || ok {
+		t.Fatalf("mark claimed vps from READY = %v, %v", ok, err)
+	}
+	if ok, err := r.MarkPoolDeleting(ctx, vps.ID, domain.PoolClaimed, uuid.New(), "assign failed"); err != nil || ok {
+		t.Fatalf("mark vps of another session = %v, %v", ok, err)
+	}
+	if err = r.DeletePool(ctx, vps.ID); err != nil {
 		t.Fatal(err)
+	}
+	if rows, err = r.ListPool(ctx); err != nil || len(rows) != 2 {
+		t.Fatalf("CLAIMED row deleted: %+v, %v", rows, err)
+	}
+	if ok, err := r.MarkPoolDeleting(ctx, vps.ID, domain.PoolClaimed, winner.SessionID, "assign failed"); err != nil || !ok {
+		t.Fatalf("mark own claimed vps = %v, %v", ok, err)
 	}
 	if err = r.DeletePool(ctx, vps.ID); err != nil {
 		t.Fatal(err)

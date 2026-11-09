@@ -225,3 +225,41 @@ func TestPoolSizeZeroDisablesPool(t *testing.T) {
 		t.Fatalf("servers = %d, want only the session vps", h.cloud.Count("server"))
 	}
 }
+
+// Reconcile решил удалить лишнюю READY-VPS по снимку, но её успели захватить: VPS активной сессии
+// остаётся нетронутой.
+func TestPoolReconcileKeepsVPSClaimedAfterSnapshot(t *testing.T) {
+	h := newHarness(t)
+	h.s.PoolSize = 0
+	vps := h.readyPool("img-1", true)
+	h.store.afterListPool = func() { h.store.claimDirect(vps.ID, uuid.New()) }
+	if err := usecase.Reconcile(context.Background(), h.worker("w1")); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(h.store.poolStates()); got != "[CLAIMED]" {
+		t.Fatalf("pool = %s", got)
+	}
+	if h.cloud.Count("server") != 1 {
+		t.Fatalf("servers = %d, want the claimed vps", h.cloud.Count("server"))
+	}
+}
+
+// VPS пула создана между чтением ресурсов и чтением строк пула: её ресурсы не сироты.
+func TestPoolReconcileKeepsVPSCreatedDuringPass(t *testing.T) {
+	h := newHarness(t)
+	h.s.PoolSize = 1
+	var vps domain.PoolVPS
+	h.cloud.afterList = func() {
+		h.cloud.afterList = nil
+		vps = h.readyPool("img-1", true)
+	}
+	if err := usecase.Reconcile(context.Background(), h.worker("w1")); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(h.store.poolStates()); got != "[READY]" || vps.ID == uuid.Nil {
+		t.Fatalf("pool = %s", got)
+	}
+	if h.cloud.Count("server") != 1 || h.cloud.Count("volume") != 1 || h.cloud.Count("port") != 1 {
+		t.Fatalf("resources of the new vps deleted")
+	}
+}

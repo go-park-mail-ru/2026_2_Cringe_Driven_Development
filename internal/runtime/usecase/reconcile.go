@@ -46,14 +46,19 @@ func (w *Worker) reconcilePass(ctx context.Context) error {
 // reconcilePool.
 func (w *Worker) reconcile(ctx context.Context) error {
 	errs := w.retryCleanups(ctx)
+	// Ресурсы читаются раньше строк пула: строка VPS пула создаётся до её ресурсов, поэтому у каждого
+	// ресурса из списка строка уже есть, если VPS не удалена.
+	owned, err := w.cloud.ListOwned(ctx)
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("list resources: %w", err))...)
+	}
 	var rows []domain.PoolVPS
 	if w.pool != nil {
-		var err error
 		if rows, err = w.pool.ListPool(ctx); err != nil {
 			return errors.Join(append(errs, fmt.Errorf("list pool: %w", err))...)
 		}
 	}
-	if err := w.deleteOrphans(ctx, rows); err != nil {
+	if err := w.deleteOrphans(ctx, owned, rows); err != nil {
 		errs = append(errs, err)
 	}
 	if w.pool != nil {
@@ -80,11 +85,7 @@ func (w *Worker) retryCleanups(ctx context.Context) []error {
 	return errs
 }
 
-func (w *Worker) deleteOrphans(ctx context.Context, pool []domain.PoolVPS) error {
-	owned, err := w.cloud.ListOwned(ctx)
-	if err != nil {
-		return fmt.Errorf("list resources: %w", err)
-	}
+func (w *Worker) deleteOrphans(ctx context.Context, owned []CloudResource, pool []domain.PoolVPS) error {
 	var errs []error
 	for _, kind := range deleteOrder() {
 		for _, r := range owned {

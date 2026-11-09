@@ -35,9 +35,9 @@ const (
 		WHERE e.session_id = $1 AND e.version = $2 AND e.state = 'QUEUED' AND EXISTS (
 			SELECT 1 FROM runtime_jobs j WHERE j.session_id = e.session_id AND j.status = 'running' AND j.lease_owner = $10)
 		RETURNING e.version, e.updated_at`
-	poolDeletingSQL = `UPDATE runtime_pool SET state = 'DELETING', last_error = $2, updated_at = now()
-		WHERE id = $1 AND state <> 'DELETING'`
-	poolDeleteSQL = `DELETE FROM runtime_pool WHERE id = $1`
+	poolDeletingSQL = `UPDATE runtime_pool SET state = 'DELETING', last_error = $4, updated_at = now()
+		WHERE id = $1 AND state = $2 AND (state <> 'CLAIMED' OR session_id = $3)`
+	poolDeleteSQL = `DELETE FROM runtime_pool WHERE id = $1 AND state = 'DELETING'`
 )
 
 func scanPool(row pgx.Row) (domain.PoolVPS, error) {
@@ -121,12 +121,13 @@ func (r *Repository) ClaimPool(ctx context.Context, env domain.Environment, owne
 	return env, true, nil
 }
 
-// MarkPoolDeleting переводит VPS в DELETING.
-func (r *Repository) MarkPoolDeleting(ctx context.Context, id uuid.UUID, reason string) error {
-	if _, err := r.db.Exec(ctx, poolDeletingSQL, id, reason); err != nil {
-		return fmt.Errorf("mark pool vps deleting: %w", err)
+// MarkPoolDeleting переводит VPS в DELETING только из ожидаемого состояния.
+func (r *Repository) MarkPoolDeleting(ctx context.Context, id uuid.UUID, from domain.PoolState, sessionID uuid.UUID, reason string) (bool, error) {
+	tag, err := r.db.Exec(ctx, poolDeletingSQL, id, string(from), sessionID, reason)
+	if err != nil {
+		return false, fmt.Errorf("mark pool vps deleting: %w", err)
 	}
-	return nil
+	return tag.RowsAffected() > 0, nil
 }
 
 // ListPool возвращает все VPS пула, старые первыми.
@@ -150,7 +151,7 @@ func (r *Repository) ListPool(ctx context.Context) ([]domain.PoolVPS, error) {
 	return out, nil
 }
 
-// DeletePool удаляет строку VPS пула.
+// DeletePool удаляет строку VPS пула в DELETING.
 func (r *Repository) DeletePool(ctx context.Context, id uuid.UUID) error {
 	if _, err := r.db.Exec(ctx, poolDeleteSQL, id); err != nil {
 		return fmt.Errorf("delete pool vps: %w", err)

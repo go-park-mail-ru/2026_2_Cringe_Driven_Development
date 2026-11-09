@@ -70,6 +70,8 @@ type memStore struct {
 	renewCalls  int
 	pool        []*domain.PoolVPS
 	reserves    int
+	// afterListPool, если задан, вызывается после снимка ListPool (вне блокировки).
+	afterListPool func()
 }
 
 var (
@@ -429,29 +431,44 @@ func (m *memStore) ClaimPool(_ context.Context, env domain.Environment, owner, i
 	return e.env, true, nil
 }
 
-func (m *memStore) MarkPoolDeleting(_ context.Context, id uuid.UUID, reason string) error {
+func (m *memStore) MarkPoolDeleting(_ context.Context, id uuid.UUID, from domain.PoolState, sessionID uuid.UUID, reason string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if p := m.poolLocked(id); p != nil && p.State != domain.PoolDeleting {
-		p.State, p.LastError = domain.PoolDeleting, reason
+	p := m.poolLocked(id)
+	if p == nil || p.State != from || (from == domain.PoolClaimed && p.SessionID != sessionID) {
+		return false, nil
 	}
-	return nil
+	p.State, p.LastError = domain.PoolDeleting, reason
+	return true, nil
 }
 
 func (m *memStore) ListPool(context.Context) ([]domain.PoolVPS, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	out := make([]domain.PoolVPS, 0, len(m.pool))
 	for _, p := range m.pool {
 		out = append(out, *p)
 	}
+	hook := m.afterListPool
+	m.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	return out, nil
+}
+
+// claimDirect захватывает VPS пула для сессии в обход окружения (гонка с reconcile).
+func (m *memStore) claimDirect(id, session uuid.UUID) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if p := m.poolLocked(id); p != nil {
+		p.State, p.SessionID = domain.PoolClaimed, session
+	}
 }
 
 func (m *memStore) DeletePool(_ context.Context, id uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.pool = slices.DeleteFunc(m.pool, func(p *domain.PoolVPS) bool { return p.ID == id })
+	m.pool = slices.DeleteFunc(m.pool, func(p *domain.PoolVPS) bool { return p.ID == id && p.State == domain.PoolDeleting })
 	return nil
 }
 
