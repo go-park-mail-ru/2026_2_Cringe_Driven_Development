@@ -175,7 +175,7 @@ async def test_invalid_assignment_is_rejected(waiting, body):
 
 
 async def test_waiting_kernel_channel_is_read(waiting):
-    # Jupyter закрывает непрочитанный канал (нет pong на ping): канал ожидания читается до назначения
+    # Jupyter закрывает непрочитанный канал (нет pong на ping): он читается до назначения
     agent, backend, client = waiting
     kernel = backend.kernel
     kernel.emit("x", "status", {"execution_state": "idle"})
