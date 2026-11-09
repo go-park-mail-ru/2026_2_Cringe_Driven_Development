@@ -481,6 +481,7 @@ class Agent:
         token (str | None): Bearer token of the assigned session.
         warm (Jupyter | None): Ready kernel waiting for the assignment.
         warming (asyncio.Task | None): Startup of the waiting kernel.
+        draining_warm (asyncio.Task | None): Reader of the waiting kernel channel.
         assigning (asyncio.Lock): Serializes the assignment and waiting kernel checks.
         cleanup_pending (tuple[str, str] | None): Final state and reason to retry
             after container removal fails.
@@ -506,6 +507,7 @@ class Agent:
         self.token: str | None = None
         self.warm = None
         self.warming: asyncio.Task | None = None
+        self.draining_warm: asyncio.Task | None = None
         self.assigning = asyncio.Lock()
         self.cleanup_pending: tuple[str, str] | None = None
         self.subscribers = set()
@@ -552,6 +554,37 @@ class Agent:
             log.info("Waiting kernel is ready")
         except Exception:
             log.exception("Waiting kernel startup failed")
+            return
+        self.draining_warm = asyncio.create_task(self.drain_warm(self.warm), name="kernel-wait")
+
+    async def drain_warm(self, transport):
+        """Read the waiting kernel channel until the assignment takes it over.
+
+        Jupyter Server pings the WebSocket and closes it when no pong arrives for
+        90 s; pongs are sent only while the channel is read. A closed channel
+        leaves the agent without a kernel, and the monitor starts a new one.
+
+        Args:
+            transport (Jupyter): Open transport of the waiting kernel.
+        """
+        try:
+            while True:
+                await transport.receive()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.warning("Waiting kernel channel closed; a new kernel will be started")
+            if self.warm is transport:
+                self.warm = None
+                with suppress(Exception):
+                    await transport.close()
+
+    async def stop_draining(self):
+        """Stop reading the waiting kernel channel before handing it over or closing it."""
+        if self.draining_warm is not None:
+            self.draining_warm.cancel()
+            await asyncio.gather(self.draining_warm, return_exceptions=True)
+            self.draining_warm = None
 
     async def assign(self, session_id, language, token):
         """Assign the agent to a session once and hand it the prepared kernel.
@@ -579,6 +612,7 @@ class Agent:
                 raise AgentError(409, "Runtime is assigned to another session")
             if self.warming is not None:
                 await asyncio.shield(self.warming)
+            await self.stop_draining()
             if self.warm is None or self.stopping or not self.ready:
                 raise AgentError(503, "Kernel is not ready")
             self.journal.create(session_id, language, token)
@@ -698,6 +732,7 @@ class Agent:
             return
         if self.warm is not None and await self.containers.alive():
             return
+        await self.stop_draining()
         if self.warm is not None:
             log.warning("Waiting kernel died; starting a new one")
             transport, self.warm = self.warm, None
@@ -760,7 +795,7 @@ class Agent:
         """
         self.stopping = True
         self.ready = False
-        for task in (self.monitor, self.warming):
+        for task in (self.monitor, self.warming, self.draining_warm):
             if task:
                 task.cancel()
                 await asyncio.gather(task, return_exceptions=True)
