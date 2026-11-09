@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="80" viewBox="0 0 1200 80" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="violet" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+      <stop stop-color="#7A5AF8"/>
+      <stop offset=".5" stop-color="#B794F6"/>
+      <stop offset="1" stop-color="#7A5AF8"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .still { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .motion { display: none; }
+      .still { display: inline; }
+    }
+  </style>
+  <g class="motion">
+    <path fill="url(#violet)" opacity=".07" d="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40 V80 H0Z">
+      <animate attributeName="d" dur="12s" repeatCount="indefinite" values="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40 V80 H0Z;M0 40 Q150 70 300 40 T600 40 T900 40 T1200 40 V80 H0Z;M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40 V80 H0Z"/>
+    </path>
+    <path fill="none" stroke="url(#violet)" stroke-width="1.4" opacity=".8" d="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40">
+      <animate attributeName="d" dur="12s" repeatCount="indefinite" values="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40;M0 40 Q150 70 300 40 T600 40 T900 40 T1200 40;M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40"/>
+    </path>
+    <path fill="none" stroke="url(#violet)" stroke-width="1" opacity=".35" d="M0 50 Q200 72 400 50 T800 50 T1200 50">
+      <animate attributeName="d" dur="16s" repeatCount="indefinite" values="M0 50 Q200 72 400 50 T800 50 T1200 50;M0 50 Q200 28 400 50 T800 50 T1200 50;M0 50 Q200 72 400 50 T800 50 T1200 50"/>
+    </path>
+  </g>
+  <g class="still">
+    <path fill="url(#violet)" opacity=".07" d="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40 V80 H0Z"/>
+    <path fill="none" stroke="url(#violet)" stroke-width="1.4" opacity=".8" d="M0 40 Q150 10 300 40 T600 40 T900 40 T1200 40"/>
+    <path fill="none" stroke="url(#violet)" stroke-width="1" opacity=".35" d="M0 50 Q200 72 400 50 T800 50 T1200 50"/>
+  </g>
+</svg>

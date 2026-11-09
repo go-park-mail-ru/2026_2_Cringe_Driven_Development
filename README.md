@@ -89,3 +89,5 @@ Backend проекта «Colab» (Cellestial) команды «Cringe Driven Dev
     </tr>
   </tbody>
 </table>
+
+<img src=".github/assets/footer-wave.svg" width="100%" alt="">
