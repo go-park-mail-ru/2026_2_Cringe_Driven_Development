@@ -15,7 +15,6 @@ var (
 	ErrInvalidLanguage = errors.New("invalid kernel language")
 	ErrUnknownProfile  = errors.New("unknown environment profile")
 	ErrCapacity        = errors.New("active environments limit reached")
-	ErrDisabled        = errors.New("runtime provisioning is disabled")
 	ErrInvalidSession  = errors.New("invalid session id")
 )
 

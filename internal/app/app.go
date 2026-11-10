@@ -41,7 +41,7 @@ type application struct {
 	Server *http.Server
 	// Environments Сервис создания, чтения и удаления окружений.
 	Environments runtimeusecase.EnvironmentService
-	// RuntimeWorker nil, если RUNTIME_ENABLED=false.
+	// RuntimeWorker — обязательный обработчик provisioning.
 	RuntimeWorker *runtimeusecase.Worker
 	// SessionWorker Обработчик жизненного цикла пользовательских сессий.
 	SessionWorker *sessionusecase.Worker
@@ -118,7 +118,7 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	})
 	sessionStore := sessionpostgres.New(pool)
 	notebookUsecase := notebookusecase.NewNotebookUsecase(notebookRepo, sessionStore)
-	sessionService := sessionusecase.NewService(sessionStore, sessionusecase.Settings{Enabled: cfg.Runtime.Enabled}, nil, runtimeModule.Agent)
+	sessionService := sessionusecase.NewService(sessionStore, nil, runtimeModule.Agent)
 	sessionWorker := sessionusecase.NewWorker(sessionStore, sessionenv.New(runtimeModule.Environments), runtimeModule.Agent, nil)
 	userHandler := userdelivery.NewHandler(userUsecase, userdelivery.WithProfile(avatars, cfg.AvatarsPublicURL))
 	srv := httptransport.Server{UserHandler: userHandler, NotebookHandler: notebookdelivery.NewHandler(notebookUsecase), RuntimeHandler: sessiondelivery.NewHandler(sessionService)}

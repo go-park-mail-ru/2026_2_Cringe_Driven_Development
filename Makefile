@@ -28,7 +28,7 @@ check-fast:
 	test -z "$$files" || { printf '%s\n' "$$files"; exit 1; }
 	go vet ./...
 
-check: check-fast
+check: release-check check-fast
 	go mod tidy -diff
 	go build ./...
 	$(MAKE) test
@@ -120,3 +120,7 @@ generate-mocks:
 redis-test:
 	@test -n "$(REDIS_TEST_ADDR)" || (echo 'set REDIS_TEST_ADDR=host:port'; exit 1)
 	go test -race -count=1 ./internal/user/adapters/redis ./internal/transport/http
+
+.PHONY: release-check
+release-check:
+	python3 -m unittest discover -s scripts/release/tests -v

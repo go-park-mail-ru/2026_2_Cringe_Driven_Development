@@ -137,7 +137,7 @@ func newHarness(t *testing.T) *harness {
 		t: t, clock: clock, store: store, cloud: &recordingCloud{Cloud: cloud}, host: host, agent: agent,
 		ac: agent, sec: &stubSecrets{},
 		svc: usecase.NewService(store, usecase.Settings{
-			Enabled: true, MaxActive: 10, AgentVersion: "0.1.0", Profiles: map[string]bool{"default": true},
+			MaxActive: 10, AgentVersion: "0.1.0", Profiles: map[string]bool{"default": true},
 		}),
 		cfg: host,
 		s: usecase.WorkerSettings{

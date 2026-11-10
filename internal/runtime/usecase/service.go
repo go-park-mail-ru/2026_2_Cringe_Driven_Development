@@ -11,7 +11,6 @@ const defaultProfile = "default"
 
 // Settings — настройки сервиса.
 type Settings struct {
-	Enabled      bool
 	MaxActive    int
 	AgentVersion string
 	Profiles     map[string]bool
@@ -39,9 +38,6 @@ func normProfile(p string) string {
 
 // RequestCreate сохраняет окружение и задание, не ожидая облака.
 func (s *Service) RequestCreate(ctx context.Context, req CreateEnvironment) (domain.Environment, error) {
-	if !s.s.Enabled {
-		return domain.Environment{}, ErrDisabled
-	}
 	if req.SessionID == uuid.Nil {
 		return domain.Environment{}, ErrInvalidSession
 	}

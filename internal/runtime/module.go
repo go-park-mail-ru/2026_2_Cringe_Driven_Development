@@ -69,11 +69,11 @@ func (p parts) worker(owner string, lease time.Duration) *usecase.Worker {
 
 func newService(repo *postgres.Repository, cfg config.RuntimeConfig) *usecase.Service {
 	return usecase.NewService(repo, usecase.Settings{
-		Enabled: true, MaxActive: cfg.MaxActive, AgentVersion: cfg.AgentVersion, Profiles: map[string]bool{"default": true},
+		MaxActive: cfg.MaxActive, AgentVersion: cfg.AgentVersion, Profiles: map[string]bool{"default": true},
 	})
 }
 
-// assemble создаёт адаптеры по cfg.Provider; cfg.Enabled должен быть true.
+// assemble создаёт адаптеры по cfg.Provider.
 func assemble(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (parts, error) {
 	p := parts{cfg: cfg, repo: postgres.NewRepository(pool)}
 	clock := systemClock{}
@@ -117,11 +117,8 @@ type Module struct {
 	Agent sessionusecase.SessionAgent
 }
 
-// Build не создаёт облачные адаптеры, если runtime выключен.
+// Build собирает runtime с обязательным воркером выбранного провайдера.
 func Build(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (Module, error) {
-	if !cfg.Enabled {
-		return Module{Environments: usecase.NewService(postgres.NewRepository(pool), usecase.Settings{Enabled: false, Profiles: map[string]bool{"default": true}}), Agent: sessionagent.New(nil, nil, nil)}, nil
-	}
 	p, err := assemble(ctx, cfg, pool)
 	if err != nil {
 		return Module{}, err
@@ -133,12 +130,9 @@ func Build(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (M
 	return Module{Environments: newService(p.repo, cfg), Worker: p.worker(ownerName(), workerLease), Agent: sessionagent.New(p.repo, p.sec, client)}, nil
 }
 
-// BuildSmokeDeps собирает зависимости runtime-smoke (cfg.Enabled должен быть true); cleanup удаляет
+// BuildSmokeDeps собирает зависимости runtime-smoke; cleanup удаляет
 // рабочий подкаталог smoke.
 func BuildSmokeDeps(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (smoke.Deps, func(), error) {
-	if !cfg.Enabled {
-		return smoke.Deps{}, nil, usecase.ErrDisabled
-	}
 	// Свой подкаталог RUNTIME_WORK_DIR/smoke-<random>: ansible.New чистит устаревшие каталоги
 	// операций в рабочем каталоге и не должен задеть каталоги работающего API.
 	if err := os.MkdirAll(cfg.WorkDir, 0o700); err != nil {

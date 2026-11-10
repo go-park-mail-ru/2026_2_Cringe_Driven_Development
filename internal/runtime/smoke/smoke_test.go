@@ -275,7 +275,7 @@ func setup() (smoke.Deps, *fake.Cloud, *fake.Host) {
 	cloud, host, ag := fake.New(20 * time.Millisecond)
 	sec := &stubSecrets{}
 	svc := usecase.NewService(st, usecase.Settings{
-		Enabled: true, MaxActive: 10, AgentVersion: "dev", Profiles: map[string]bool{"default": true},
+		MaxActive: 10, AgentVersion: "dev", Profiles: map[string]bool{"default": true},
 	})
 	return smoke.Deps{
 		Service: svc, Repo: st, Secrets: sec, Agent: ag, Cloud: cloud,

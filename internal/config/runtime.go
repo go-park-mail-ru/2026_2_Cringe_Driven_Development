@@ -11,9 +11,8 @@ import (
 )
 
 // RuntimeConfig — настройки создания VPS пользовательских сессий (RUNTIME_*).
-// Остальные поля проверяются только при Enabled=true.
+// Обязательные поля проверяются при каждом запуске API.
 type RuntimeConfig struct {
-	Enabled  bool
 	Provider string // openstack | fake
 
 	OSAuthURL, OSUsername, OSPassword, OSUserDomainName string
@@ -48,16 +47,6 @@ func loadRuntime(lookup func(string) (string, bool)) (RuntimeConfig, error) {
 		return fallback
 	}
 	r := RuntimeConfig{Provider: get("RUNTIME_PROVIDER", "")}
-	if raw := get("RUNTIME_ENABLED", ""); raw != "" {
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			return RuntimeConfig{}, errors.New("invalid RUNTIME_ENABLED: expected true or false")
-		}
-		r.Enabled = b
-	}
-	if !r.Enabled {
-		return r, nil
-	}
 	var bad error
 	fail := func(key, what string) {
 		if bad == nil {

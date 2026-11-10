@@ -94,12 +94,11 @@ READY → DELETING → DELETED
 
 ## Настройки `RUNTIME_*`
 
-Читаются при `RUNTIME_ENABLED=true`; иначе модуль выключен, воркер не стартует,
-сервис отвечает `ErrDisabled`.
+Проверяются при каждом запуске. Runtime всегда собирается и запускает воркер.
+Отсутствие обязательных параметров останавливает Go API с ошибкой; fake не требует облачных credentials.
 
 | Переменная | Умолчание | Назначение |
 | --- | --- | --- |
-| `RUNTIME_ENABLED` | `false` | включает модуль и воркер |
 | `RUNTIME_PROVIDER` | нет | `openstack` или `fake` |
 | `RUNTIME_SECRETS_KEY` | нет | base64 ровно 32 байт, ключ шифрования секретов |
 | `RUNTIME_ENV_NAME` | для `fake` — `dev-fake`; для `openstack` обязательна | значение метки `cellestial_env` |
@@ -138,7 +137,7 @@ READY → DELETING → DELETED
 
 ## Fake-режим
 
-`RUNTIME_ENABLED=true`, `RUNTIME_PROVIDER=fake` и `RUNTIME_SECRETS_KEY`. Облако,
+`RUNTIME_PROVIDER=fake` и обязательный `RUNTIME_SECRETS_KEY`. Облако,
 настройка VPS и агент заменены in-memory реализациями (`adapters/fake`), CA
 одноразовый, облачные настройки не нужны. БД остаётся реальной. Подходит для
 локальной разработки потребителя без Selectel.
@@ -161,9 +160,10 @@ READY → DELETING → DELETED
 
 3. Проверить сбой воркера: `--kill-worker-after volume` и `--kill-worker-after server`
    отменяют воркер smoke после сохранения ID; создание должен продолжить другой
-   воркер без дублей. Эти режимы требуют `--parallel 1` или выключенного
-   (`RUNTIME_ENABLED=false`) воркера API: очередь заданий общая.
-4. Вернуть прод на тег `main`.
+   воркер без дублей. Для этих режимов остановить API/его worker, если используется общая БД;
+   либо запускать smoke с отдельной тестовой БД. Не запускать двух конкурирующих
+   обработчиков одной smoke-очереди.
+4. Вернуть проверенный образ по сохранённому digest согласно release runbook.
 
 Миграции `runtime_*` при запуске PR-образа применяются к боевой БД (принято владельцем).
 Флаги: `--language python`, `--parallel N`, `--timeout` (30m).

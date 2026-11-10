@@ -35,10 +35,8 @@ func Run(cfg config.Config) error {
 	server := app.Server
 
 	var workers []workerRunner
-	if app.RuntimeWorker != nil {
-		slog.Info("runtime worker started", slog.String("provider", app.RuntimeMode))
-		workers = append(workers, app.RuntimeWorker)
-	}
+	slog.Info("runtime worker started", slog.String("provider", app.RuntimeMode))
+	workers = append(workers, app.RuntimeWorker)
 	if app.SessionWorker != nil {
 		workers = append(workers, app.SessionWorker)
 	}

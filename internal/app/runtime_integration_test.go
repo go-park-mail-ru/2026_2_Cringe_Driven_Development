@@ -83,7 +83,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	users := useruc.NewUserUsecase(userpg.NewUserRepository(pool), sessions, issuer, security.PasswordHasher{}, security.RefreshTokens{}, time.Hour)
 	store := storepg.New(pool)
 	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store)
-	module, err := runtime.Build(ctx, config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
+	module, err := runtime.Build(ctx, config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			return language, queryErr
 		})
 	}
-	service := UC.NewService(store, UC.Settings{Enabled: true}, nil, sessionAgent)
+	service := UC.NewService(store, nil, sessionAgent)
 	worker := UC.NewWorker(store, env.New(module.Environments), sessionAgent, nil)
 	handler, err := transport.NewRouter(transport.Server{UserHandler: userhttp.NewHandler(users), NotebookHandler: nbhttp.NewHandler(notebooks), RuntimeHandler: delivery.NewHandler(service)}, issuer, sessions, "test-bff-key")
 	if err != nil {
