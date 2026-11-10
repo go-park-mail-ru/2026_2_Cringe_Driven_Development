@@ -4887,8 +4887,7 @@
           "language": {
             "type": "string",
             "enum": [
-              "python",
-              "r"
+              "python"
             ]
           },
           "state": {
@@ -4991,8 +4990,7 @@
           "language": {
             "type": "string",
             "enum": [
-              "python",
-              "r"
+              "python"
             ]
           }
         },
