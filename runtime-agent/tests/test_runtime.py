@@ -152,11 +152,9 @@ async def test_cleanup_failure_retries_before_stopping(env):
     assert agent.cleanup_pending is None
 
 
-@pytest.mark.parametrize("language", ["python", "r"])
-async def test_inspection_is_queued_and_returns_common_shape(env, language):
+async def test_inspection_is_queued_and_returns_common_shape(env):
     agent, backend, _ = env
     sid, session = await new_session(agent)
-    session.language = language  # the R inspection path stays covered
     agent.accept(command())
     agent.accept({"execution_id": "inspect", "kind": "inspect", "timeout_seconds": 5.0})
     kernel = backend.kernel
@@ -165,15 +163,11 @@ async def test_inspection_is_queued_and_returns_common_shape(env, language):
     kernel.complete()
     await until(lambda: len(kernel.sent) == 2)
     values = [{"name": "x", "type": "int", "preview": "42"}]
-    if language == "python":
-        kernel.complete(
-            user_expressions={
-                "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}}
-            }
-        )
-    else:
-        kernel.emit(kernel.sent[-1][2], "stream", {"name": "stdout", "text": json.dumps(values)})
-        kernel.complete()
+    kernel.complete(
+        user_expressions={
+            "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}}
+        }
+    )
     await until(lambda: session.active is None)
     assert agent.journal.execution(sid, "inspect")["result"] == {"variables": values}
     assert not kernel.sent[-1][1]["store_history"]

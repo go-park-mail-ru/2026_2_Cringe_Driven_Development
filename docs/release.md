@@ -4,7 +4,7 @@
 
 ## Проверки и образ
 
-На каждом PR запускаются `lint` (golangci-lint), `test` (`go mod tidy -diff`, сборка и тесты с race detector) и `docker` (сборка образа без публикации). Job `runtime-agent` проверяет Python-агент и реальные kernels; после него `kernel-images` собирает образы Python/R. `docker` ждёт `lint`, `test` и `kernel-images`. Покрытие выводится в summary; минимального порога нет. Новый push в PR отменяет предыдущие проверки этого PR. Запуски `main` не отменяют друг друга; выкатки сериализуются отдельно.
+На каждом PR запускаются `lint` (golangci-lint), `test` (`go mod tidy -diff`, сборка и тесты с race detector) и `docker` (сборка образа без публикации). Job `runtime-agent` проверяет Python-агент и реальные kernels; после него `kernel-images` собирает образ kernel Python. `docker` ждёт `lint`, `test` и `kernel-images`. Покрытие выводится в summary; минимального порога нет. Новый push в PR отменяет предыдущие проверки этого PR. Запуски `main` не отменяют друг друга; выкатки сериализуются отдельно.
 
 После успешных проверок push в `main` публикует образ `ghcr.io/cringe-driven-development-team/backend` с тегами `sha-<short>` и `main`. Тег `latest` не публикуется. SHA-тег может быть перезаписан повторным запуском для того же коммита; для выкатки CI передаёт неизменяемый digest из результата `docker/build-push-action`.
 

@@ -23,7 +23,7 @@ func main() {
 
 func run() int {
 	var opts smoke.Options
-	flag.StringVar(&opts.Language, "language", "python", "kernel language: python (R is not supported by the runtime agent)")
+	flag.StringVar(&opts.Language, "language", "python", "kernel language: python")
 	flag.IntVar(&opts.Parallel, "parallel", 1, "number of parallel sessions")
 	flag.StringVar(&opts.KillWorkerAfter, "kill-worker-after", "", `cancel the worker after "volume" or "server" is saved`)
 	flag.DurationVar(&opts.Timeout, "timeout", 30*time.Minute, "overall timeout")

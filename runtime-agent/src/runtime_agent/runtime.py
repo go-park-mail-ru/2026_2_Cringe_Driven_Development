@@ -35,7 +35,6 @@ class Active:
         reply (dict | None): Received execute_reply content, if any.
         idle (bool): Whether a matching idle status has been received.
         interrupted (bool): Whether manual interruption was requested.
-        stdout (str): Captured stdout used to decode R variable inspection.
     """
 
     command: dict
@@ -44,7 +43,6 @@ class Active:
     reply: dict | None = None
     idle: bool = False
     interrupted: bool = False
-    stdout: str = ""
 
 
 class Session:
@@ -56,7 +54,7 @@ class Session:
     Attributes:
         agent (Agent): Coordinator owning this single runtime.
         id (str): Canonical UUID of the assigned session.
-        language (str): Fixed kernel language, python or r.
+        language (str): Fixed kernel language, python.
         journal (Journal): Persistent commands, state and event journal.
         settings (Settings): Resource limits and lifecycle deadlines.
         lock (asyncio.Lock): Serializes dispatch and kernel control operations.
@@ -81,7 +79,7 @@ class Session:
         Args:
             agent (Agent): Owning coordinator and shared infrastructure.
             session_id (str): Canonical UUID of the session.
-            language (str): Validated kernel language, python or r.
+            language (str): Validated kernel language, python.
         """
         self.agent = agent
         self.id = session_id
@@ -195,7 +193,7 @@ class Session:
 
         Raises:
             KernelDiedError: Jupyter reports that the kernel is dead.
-            ValueError: Inspection stdout exceeds its 1 MiB limit or serialization fails.
+            ValueError: Serialization fails.
             KeyError: A required protocol field is missing.
         """
         parent = msg.get("parent_header", {}).get("msg_id")
@@ -221,10 +219,6 @@ class Session:
                 self.journal.output(self.id, row, payload, self.settings.max_output_bytes)
             active = self.active
             if active is not None and active.msg_id == parent:
-                if inspect and kind == "stream" and content.get("name") == "stdout":
-                    if len(active.stdout.encode()) + len(content["text"].encode()) > 1024 * 1024:
-                        raise ValueError("Inspection output exceeds 1 MiB")
-                    active.stdout += content["text"]
                 if channel == "shell" and kind == "execute_reply":
                     active.reply = content
                 if channel == "iopub" and kind == "status":
@@ -278,7 +272,7 @@ class Session:
                     await asyncio.wait_for(
                         self.transport.send(
                             "execute_request",
-                            inspection.request_content(command, self.language),
+                            inspection.request_content(command),
                             active.msg_id,
                         ),
                         10,
@@ -306,7 +300,7 @@ class Session:
                     result = reply
                 if command["kind"] == "inspect" and state == "SUCCEEDED":
                     try:
-                        result = inspection.result(reply, self.language, active.stdout)
+                        result = inspection.result(reply)
                     except (ValueError, KeyError, SyntaxError):
                         state, result = "FAILED", {"reason": "invalid_inspection_result"}
                 self.journal.transition(

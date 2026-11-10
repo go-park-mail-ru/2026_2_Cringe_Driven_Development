@@ -1,6 +1,6 @@
 # Backend: инструкции для агента
 
-Разрабатываем аналог Google Colab: блокноты с блоками Python/R и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
+Разрабатываем аналог Google Colab: блокноты с блоками Python и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
 
 ## Wiki и общий поиск
 
@@ -60,7 +60,7 @@ make up               # собрать и запустить API, PostgreSQL, Re
 make health           # GET /health; make logs — последние логи; make down — остановка
 make run              # то же окружение с логами в терминале
 make agent-setup agent-lint agent-test agent-build # Python-агент: установка и проверки
-make agent-images agent-integration # Docker-образы Python/R и интеграционные тесты
+make agent-images agent-integration # Docker-образ kernel Python и интеграционные тесты
 make agent-network-check # отдельная VPS с firewall infra; не обычный CI. smoke: — docs/runtime-provisioning.md
 ```
 

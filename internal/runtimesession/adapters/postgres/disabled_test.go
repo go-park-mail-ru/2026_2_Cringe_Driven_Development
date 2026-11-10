@@ -33,7 +33,7 @@ func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
 		t.Fatal(module, err)
 	}
 	uc := UC.NewService(s, UC.Settings{}, nil)
-	if _, err = uc.Start(ctx, owner, nb, D.StartRequest{RequestID: "disabled-start", Language: "r"}); !errors.Is(err, D.ErrUnavailable) {
+	if _, err = uc.Start(ctx, owner, nb, D.StartRequest{RequestID: "disabled-start", Language: "python"}); !errors.Is(err, D.ErrUnavailable) {
 		t.Fatal(err)
 	}
 	if history, e := uc.GetSession(ctx, owner, v.ID); e != nil || history.State != D.Ready {

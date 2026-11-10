@@ -146,13 +146,13 @@ func TestHealthRejectsForeignSession(t *testing.T) {
 	ca := newCA(t, "ca")
 	srv, _ := startServer(t, ca, ca, true, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"session_id":"other","language":"r","state":"DRAINING","ready":false}`))
+		_, _ = w.Write([]byte(`{"session_id":"other","language":"python","state":"DRAINING","ready":false}`))
 	})
 	h, status, err := newClient(t, ca).Health(context.Background(), usecase.AgentEndpoint{BaseURL: srv.URL, Token: tok})
 	if err != nil || status != 503 {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
-	if h != (usecase.AgentHealth{SessionID: "other", Language: "r", State: "DRAINING"}) {
+	if h != (usecase.AgentHealth{SessionID: "other", Language: "python", State: "DRAINING"}) {
 		t.Fatalf("health: %+v", h)
 	}
 }

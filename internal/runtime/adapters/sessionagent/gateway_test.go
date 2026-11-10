@@ -43,10 +43,10 @@ func (secrets) Open(b []byte) ([]byte, error) { return b, nil }
 func TestGatewayUsesProvisionedCredential(t *testing.T) {
 	id := uuid.New()
 	a := fake.NewAgent()
-	a.Register("https://private:8443", "provisioned-token", id, "r")
+	a.Register("https://private:8443", "provisioned-token", id, "python")
 	g := New(repo{env: R.Environment{SessionID: id, Endpoint: "https://private:8443"}}, secrets{}, a)
 	h, err := g.Health(context.Background(), id)
-	if err != nil || h.SessionID != id || h.Language != "r" {
+	if err != nil || h.SessionID != id || h.Language != "python" {
 		t.Fatal(h, err)
 	}
 	cmd := D.Command{ExecutionID: "run", Code: "print(42)", TimeoutSeconds: 17}

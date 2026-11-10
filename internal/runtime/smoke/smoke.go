@@ -58,7 +58,7 @@ type Deps struct {
 
 // Options — параметры запуска.
 type Options struct {
-	Language string // python | r
+	Language string // python
 	Parallel int    // число одновременных сессий, минимум 1
 	// KillWorkerAfter: "", "volume" или "server" — отмена контекста воркера сразу после сохранения
 	// VolumeID / ServerID; создание продолжает другой воркер (другой Owner) после истечения lease.
@@ -399,18 +399,10 @@ func (s *sessionRun) waitExecution(ctx context.Context, ep usecase.AgentEndpoint
 	}
 }
 
-// wantStdout — вывод print(42): в R печатается с индексом вектора.
-func wantStdout(language string) string {
-	if language == "r" {
-		return "[1] 42\n"
-	}
-	return "42\n"
-}
-
 func (s *sessionRun) checkEvents(ctx context.Context, ep usecase.AgentEndpoint) error {
 	ctx, cancel := context.WithTimeout(ctx, stepTimeout)
 	defer cancel()
-	want := wantStdout(s.opts.Language)
+	want := "42\n"
 	for {
 		events, err := s.deps.Agent.Events(ctx, ep, 0)
 		if err != nil {

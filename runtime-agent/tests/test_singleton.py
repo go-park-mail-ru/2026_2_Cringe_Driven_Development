@@ -129,7 +129,7 @@ async def test_reboot_restores_assignment_without_starting_kernel(settings):
 def test_session_is_not_configured_by_environment(monkeypatch):
     monkeypatch.setenv("KERNEL_NETWORK", "cellestial-kernel")
     monkeypatch.setenv("KERNEL_DNS", "1.1.1.1")
-    for name in ("SESSION_ID", "KERNEL_LANGUAGE", "RUNTIME_TOKEN", "R_IMAGE"):
+    for name in ("SESSION_ID", "KERNEL_LANGUAGE", "RUNTIME_TOKEN"):
         monkeypatch.delenv(name, raising=False)
     assert not hasattr(Settings.from_env(), "session_id")
 
