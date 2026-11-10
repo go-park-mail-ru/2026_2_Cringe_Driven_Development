@@ -3838,35 +3838,33 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	r.HandleFunc(options.BaseURL+"/users/me", wrapper.GetCurrentUser).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/users/me", wrapper.UpdateCurrentUser).Methods(http.MethodPatch)
-
-	r.HandleFunc(options.BaseURL+"/users/me/password", wrapper.ChangeCurrentUserPassword).Methods(http.MethodPut)
-
-	r.HandleFunc(options.BaseURL+"/users/me/avatar", wrapper.UploadCurrentUserAvatar).Methods(http.MethodPut)
-
-	r.HandleFunc(options.BaseURL+"/auth/logout-all", wrapper.LogoutAllUserSessions).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/auth/register", wrapper.RegisterUser).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/auth/login", wrapper.LoginUser).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/auth/refresh", wrapper.RefreshToken).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/auth/logout", wrapper.LogoutUser).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/auth/enable2fa", wrapper.EnableTwoFactorAuth).Methods(http.MethodPost)
-
 	r.HandleFunc(options.BaseURL+"/auth/confirm2fa", wrapper.ConfirmTwoFactorAuth).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/auth/disable2fa", wrapper.DisableTwoFactorAuth).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/enable2fa", wrapper.EnableTwoFactorAuth).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/login", wrapper.LoginUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/logout", wrapper.LogoutUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/logout-all", wrapper.LogoutAllUserSessions).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/refresh", wrapper.RefreshToken).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/auth/register", wrapper.RegisterUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.ListNotebooks).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.CreateNotebook).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.DeleteNotebook).Methods(http.MethodDelete)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}", wrapper.GetNotebook).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells", wrapper.CreateCell).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells/{index}", wrapper.DeleteCell).Methods(http.MethodDelete)
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content", wrapper.GetNotebookContent).Methods(http.MethodGet)
 
@@ -3876,41 +3874,43 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content/cells/{cell_id}", wrapper.EditNotebookCell).Methods(http.MethodPatch)
 
-	r.HandleFunc(options.BaseURL+"/notebooks/{id}/cells/{index}", wrapper.DeleteCell).Methods(http.MethodDelete)
-
 	r.HandleFunc(options.BaseURL+"/notebooks/{id}/content/cells/{cell_id}/move", wrapper.MoveNotebookCell).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.ListNotebooks).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/notebooks/{id}/runtime-sessions", wrapper.StartRuntimeSession).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/notebooks", wrapper.CreateNotebook).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/active", wrapper.GetActiveRuntimeSession).Methods(http.MethodGet)
 
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/queue", wrapper.GetRuntimeQueue).Methods(http.MethodGet)
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}", wrapper.GetRuntimeSession).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/activity", wrapper.TouchRuntimeSession).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/events", wrapper.ListRuntimeEvents).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions", wrapper.CreateRuntimeExecution).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions/batch", wrapper.CreateRuntimeExecutionBatch).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables/{execution_id}", wrapper.GetRuntimeInspection).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables", wrapper.InspectRuntimeVariables).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions/{execution_id}", wrapper.GetRuntimeExecution).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/kernel/interrupt", wrapper.InterruptRuntimeKernel).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/kernel/restart", wrapper.RestartRuntimeKernel).Methods(http.MethodPost)
 
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/active", wrapper.GetActiveRuntimeSession).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/notebooks/{id}/runtime-sessions", wrapper.StartRuntimeSession).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}", wrapper.GetRuntimeSession).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions", wrapper.CreateRuntimeExecution).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/executions/{execution_id}", wrapper.GetRuntimeExecution).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/events", wrapper.ListRuntimeEvents).Methods(http.MethodGet)
-
-	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/activity", wrapper.TouchRuntimeSession).Methods(http.MethodPost)
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/queue", wrapper.GetRuntimeQueue).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/stop", wrapper.StopRuntimeSession).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables", wrapper.InspectRuntimeVariables).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/runtime-sessions/{id}/variables/{execution_id}", wrapper.GetRuntimeInspection).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/users/me", wrapper.GetCurrentUser).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/users/me", wrapper.UpdateCurrentUser).Methods(http.MethodPatch)
+
+	r.HandleFunc(options.BaseURL+"/users/me/avatar", wrapper.UploadCurrentUserAvatar).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/users/me/password", wrapper.ChangeCurrentUserPassword).Methods(http.MethodPut)
 
 	return r
 }

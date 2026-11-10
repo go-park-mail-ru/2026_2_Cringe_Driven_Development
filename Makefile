@@ -54,11 +54,8 @@ docker-build:
 		--build-arg RUNTIME_PYTHON_IMAGE=cellestial-kernel-python:local \
 		--build-arg RUNTIME_AGENT_VERSION=local .
 
-SPEC_FILE := internal/transport/http/api/openapi.yaml
-
 generate:
-	go run ./cmd/apidog -o $(SPEC_FILE)
-	cd internal/transport/http/api && go tool oapi-codegen -config cfg.yaml openapi.yaml
+	cd internal/transport/http/api && go tool oapi-codegen -config cfg.yaml ../../../../spec/openapi.json
 
 -include .env
 
