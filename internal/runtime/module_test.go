@@ -2,38 +2,17 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
 	"github.com/google/uuid"
 )
 
-// TestRuntimeDisabledDoesNotStartWorker проверяет, что отключённый provisioning не запускает обработчик
-// создания VPS.
-func TestRuntimeDisabledDoesNotStartWorker(t *testing.T) {
-	m, err := Build(context.Background(), config.RuntimeConfig{}, nil)
-	svc, w := m.Environments, m.Worker
-	if err != nil || w != nil || svc == nil {
-		t.Fatalf("svc=%v worker=%v err=%v", svc, w, err)
-	}
-	if m.Agent == nil {
-		t.Fatal("missing disabled session agent")
-	}
-	if _, err := m.Agent.Health(context.Background(), uuid.New()); err == nil {
-		t.Fatal("disabled agent unexpectedly available")
-	}
-	if _, err := svc.RequestCreate(context.Background(), usecase.CreateEnvironment{SessionID: uuid.New(), Language: "python"}); !errors.Is(err, usecase.ErrDisabled) {
-		t.Fatalf("err=%v", err)
-	}
-}
-
 // TestRuntimeFakeBuilds проверяет сборку тестового окружения без настоящего облака.
 func TestRuntimeFakeBuilds(t *testing.T) {
-	cfg := config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 1, MaxConcurrentOps: 1}
+	cfg := config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 1, MaxConcurrentOps: 1}
 	m, err := Build(context.Background(), cfg, nil)
 	svc, w := m.Environments, m.Worker
 	if err != nil || svc == nil || w == nil {
@@ -48,7 +27,7 @@ func TestSmokeDepsUseOwnWorkSubdir(t *testing.T) {
 	if err := os.Mkdir(apiOp, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 1, MaxConcurrentOps: 1, WorkDir: work}
+	cfg := config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 1, MaxConcurrentOps: 1, WorkDir: work}
 	_, cleanup, err := BuildSmokeDeps(context.Background(), cfg, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +52,7 @@ func TestRuntimeInitErrorOnBadCA(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := config.RuntimeConfig{
-		Enabled: true, Provider: "openstack", SecretsKey: make([]byte, 32),
+		Provider: "openstack", SecretsKey: make([]byte, 32),
 		TLSCACertFile: bad, TLSCAKeyFile: bad, TLSClientCertFile: bad, TLSClientKeyFile: bad,
 	}
 	if m, err := Build(context.Background(), cfg, nil); err == nil || m.Worker != nil {

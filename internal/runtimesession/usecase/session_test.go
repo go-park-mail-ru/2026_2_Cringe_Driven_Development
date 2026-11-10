@@ -22,17 +22,8 @@ func TestStartStoresIntentBeforeProvisioning(t *testing.T) {
 		}
 		return v, nil
 	})
-	_, err := NewService(s, Settings{Enabled: true}, func() time.Time { return now }).Start(context.Background(), 7, 9, D.StartRequest{RequestID: "request", Language: "python"})
+	_, err := NewService(s, func() time.Time { return now }).Start(context.Background(), 7, 9, D.StartRequest{RequestID: "request", Language: "python"})
 	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestDisabledStartCreatesNothing проверяет отказ нового запуска без записи сессии при отключённом runtime.
-func TestDisabledStartCreatesNothing(t *testing.T) {
-	s := NewMockStore(gomock.NewController(t))
-	_, err := NewService(s, Settings{}, nil).Start(context.Background(), 7, 9, D.StartRequest{RequestID: "request", Language: "python"})
-	if !errors.Is(err, D.ErrUnavailable) {
 		t.Fatal(err)
 	}
 }
@@ -45,7 +36,7 @@ func TestActivityDoesNotReviveStoppedRuntime(t *testing.T) {
 	s.EXPECT().Mutate(gomock.Any(), int64(7), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, _ uuid.UUID, fn func(*D.Session) error) error {
 		return fn(&D.Session{State: D.Stopped})
 	})
-	if err := NewService(s, Settings{Enabled: true}, nil).Activity(context.Background(), 7, id); !errors.Is(err, D.ErrConflict) {
+	if err := NewService(s, nil).Activity(context.Background(), 7, id); !errors.Is(err, D.ErrConflict) {
 		t.Fatal(err)
 	}
 }
@@ -56,7 +47,7 @@ func TestGetActiveReturnsStoreError(t *testing.T) {
 	s := NewMockStore(gomock.NewController(t))
 	fail := errors.New("db unavailable")
 	s.EXPECT().Active(gomock.Any(), int64(7)).Return(nil, fail)
-	_, err := NewService(s, Settings{}, nil).GetActive(context.Background(), 7)
+	_, err := NewService(s, nil).GetActive(context.Background(), 7)
 	if !errors.Is(err, fail) {
 		t.Fatal(err)
 	}

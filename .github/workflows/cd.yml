@@ -3,37 +3,77 @@ name: CD
 on:
   workflow_call:
     inputs:
-      backend_image_ref:
-        description: Published backend image digest reference from the CI docker job
+      action:
+        description: Production operation (deploy or rollback)
         required: true
+        type: string
+      target_sha:
+        description: Full target SHA; optional for automatic rollback selection
+        default: ''
+        type: string
+      backend_image_ref:
+        description: Published digest for deploy; rollback reads its digest from Deployments
+        default: ''
         type: string
 
 jobs:
   deploy:
     name: deploy
-    if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
+      actions: read
+      deployments: write
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
     environment:
       name: production
       url: https://cellestial.ru
+      deployment: false
     concurrency:
       group: backend-production
       cancel-in-progress: false
     env:
+      RELEASE_ACTION: ${{ inputs.action }}
+      RELEASE_TARGET_SHA: ${{ inputs.target_sha }}
+      RELEASE_IMAGE_REF: ${{ inputs.backend_image_ref }}
+      PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
       ANSIBLE_HOST_KEY_CHECKING: "True"
       ANSIBLE_SSH_ARGS: -C -o ControlMaster=auto -o ControlPersist=60s -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
     steps:
+      - name: Production source preflight
+        env:
+          SOURCE_WORKFLOW: ${{ github.workflow_ref }}
+        run: |
+          echo "RELEASE_STATE_FILE=$RUNNER_TEMP/backend-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json" >> "$GITHUB_ENV"
+          printf '# Backend production: %s\n\nRun: %s/actions/runs/%s/attempts/%s\n\nПодготовка операции; состояние VPS не проверено.\n' \
+            "$RELEASE_ACTION" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$GITHUB_REPOSITORY" == 'Cringe-Driven-Development-Team/backend' ]]
+          [[ "$GITHUB_REF" == 'refs/heads/main' && "$PRODUCTION_ENABLED" == true ]]
+          case "$RELEASE_ACTION:$GITHUB_EVENT_NAME" in
+            deploy:push) [[ "$SOURCE_WORKFLOW" == 'Cringe-Driven-Development-Team/backend/.github/workflows/ci.yml@refs/heads/main' ]] ;;
+            rollback:workflow_dispatch) [[ "$SOURCE_WORKFLOW" == 'Cringe-Driven-Development-Team/backend/.github/workflows/rollback.yml@refs/heads/main' ]] ;;
+            *) exit 1 ;;
+          esac
+      - name: Checkout release producer
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Initialize operation report
+        id: init
+        run: python3 scripts/release/release.py init
+      - name: Prepare target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/release.py prepare
       - name: Checkout deployment infrastructure
         uses: actions/checkout@v7
         with:
           repository: Cringe-Driven-Development-Team/infra
-          # Merge infra#30 and install ci.pub before merging the backend PR.
           ref: main
           path: infra
           persist-credentials: false
@@ -65,42 +105,33 @@ jobs:
           ssh-keygen -y -f "$RUNNER_TEMP/backend-deploy/ci-key" > "$RUNNER_TEMP/backend-deploy/ci-key.pub"
           ssh-keygen -F cellestial.ru -f "$RUNNER_TEMP/backend-deploy/known_hosts" > /dev/null
           echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/backend-deploy/vault-pass" >> "$GITHUB_ENV"
-      - name: Deploy backend
-        working-directory: infra/ansible
+      - name: Record Deployment in progress
+        id: begin
         env:
-          BACKEND_IMAGE_REF: ${{ inputs.backend_image_ref }}
-        run: |
-          [[ "$BACKEND_IMAGE_REF" =~ ^ghcr[.]io/cringe-driven-development-team/backend@sha256:[0-9a-f]{64}$ ]]
-          ansible-playbook -i inventory/ci.yml deploy-backend.yml \
-            -e "backend_image_ref=$BACKEND_IMAGE_REF" \
-            -e "deploy_key_path=$RUNNER_TEMP/backend-deploy/ci-key" \
-            -e "jump_known_hosts=$RUNNER_TEMP/backend-deploy/known_hosts" \
-            --ssh-common-args="-o UserKnownHostsFile=$RUNNER_TEMP/backend-deploy/known_hosts -o StrictHostKeyChecking=yes"
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/release.py begin
+      - name: Switch backend
+        id: switch
+        env:
+          ANSIBLE_DIR: ${{ github.workspace }}/infra/ansible
+          DEPLOY_KEY_PATH: ${{ runner.temp }}/backend-deploy/ci-key
+          JUMP_KNOWN_HOSTS: ${{ runner.temp }}/backend-deploy/known_hosts
+        run: python3 scripts/release/release.py switch
+      - name: Health check
+        id: health
+        run: python3 scripts/release/release.py health
+      - name: Record final Deployment status
+        if: always() && steps.init.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/release.py finalize
+      - name: Release Summary
+        if: always() && steps.init.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/release.py report
       - name: Remove deployment secrets
         if: always()
-        run: rm -rf "$RUNNER_TEMP/backend-deploy"
-      - name: Send to tg
-        id: telegram
-        if: always()
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID || vars.TELEGRAM_TOPIC_ID }}
-          DEPLOY_RESULT: ${{ job.status }}
-          BACKEND_IMAGE_REF: ${{ inputs.backend_image_ref }}
         run: |
-          [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]
-          text="Backend production: $DEPLOY_RESULT
-          Image: $BACKEND_IMAGE_REF
-          $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          args=(--data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text")
-          if [[ -n "$TELEGRAM_TOPIC_ID" ]]; then
-            args+=(--data-urlencode "message_thread_id=$TELEGRAM_TOPIC_ID")
-          fi
-          curl --silent --show-error --fail \
-            "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            "${args[@]}" | jq -e '.ok == true' > /dev/null
-      - name: Report notification failure
-        if: always() && steps.telegram.outcome == 'failure'
-        run: echo '::warning::Telegram notification failed; see the deployment step for the rollout result.'
+          rm -rf "$RUNNER_TEMP/backend-deploy"
+          rm -f "$RELEASE_STATE_FILE"

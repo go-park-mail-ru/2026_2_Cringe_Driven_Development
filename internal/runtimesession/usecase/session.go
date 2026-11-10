@@ -8,15 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Settings содержит серверные ограничения доступности пользовательских runtime-сессий.
-type Settings struct{ Enabled bool }
-
 // Service реализует пользовательские сценарии через порты, не обращаясь напрямую к HTTP, S3 или OpenStack.
 type Service struct {
 	// store Хранилище пользовательских сессий, команд и событий.
 	store Store
-	// settings Серверные настройки runtime-сессий.
-	settings Settings
 	// now Подменяемые часы для воспроизводимого поведения.
 	now Clock
 	// agent Внутренний клиент агента.
@@ -24,7 +19,7 @@ type Service struct {
 }
 
 // NewService собирает сценарии runtime-сессий из портов хранилища, агента и управляемых часов.
-func NewService(s Store, c Settings, now Clock, agents ...SessionAgent) *Service {
+func NewService(s Store, now Clock, agents ...SessionAgent) *Service {
 	if now == nil {
 		now = time.Now
 	}
@@ -32,16 +27,13 @@ func NewService(s Store, c Settings, now Clock, agents ...SessionAgent) *Service
 	if len(agents) > 0 {
 		agent = agents[0]
 	}
-	return &Service{s, c, now, agent}
+	return &Service{s, now, agent}
 }
 
 // Start проверяет параметры и сохраняет намерение запуска пользовательской сессии до подготовки VPS.
 func (s *Service) Start(ctx context.Context, owner, notebook int64, r domain.StartRequest) (domain.Session, error) {
 	if e := r.Validate(); e != nil || owner <= 0 || notebook <= 0 {
 		return domain.Session{}, domain.ErrInvalid
-	}
-	if !s.settings.Enabled {
-		return domain.Session{}, domain.ErrUnavailable
 	}
 	id := uuid.New()
 	now := s.now()
