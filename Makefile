@@ -52,7 +52,6 @@ run:
 docker-build:
 	docker build -f build/main.Dockerfile -t colab-backend:local \
 		--build-arg RUNTIME_PYTHON_IMAGE=cellestial-kernel-python:local \
-		--build-arg RUNTIME_R_IMAGE=cellestial-kernel-r:local \
 		--build-arg RUNTIME_AGENT_VERSION=local .
 
 SPEC_FILE := internal/transport/http/api/openapi.yaml
@@ -104,7 +103,6 @@ agent-build:
 
 agent-images:
 	docker build -f runtime-agent/images/python.Dockerfile -t cellestial-kernel-python:local runtime-agent
-	docker build -f runtime-agent/images/r.Dockerfile -t cellestial-kernel-r:local runtime-agent
 
 agent-integration:
 	cd runtime-agent && RUN_DOCKER_TESTS=1 $(AGENT_BIN)/python -m pytest -q -m docker

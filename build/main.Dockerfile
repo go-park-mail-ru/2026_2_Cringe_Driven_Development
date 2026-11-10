@@ -15,10 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o runtime-smok
 
 FROM alpine:3.23
 ARG RUNTIME_PYTHON_IMAGE=cellestial-kernel-python:local
-ARG RUNTIME_R_IMAGE=cellestial-kernel-r:local
 ARG RUNTIME_AGENT_VERSION=dev
 ENV RUNTIME_PYTHON_IMAGE=$RUNTIME_PYTHON_IMAGE \
-    RUNTIME_R_IMAGE=$RUNTIME_R_IMAGE \
     RUNTIME_AGENT_VERSION=$RUNTIME_AGENT_VERSION \
     RUNTIME_WORK_DIR=/var/lib/cellestial/runtime
 RUN apk add --no-cache python3 ansible-core openssh-client \

@@ -185,7 +185,7 @@ class Containers:
             await asyncio.to_thread(container.reload)
             address = container.attrs["NetworkSettings"]["Networks"][network.name]["IPAddress"]
             address = str(ipaddress.IPv4Address(address))
-            transport = Jupyter(f"http://{address}:8888", token, "python")
+            transport = Jupyter(f"http://{address}:8888", token)
             try:
                 await transport.start(self.settings.startup_seconds)
             except BaseException:

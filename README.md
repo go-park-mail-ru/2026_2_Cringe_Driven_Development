@@ -2,7 +2,7 @@
 
 ![Главная страница Cellestial со списком блокнотов](.github/assets/cellestial-home.png)
 
-Backend проекта «Colab» (Cellestial) команды «Cringe Driven Development»: Go API и агент исполнения Python/R.
+Backend проекта «Colab» (Cellestial) команды «Cringe Driven Development»: Go API и агент исполнения Python.
 
 [![Сервис cellestial.ru](https://img.shields.io/badge/cellestial.ru-7A5AF8?style=for-the-badge&logo=googlechrome&logoColor=white)](https://cellestial.ru)
 [![Доска задач](https://img.shields.io/badge/Доска_задач-1F6FEB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
@@ -19,13 +19,13 @@ Backend проекта «Colab» (Cellestial) команды «Cringe Driven Dev
 - 📚 Документация
   - [Локальная разработка](docs/local-development.md)
   - [Контракт API](docs/apidog.md)
-  - [Окружения и исполнение Python/R](docs/runtime-sessions.md)
+  - [Окружения и исполнение Python](docs/runtime-sessions.md)
   - [CI и выкатка](docs/release.md)
   - [Архитектура проекта](https://docs.cellestial.ru/documentation/architecture/)
   - [Wiki кода](openwiki/quickstart.md)
 - 🛠 Разработка
   - [Go API](internal/)
-  - [Агент Python/R](runtime-agent/README.md)
+  - [Агент Python](runtime-agent/README.md)
   - [Миграции БД](migrations/)
   - <a id="как-работать-с-задачами"></a>[Правила работы с задачами](docs/local-development.md#как-работать-с-задачами)
   - [Инструкции для агентов](AGENTS.md)

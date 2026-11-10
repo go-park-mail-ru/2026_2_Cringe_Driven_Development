@@ -164,6 +164,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	}
 	startPath := fmt.Sprintf("/notebooks/%d/runtime-sessions", first.ID)
 	startBody := `{"request_id":"start-first","language":"python"}`
+	call("POST", startPath, `{"request_id":"start-r","language":"r"}`, 400)
 	w = call("POST", startPath, startBody, 202)
 	var session struct {
 		ID uuid.UUID `json:"id"`
@@ -175,7 +176,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), session.ID.String()) {
 		t.Fatal("start repeated as new session")
 	}
-	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"start-second","language":"r"}`, 409)
+	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"start-second","language":"python"}`, 409)
 	if !strings.Contains(w.Body.String(), `"active_session"`) || !strings.Contains(w.Body.String(), session.ID.String()) {
 		t.Fatal(w.Body.String())
 	}
@@ -458,7 +459,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	call("POST", base+"/activity", "", 200)
 	pump()
 	call("POST", base+"/stop", "", 202)
-	call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"while-stopping","language":"r"}`, 409)
+	call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"while-stopping","language":"python"}`, 409)
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && v.State == D.Stopped })
 	assertBadge(0)
 	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
@@ -469,7 +470,6 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		t.Fatal("NUL output must remain in the execution archive, not notebook JSONB", w.Body.String())
 	}
 	// Пользовательская сессия уже завершена, но тест также дожидается реальной очистки тестового окружения.
-	// Вторая сессия — Python: R агент runtime-VPS не поддерживает (backend#89).
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && !v.CleanupError })
 	call("GET", "/runtime-sessions/active", "", 200)
 	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"second-session","language":"python"}`, 202)

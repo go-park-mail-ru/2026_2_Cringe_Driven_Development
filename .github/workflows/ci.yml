@@ -97,7 +97,7 @@ jobs:
         run: make agent-test
       - name: Build package
         run: make agent-build
-      - name: Build Python and R kernel images
+      - name: Build Python kernel image
         run: make agent-images
       - name: Test real kernels, isolation, limits and recovery
         run: make agent-integration
@@ -109,7 +109,6 @@ jobs:
     timeout-minutes: 30
     outputs:
       python_ref: ${{ steps.refs.outputs.python_ref }}
-      r_ref: ${{ steps.refs.outputs.r_ref }}
     permissions:
       contents: read
       packages: write
@@ -136,31 +135,16 @@ jobs:
           tags: ghcr.io/cringe-driven-development-team/cellestial-kernel-python:sha-${{ github.sha }}
           cache-from: type=gha,scope=kernel-python
           cache-to: type=gha,mode=max,scope=kernel-python
-      - name: Build and publish R kernel
-        id: r
-        uses: docker/build-push-action@v7
-        with:
-          context: runtime-agent
-          file: runtime-agent/images/r.Dockerfile
-          push: ${{ env.PUBLISH == 'true' }}
-          load: ${{ env.PUBLISH != 'true' }}
-          tags: ghcr.io/cringe-driven-development-team/cellestial-kernel-r:sha-${{ github.sha }}
-          cache-from: type=gha,scope=kernel-r
-          cache-to: type=gha,mode=max,scope=kernel-r
       - name: Export image references
         id: refs
         env:
           PYTHON_DIGEST: ${{ steps.python.outputs.digest }}
-          R_DIGEST: ${{ steps.r.outputs.digest }}
         run: |
           if [[ "$PUBLISH" == "true" ]]; then
             [[ "$PYTHON_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-            [[ "$R_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
             echo "python_ref=ghcr.io/cringe-driven-development-team/cellestial-kernel-python@${PYTHON_DIGEST}" >> "$GITHUB_OUTPUT"
-            echo "r_ref=ghcr.io/cringe-driven-development-team/cellestial-kernel-r@${R_DIGEST}" >> "$GITHUB_OUTPUT"
           else
             echo "python_ref=cellestial-kernel-python:local" >> "$GITHUB_OUTPUT"
-            echo "r_ref=cellestial-kernel-r:local" >> "$GITHUB_OUTPUT"
           fi
 
   docker:
@@ -216,7 +200,6 @@ jobs:
           push: ${{ github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
           build-args: |
             RUNTIME_PYTHON_IMAGE=${{ needs.kernel-images.outputs.python_ref }}
-            RUNTIME_R_IMAGE=${{ needs.kernel-images.outputs.r_ref }}
             RUNTIME_AGENT_VERSION=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

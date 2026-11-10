@@ -321,7 +321,7 @@ func TestSmokeRejectsBadOptions(t *testing.T) {
 	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "go"}); err == nil {
 		t.Fatal("expected language error")
 	}
-	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "r", KillWorkerAfter: "port"}); err == nil {
+	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "python", KillWorkerAfter: "port"}); err == nil {
 		t.Fatal("expected kill-worker-after error")
 	}
 }

@@ -106,7 +106,7 @@ READY → DELETING → DELETED
 | `RUNTIME_WORK_DIR` | `/var/lib/cellestial/runtime` | рабочий каталог воркера; у каждого процесса свой (эксклюзивная блокировка `.lock`, занятый каталог — ошибка старта) |
 | `RUNTIME_ROOT_DISK_GIB` | `20` | размер загрузочного тома |
 | `RUNTIME_KERNEL_DNS` | `1.1.1.1` | IPv4 DNS для контейнера kernel |
-| `RUNTIME_PYTHON_IMAGE` | digest из образа (локально `cellestial-kernel-python:local`) | образ kernel; R агент не поддерживает |
+| `RUNTIME_PYTHON_IMAGE` | digest из образа (локально `cellestial-kernel-python:local`) | образ kernel |
 | `RUNTIME_AGENT_VERSION` | SHA сборки (`dev`) | версия агента |
 | `RUNTIME_STARTUP_TIMEOUT` | `20m` | предел создания до `READY` |
 | `RUNTIME_ANSIBLE_TIMEOUT` | `15m` | предел playbook |
@@ -132,10 +132,9 @@ READY → DELETING → DELETED
 | `RUNTIME_BLOCKED_PUBLIC_IPS` | IP инфраструктуры через запятую, закрываемые для kernel |
 | `RUNTIME_ENV_NAME` | метка `cellestial_env`; умолчания нет, чтобы воркер не задел ресурсы другого окружения (production задаёт infra) |
 
-Образы kernel: `ghcr.io/cringe-driven-development-team/cellestial-kernel-{python,r}`,
-публичные пакеты. CI публикует их и вшивает digest в образ backend как значения
-по умолчанию `RUNTIME_PYTHON_IMAGE` и `RUNTIME_R_IMAGE`. Go API читает только
-`RUNTIME_PYTHON_IMAGE`: агент runtime-VPS поддерживает лишь Python (backend#89).
+Образ kernel: `ghcr.io/cringe-driven-development-team/cellestial-kernel-python`,
+публичный пакет. CI публикует его и вшивает digest в образ backend как значение
+по умолчанию `RUNTIME_PYTHON_IMAGE`. Поддерживается только Python.
 
 ## Fake-режим
 
@@ -167,7 +166,7 @@ READY → DELETING → DELETED
 4. Вернуть прод на тег `main`.
 
 Миграции `runtime_*` при запуске PR-образа применяются к боевой БД (принято владельцем).
-Флаги: `--language python|r`, `--parallel N`, `--timeout` (30m).
+Флаги: `--language python`, `--parallel N`, `--timeout` (30m).
 
 ## Ручная очистка
 

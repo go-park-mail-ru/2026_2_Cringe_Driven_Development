@@ -110,7 +110,7 @@ go test -race ./internal/app ./internal/runtimesession/... -count=1
 Тест создаёт собственные схему PostgreSQL и Redis prefix. Проверяется
 HTTP/BFF/JWT → сессия → fake provisioning/agent → события → ячейки PostgreSQL → cleanup,
 включая конфликт второй сессии и отзыв доступа через logout-all.
-Fake не подтверждает работоспособность Selectel или настоящего Python/R.
+Fake не подтверждает работоспособность Selectel или настоящего Python.
 Реальный smoke проводят на согласованном стенде по runtime-provisioning.md;
 он должен дополнительно проверить пользовательский API и вывод в ipynb.
 
@@ -146,7 +146,7 @@ source, порядка и результатов. source_hash исполнени
 ## Локальная проверка с настоящим агентом
 
 К переменным интеграционного окружения выше добавьте `RUNTIME_TEST_REAL_AGENT=1`.
-Требуются runtime-agent/.venv, Docker и готовые образы Python/R (`make agent-images`).
+Требуются runtime-agent/.venv, Docker и готовый образ kernel Python (`make agent-images`).
 Тест создаёт отдельную Docker-сеть, запускает Python-агента для каждой сессии,
 использует loopback mTLS relay и существующий защищённый Go-клиент. PostgreSQL,
 Redis настоящие; только выделение/удаление VPS остаётся fake. Проверяются

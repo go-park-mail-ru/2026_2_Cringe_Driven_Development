@@ -57,14 +57,14 @@ func (s State) Active() bool { return s != Stopped && s != Failed }
 type StartRequest struct {
 	// RequestID Ключ идемпотентности пользовательского запроса.
 	RequestID string `json:"request_id"`
-	// Language Язык kernel, python или r.
+	// Language Язык kernel: только python.
 	Language string `json:"language"`
 }
 
 // Validate проверяет обязательные идентификаторы и допустимые параметры запроса до записи или внешнего
 // вызова.
 func (r StartRequest) Validate() error {
-	if !validID(r.RequestID) || (r.Language != "python" && r.Language != "r") {
+	if !validID(r.RequestID) || r.Language != "python" {
 		return ErrInvalid
 	}
 	return nil
@@ -117,7 +117,7 @@ type Session struct {
 	NotebookID int64 `json:"notebook_id"`
 	// RequestID Ключ идемпотентности пользовательского запроса.
 	RequestID string `json:"-"`
-	// Language Язык kernel, python или r.
+	// Language Язык kernel: только python.
 	Language string `json:"language"`
 	// State Текущее состояние объекта.
 	State State `json:"state"`
@@ -262,7 +262,7 @@ type Event struct {
 type Health struct {
 	// SessionID UUID runtime-сессии.
 	SessionID uuid.UUID `json:"session_id"`
-	// Language Язык kernel, python или r.
+	// Language Язык kernel: только python.
 	Language string `json:"language"`
 	// State Текущее состояние объекта.
 	State string `json:"state"`
@@ -327,7 +327,7 @@ func (e *ActiveSessionError) Unwrap() error { return ErrActiveSessionExists }
 type EnvironmentRequest struct {
 	// SessionID UUID runtime-сессии.
 	SessionID uuid.UUID
-	// Language Язык kernel, python или r.
+	// Language Язык kernel: только python.
 	Language, Profile string
 }
 

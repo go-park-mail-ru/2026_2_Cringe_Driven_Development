@@ -79,25 +79,19 @@ async def test_metadata_and_buffers_are_bounded(env, extra):
     assert agent.journal.execution(sid, "run-1")["state"] == "SUCCEEDED"
 
 
-@pytest.mark.parametrize("language", ["python", "r"])
-async def test_inspection_result_obeys_budget(env, language):
+async def test_inspection_result_obeys_budget(env):
     agent, backend, _ = env
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, runtime = await new_session(agent)
-    runtime.language = language  # the R inspection path stays covered
     agent.accept({"execution_id": "inspect", "kind": "inspect", "timeout_seconds": 5.0})
     kernel = backend.kernel
     await until(lambda: kernel.sent)
     values = [{"name": "x" * 200_000, "type": "str", "preview": "tiny"}]
-    if language == "python":
-        kernel.complete(
-            user_expressions={
-                "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}},
-            }
-        )
-    else:
-        kernel.emit(kernel.sent[-1][2], "stream", {"name": "stdout", "text": json.dumps(values)})
-        kernel.complete()
+    kernel.complete(
+        user_expressions={
+            "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}},
+        }
+    )
     await until(lambda: runtime.active is None)
     result = agent.journal.execution(sid, "inspect")
     assert result["state"] == "SUCCEEDED"

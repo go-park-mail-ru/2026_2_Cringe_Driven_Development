@@ -78,7 +78,7 @@ class LocalJupyter:
             stderr=asyncio.subprocess.STDOUT,
             start_new_session=True,
         )
-        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only", "python")
+        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only")
         try:
             await transport.start(30)
             return transport
@@ -130,12 +130,11 @@ async def real_agent(settings, request):
 
 @pytest.mark.jupyter
 @pytest.mark.docker
-@pytest.mark.parametrize("language", ["python"])
-async def test_real_execution_inspection_interrupt_restart(real_agent, language):
+async def test_real_execution_inspection_interrupt_restart(real_agent):
     agent, backend = real_agent
     sid, session = await new_session(agent)
     assert session.ready, agent.snapshot()
-    code = "x = 42\nprint(x)\nx * 2" if language == "python" else "x <- 42; print(x); x * 2"
+    code = "x = 42\nprint(x)\nx * 2"
     agent.accept(command(code=code))
     assert (await completed(agent, sid, "run-1"))["state"] == "SUCCEEDED"
     assert agent.accept(command(code=code))["state"] == "SUCCEEDED"
@@ -146,17 +145,13 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
     assert x["preview"] == "42"
     agent.accept(command("next", "x + 1"))
     assert (await completed(agent, sid, "next"))["state"] == "SUCCEEDED"
-    error_code = "raise ValueError('expected')" if language == "python" else "stop('expected')"
+    error_code = "raise ValueError('expected')"
     agent.accept(command("error", error_code))
     assert (await completed(agent, sid, "error"))["state"] == "FAILED"
-    # Large real Python/R exceptions must not bypass the persistent budget via reply.
+    # Large real Python exceptions must not bypass the persistent budget via reply.
     previous = session.settings
     session.settings = replace(previous, max_output_bytes=1024)
-    large_error = (
-        "raise ValueError('x' * 200000)"
-        if language == "python"
-        else "stop(paste(rep('x', 200000L), collapse=''))"
-    )
+    large_error = "raise ValueError('x' * 200000)"
     agent.accept(command("large-error", large_error))
     large_result = await completed(agent, sid, "large-error")
     assert large_result["state"] == "FAILED"
@@ -167,18 +162,14 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
         if event.get("execution_id") == "large-error"
     )
     session.settings = previous
-    rich = (
-        "from IPython.display import display\ndisplay({'text/html': '<b>hi</b>'}, raw=True)"
-        if language == "python"
-        else "IRdisplay::display_html('<b>hi</b>')"
-    )
+    rich = "from IPython.display import display\ndisplay({'text/html': '<b>hi</b>'}, raw=True)"
     agent.accept(command("rich", rich))
     assert (await completed(agent, sid, "rich"))["state"] == "SUCCEEDED"
     assert any(
         e.get("content", {}).get("data", {}).get("text/html") == "<b>hi</b>"
         for e in all_events(agent, sid)
     )
-    sleep = "import time; time.sleep(20)" if language == "python" else "Sys.sleep(20)"
+    sleep = "import time; time.sleep(20)"
     agent.accept(command("timeout", sleep, 1.0))
     assert (await completed(agent, sid, "timeout"))["state"] == "TIMED_OUT"
     agent.accept(command("interrupt", sleep))
@@ -193,14 +184,8 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
     assert generation != session.generation
     agent.accept(command("cleared", "x"))
     assert (await completed(agent, sid, "cleared"))["state"] == "FAILED"
-    # IRkernel replaces quit()/q() with an ask_exit payload for the frontend;
-    # kill the process directly to exercise kernel death before an execute_reply.
-    crash = (
-        "import os; os._exit(1)"
-        if language == "python"
-        else "tools::pskill(Sys.getpid(), signal = 9L)"
-    )
-    agent.accept(command("crash", crash))
+    # Kill the process directly to exercise kernel death before an execute_reply.
+    agent.accept(command("crash", "import os; os._exit(1)"))
     assert (await completed(agent, sid, "crash"))["state"] == "UNKNOWN"
     async with asyncio.timeout(10):
         while not session.closed:

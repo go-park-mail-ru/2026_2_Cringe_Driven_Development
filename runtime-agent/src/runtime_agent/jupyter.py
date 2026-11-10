@@ -80,17 +80,16 @@ class Jupyter:
         ws (aiohttp.ClientWebSocketResponse | None): Kernel channels connection.
     """
 
-    def __init__(self, base_url, token, language):
+    def __init__(self, base_url, token):
         """Configure the transport without opening connections.
 
         Args:
             base_url (str): Private HTTP endpoint of Jupyter Server.
             token (str): Authentication token for this session's server.
-            language (str): Validated session language, ``python`` or ``r``.
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
-        self.kernel_name = "python3" if language == "python" else "ir"
+        self.kernel_name = "python3"
         self.http = None
         self.ws = None
         self.kernel_id = None

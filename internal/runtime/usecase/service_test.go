@@ -95,7 +95,7 @@ func TestRequestCreateFinishedReturnedAsIs(t *testing.T) {
 	}
 }
 
-// R не поддерживает агент runtime-VPS (backend#89): запрос отклоняется до записи в БД.
+// Поддерживается только python: другие языки, включая r, отклоняются до записи в БД.
 func TestRequestCreateInvalidLanguage(t *testing.T) {
 	svc, _ := newSvc(t, true)
 	for _, lang := range []string{"julia", "r"} {

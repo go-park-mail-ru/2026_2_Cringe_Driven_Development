@@ -1,5 +1,5 @@
 [Unit]
-Description=Cellestial Python/R runtime agent
+Description=Cellestial Python runtime agent
 Requires=docker.service
 After=docker.service
 
