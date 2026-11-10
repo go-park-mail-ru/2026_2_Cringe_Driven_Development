@@ -29,7 +29,7 @@
 !docs/redis-sessions.md
 !docs/local-development.md
 !docs/release.md
-!docs/apidog.md
+!docs/openapi.md
 !/.github
 /.github/**
 !.github/workflows

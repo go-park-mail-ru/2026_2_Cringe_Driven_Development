@@ -7,7 +7,7 @@ trap 'rm -rf "$coverage_dir"' EXIT
 # Run every package, then exclude generated code and utilities from coverage only.
 go test -race -count=1 -coverpkg=./... -coverprofile="$coverage_dir/raw.out" ./...
 # cmd/main only starts the application; internal/app remains in the report.
-awk 'NR == 1 || $1 !~ /\/(internal\/transport\/http\/api|cmd\/main|cmd\/apidog|migrations)\//' \
+awk 'NR == 1 || $1 !~ /\/(internal\/transport\/http\/api|cmd\/main|migrations)\//' \
   "$coverage_dir/raw.out" > coverage.out
 
 go tool cover -func=coverage.out > "$coverage_dir/summary.txt"

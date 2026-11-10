@@ -17,6 +17,7 @@ need go 'установите Go версии из go.mod'
 need gopls 'go install golang.org/x/tools/gopls@v0.20.0; добавьте каталог go env GOPATH/bin в PATH'
 need docker 'установите Docker Engine и Compose v2'
 need gh 'установите GitHub CLI и выполните gh auth login'
+need npm 'установите Node.js >= 22.12 с npm: Redocly для make generate и make check'
 
 if command -v go >/dev/null 2>&1; then
     # Inspect the executable in PATH without Go auto-downloading a toolchain.
@@ -72,7 +73,7 @@ for cli in codex claude; do
     if command -v "$cli" >/dev/null 2>&1; then ok "$cli найден; MCP trust и подключение проверьте в новой сессии по docs/local-development.md"; client=1; fi
 done
 if [ "$client" = 0 ]; then fail 'установите Codex или Claude Code для работы агента'; fi
-warn 'cdd-tasks, MCP trust и Projects проверяются по docs/local-development.md; доступ Apidog — по docs/apidog.md; doctor не подтверждает их'
+warn 'cdd-tasks, MCP trust и Projects проверяются по docs/local-development.md; doctor не подтверждает их'
 if [ ! -x bin/golangci-lint ]; then warn 'golangci-lint ещё не установлен; make lint скачает версию из Makefile'; fi
 printf '\nОшибок: %s\n' "$failures"
 [ "$failures" -eq 0 ]

@@ -22,7 +22,7 @@ function isWikiSourcePath(path: string): boolean {
             'docs/redis-sessions.md',
             'docs/local-development.md',
             'docs/release.md',
-            'docs/apidog.md',
+            'docs/openapi.md',
             'go.mod',
             'go.sum',
             'Makefile',

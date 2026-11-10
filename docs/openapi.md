@@ -1,0 +1,68 @@
+# Контракт API: OpenAPI в Git
+
+Единственный редактируемый исходник HTTP-контракта — [`spec/openapi.json`](../spec/openapi.json)
+(OpenAPI 3.1, JSON). Контракт меняется обычным PR в backend вместе с generated-кодом;
+Apidog в изменении, генерации и проверке контракта не участвует.
+Frontend получает копию `spec/openapi.json`, [`spec/redocly.yaml`](../spec/redocly.yaml),
+[`spec/plugins/`](../spec/plugins) и закрепление Redocly
+([`spec/package.json`](../spec/package.json), `spec/package-lock.json`) по полному Git SHA
+этого репозитория и свою копию не редактирует.
+
+## Команды
+
+Нужен Node.js ≥ 22.12 с npm. Сеть требуется только для первой установки Redocly.
+
+```bash
+make contract-tools   # npm ci в spec/: Redocly CLI закреплённой версии
+make contract-lint    # проверка структуры, ссылок, примеров и default
+make generate         # contract-lint, затем oapi-codegen → internal/transport/http/api/api.gen.go
+make contract-check   # generate и ошибка, если generated-код не совпадает с закоммиченным
+```
+
+`make check` и CI (job `contract`) запускают `make contract-check` на каждом PR и push в `main`.
+Сгенерированный `api.gen.go` руками не правится; контракт и код обновляются в одном PR.
+
+## Проверка Redocly
+
+`spec/redocly.yaml` расширяет `recommended-strict`: любая находка — ошибка с ненулевым кодом.
+Отключены только `info-license` и `no-empty-servers` (базовый URL `/api/v1` задают BFF и Go);
+неиспользуемый ответ `Conflict` из исходного снимка — предупреждение.
+Примеры запросов, ответов и параметров сверяются со схемами без лишних полей.
+Redocly сам не проверяет `default`, поэтому плагин `spec/plugins/defaults.js` перед
+проверкой добавляет `default` в `examples` схемы, и его проверяет `no-invalid-schema-examples`.
+Ignore-файл Redocly не используется.
+
+## Правила изменения контракта
+
+- Общие схемы — в `components`, ссылки через `$ref`. Рядом с `$ref` допустимы только
+  `summary` и `description`; реальные заголовки ответа описываются в Response Object.
+- Политика дополнительных полей явная: `additionalProperties: false` для закрытых
+  объектов, `true` — только для открытых payload (события, nbformat outputs).
+- Используй только подмножество OpenAPI, которое поддерживает генератор frontend
+  ([frontend-packages#63](https://github.com/Cringe-Driven-Development-Team/frontend-packages/issues/63)).
+  Новое неподдерживаемое ограничение сначала согласуй с генератором; молча ослаблять
+  схемы, чтобы обойти проверку или генерацию, нельзя.
+- Каждый пример и `default` соответствуют схеме: required, format, pattern и границы.
+- Breaking changes не запрещены автоматически; для ревью можно запустить
+  [oasdiff](https://github.com/oasdiff/oasdiff) по старой и новой версии файла.
+
+Для агентов подключены официальные skills Redocly: `.agents/skills/redocly-cli` и
+`.agents/skills/redocly-lint-rules` (Claude Code видит их через `.claude/skills`).
+
+## Генерация Go
+
+`internal/transport/http/api/cfg.yaml` генерирует strict server, модели и встроенную
+спецификацию только для операций из `output-options.include-operation-ids` — всех тридцати семи
+операций: авторизация и TOTP 2FA ([описание](two-factor-authentication.md)), профиль,
+одиннадцать операций блокнотов и четырнадцать операций runtime-сессий
+([описание](runtime-sessions.md)). Новую операцию добавляй в этот список вместе с реализацией.
+
+`middleware.Validator` проверяет запросы по встроенной спецификации; загрузка аватара
+валидируется без буферизации multipart-тела.
+
+## Контракт BFF
+
+Контракт описывает единственный серверный API для BFF: токены в JSON, Bearer для данных
+и logout. Пути указаны относительно `/api/v1`. Обязательный заголовок `X-BFF-Key` описан у
+всех операций; проверка в middleware предшествует Bearer и валидации. Отказ — `403 s2s_forbidden`.
+Cookie-auth и браузерных параметров в контракте нет.

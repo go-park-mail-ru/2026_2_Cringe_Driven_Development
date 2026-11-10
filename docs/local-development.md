@@ -90,7 +90,7 @@ Docker daemon/Compose, конфигурацию и секреты, автори�
 в командном `Cringe-Driven-Development-Team/backend`, где теперь находятся и код, и задачи.
 Права записи в учебную копию для разработки не нужны. Ошибки собираются вместе, код возврата ненулевой.
 Установку клиента, trust, подключение MCP и наличие скилла проверяйте отдельно.
-Apidog-токен нужен только для изменения контракта (`make generate`); Projects
+Для `make generate` и `make check` нужен Node.js ≥ 22.12 с npm (Redocly); Projects
 нужен для работы с доской (`gh auth refresh -s project`). Сетевой отказ в
 песочнице требует разрешения на сеть, а не обязательно нового токена gh.
 
@@ -107,7 +107,7 @@ Apidog-токен нужен только для изменения контра
 4. Выполните `make up`, `make health`, `make logs`, затем `make down`.
 5. Во время разработки — `make check-fast` и `go test ./internal/<пакет>`;
    перед PR — `make check` и `make docker-build` (соответствуют lint/test/docker CI).
-   Docker-проверка не публикует образ. Контракт меняйте по [процессу Apidog](apidog.md).
+   Docker-проверка не публикует образ. Контракт меняйте в [`spec/openapi.json`](openapi.md).
 6. В PR запишите версии клиентов/gopls, результаты MCP, doctor, health и проверок.
    Недоступный клиент отмечайте как непроверенный; запуск MCP сам по себе
    не подтверждает интеграцию с обоими клиентами. Правила ревью и исключение YarikMix — в разделе [работы с задачами](#как-работать-с-задачами).
@@ -127,7 +127,7 @@ PostgreSQL — `github.com/pashagolub/pgxmock/v5` без замены pgx/v5 н�
 make generate-mocks
 ```
 
-Команда запускает только `scripts/generate-mocks.sh`, не обращается к Apidog
+Команда запускает только `scripts/generate-mocks.sh`, не проверяет
 и не меняет OpenAPI. Генератор создаёт `*_mock_test.go` рядом с тестами;
 при изменении интерфейсов регенерируйте и добавляйте эти файлы вместе с тестами.
 Они компилируются только при тестировании и не входят в `coverage.out`.
@@ -211,7 +211,7 @@ make docker-build  # локальная сборка образа без пуб�
 ```
 
 `make test` запускает `scripts/test.sh`: `-race -count=1 -coverpkg=./...`, затем
-формирует `coverage.out` и печатает итоговое покрытие. `internal/transport/http/api`, `cmd/apidog`, `cmd/main` и `migrations`
+формирует `coverage.out` и печатает итоговое покрытие. `internal/transport/http/api`, `cmd/main` и `migrations`
 исключены из отчёта, `internal/app` учитывается; автоматического порога нет.
 Локальные интеграционные тесты PostgreSQL и Redis требуют отдельного тестового
 окружения (`TEST_POSTGRES_DSN`, `RUNTIME_TEST_DATABASE_URL`, `REDIS_TEST_ADDR`);
@@ -251,7 +251,7 @@ make docker-build  # локальная сборка образа без пуб�
 
 - `cmd/main` — точка входа; `internal/app` собирает зависимости, `internal/config` читает окружение.
 - `internal/transport/http` — маршруты, авторизация и HTTP-политики; `internal/{user,notebook}` — domain, usecase, HTTP-обработчики и адаптеры хранения.
-- `migrations/` — SQL-миграции goose; `internal/transport/http/api/api.gen.go` — код, сгенерированный из Apidog, вручную не редактируйте.
+- `migrations/` — SQL-миграции goose; `internal/transport/http/api/api.gen.go` — код, сгенерированный из `spec/openapi.json`, вручную не редактируйте.
 - [Сессии Redis](redis-sessions.md) — конфигурация, отзыв, переключение и восстановление.
 - [Авторизация через BFF](authentication.md) — JSON-токены, Bearer и обязательный S2S-ключ.
 - [Профиль пользователя](user-profile.md) — логин, смена пароля и загрузка аватара.
@@ -261,6 +261,6 @@ make docker-build  # локальная сборка образа без пуб�
 - [Runtime-сессии](runtime-sessions.md) — пользователь, блокнот, очередь исполнения и результаты.
 - [Provisioning окружений](runtime-provisioning.md) — создание, настройка и удаление VPS; [сеть агента](runtime-agent-network.md).
 - [OpenWiki](openwiki.md) — поиск, ручное обновление и публикация wiki.
-- [Контракт API в Apidog](apidog.md) — ветки, Merge Request и `make generate`.
+- [Контракт API](openapi.md) — `spec/openapi.json`, Redocly и `make generate`.
 - [CI, образ и деплой](release.md) — проверки и выпуск. Production-конфигурация принадлежит [infra](https://github.com/Cringe-Driven-Development-Team/infra).
 - [AGENTS.md](../AGENTS.md) — локальные правила для агента; Claude Code подключает их через [CLAUDE.md](../CLAUDE.md).

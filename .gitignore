@@ -251,9 +251,6 @@ tmbootpicker.efi
 
 bin/*
 
-# Спецификация, скачанная make generate
-internal/transport/http/api/openapi.yaml
-
 # Личные разрешения Claude Code
 .claude/settings.local.json
 

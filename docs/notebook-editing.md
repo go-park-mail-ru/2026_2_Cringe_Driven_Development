@@ -139,4 +139,4 @@ owned namespace неизвестное значение сохраняется, 
 
 Перенос старых ipynb из S3 отменён: БД приложения сбрасывается один раз — [database-reset.md](database-reset.md).
 S3 остаётся для аватаров. Для обычного API `S3_NOTEBOOKS_BUCKET` не нужен.
-Контракт и генерация — [apidog.md](apidog.md).
+Контракт и генерация — [openapi.md](openapi.md).

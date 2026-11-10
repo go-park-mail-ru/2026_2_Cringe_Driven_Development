@@ -82,7 +82,7 @@ for (const path of [
     'docs/authentication.md',
     'docs/input-security.md',
     'docs/redis-sessions.md',
-    'docs/apidog.md',
+    'docs/openapi.md',
     'cmd/main/main.go',
     'migrations/001.sql',
     'build/main.Dockerfile',
