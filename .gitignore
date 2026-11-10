@@ -269,5 +269,6 @@ runtime-agent/**/*.egg-info/
 # Superpowers plugin documentation
 docs/superpowers/
 
-# Local Apidog CLI metadata
-.apidog/
+
+# Redocly CLI для spec/openapi.json
+spec/node_modules/

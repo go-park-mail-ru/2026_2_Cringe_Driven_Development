@@ -22,4 +22,5 @@ runtime-agent/tests/
 runtime-agent/**/__pycache__/
 runtime-agent/**/*.egg-info/
 
-.apidog/
+.agents
+spec/

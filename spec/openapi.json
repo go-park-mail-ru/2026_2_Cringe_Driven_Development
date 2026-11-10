@@ -7,16 +7,20 @@
   },
   "tags": [
     {
-      "name": "users"
+      "name": "users",
+      "description": "Профиль текущего пользователя."
     },
     {
-      "name": "auth"
+      "name": "auth",
+      "description": "Регистрация, вход, токены и двухфакторная аутентификация."
     },
     {
-      "name": "notebooks"
+      "name": "notebooks",
+      "description": "Блокноты и их ячейки."
     },
     {
-      "name": "runtime-sessions"
+      "name": "runtime-sessions",
+      "description": "Сессии выполнения кода и ядро."
     }
   ],
   "paths": {
@@ -459,7 +463,8 @@
                     "value": {
                       "id": 1,
                       "login": "example",
-                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg"
+                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg",
+                      "has_2fa": false
                     }
                   }
                 }
@@ -1949,7 +1954,7 @@
             "in": "path",
             "description": "ID блокнота",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -2126,7 +2131,7 @@
             "in": "path",
             "description": "ID блокнота",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -2305,7 +2310,7 @@
             "in": "path",
             "description": "ID блокнота",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -2317,7 +2322,7 @@
             "in": "path",
             "description": "Стабильный ID блока внутри блокнота.",
             "required": true,
-            "example": "",
+            "example": "cell-1",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -2499,7 +2504,7 @@
             "in": "path",
             "description": "ID блокнота",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -2511,7 +2516,7 @@
             "in": "path",
             "description": "Стабильный ID блока внутри блокнота.",
             "required": true,
-            "example": "",
+            "example": "cell-1",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -2793,7 +2798,7 @@
             "in": "path",
             "description": "ID блокнота",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -2805,7 +2810,7 @@
             "in": "path",
             "description": "Стабильный ID блока внутри блокнота.",
             "required": true,
-            "example": "",
+            "example": "cell-1",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -3148,7 +3153,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3207,33 +3212,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Сервис чтения очереди технически недоступен. Пустая очередь не является ошибкой.",
-            "headers": {}
+            "description": "Сервис чтения очереди технически недоступен. Пустая очередь не является ошибкой."
           }
         },
         "security": [
@@ -3258,7 +3257,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3308,43 +3307,35 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не готова, source изменился или конфликт execution_id",
-            "headers": {}
+            "description": "Сессия не готова, source изменился или конфликт execution_id"
           },
           "429": {
             "$ref": "#/components/responses/RuntimeQueueFull",
-            "description": "Очередь исполнения переполнена",
-            "headers": {}
+            "description": "Очередь исполнения переполнена"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3369,7 +3360,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3426,33 +3417,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3477,7 +3462,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3538,43 +3523,35 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не готова, source изменился или конфликт execution_id",
-            "headers": {}
+            "description": "Сессия не готова, source изменился или конфликт execution_id"
           },
           "429": {
             "$ref": "#/components/responses/RuntimeQueueFull",
-            "description": "Очередь исполнения переполнена",
-            "headers": {}
+            "description": "Очередь исполнения переполнена"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3599,7 +3576,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3646,38 +3623,31 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не готова, source изменился или конфликт execution_id",
-            "headers": {}
+            "description": "Сессия не готова, source изменился или конфликт execution_id"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3702,7 +3672,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -3747,38 +3717,31 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не готова, source изменился или конфликт execution_id",
-            "headers": {}
+            "description": "Сессия не готова, source изменился или конфликт execution_id"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3841,33 +3804,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3892,7 +3849,7 @@
             "in": "path",
             "description": "ID блокнота текущего пользователя",
             "required": true,
-            "example": "",
+            "example": 1,
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -3935,38 +3892,31 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeSessionConflict",
-            "description": "Уже есть активная сессия либо конфликт ключа идемпотентности",
-            "headers": {}
+            "description": "Уже есть активная сессия либо конфликт ключа идемпотентности"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -3991,7 +3941,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4023,33 +3973,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -4074,7 +4018,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4116,43 +4060,35 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не готова, source изменился или конфликт execution_id",
-            "headers": {}
+            "description": "Сессия не готова, source изменился или конфликт execution_id"
           },
           "429": {
             "$ref": "#/components/responses/RuntimeQueueFull",
-            "description": "Очередь исполнения переполнена",
-            "headers": {}
+            "description": "Очередь исполнения переполнена"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -4177,7 +4113,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4188,7 +4124,7 @@
             "in": "path",
             "description": "",
             "required": true,
-            "example": "",
+            "example": "run-1",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -4221,33 +4157,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -4272,7 +4202,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4317,33 +4247,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -4368,7 +4292,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4412,38 +4336,31 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "409": {
             "$ref": "#/components/responses/RuntimeConflict",
-            "description": "Сессия не принимает активность",
-            "headers": {}
+            "description": "Сессия не принимает активность"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -4468,7 +4385,7 @@
             "in": "path",
             "description": "UUID runtime-сессии текущего пользователя",
             "required": true,
-            "example": "",
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4512,33 +4429,27 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest",
-            "description": "Некорректные параметры или JSON",
-            "headers": {}
+            "description": "Некорректные параметры или JSON"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized",
-            "description": "Авторизация отсутствует, истекла или отозвана",
-            "headers": {}
+            "description": "Авторизация отсутствует, истекла или отозвана"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden",
-            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
-            "headers": {}
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
           },
           "404": {
             "$ref": "#/components/responses/NotFound",
-            "description": "Сущность отсутствует или не принадлежит пользователю",
-            "headers": {}
+            "description": "Сущность отсутствует или не принадлежит пользователю"
           },
           "500": {
             "$ref": "#/components/responses/InternalError",
-            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
-            "headers": {}
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
           },
           "503": {
             "$ref": "#/components/responses/RuntimeUnavailable",
-            "description": "Runtime недоступен или создание новых окружений отключено",
-            "headers": {}
+            "description": "Runtime недоступен или создание новых окружений отключено"
           }
         },
         "security": [
@@ -5927,6 +5838,5 @@
       }
     }
   },
-  "servers": [],
   "security": []
 }
