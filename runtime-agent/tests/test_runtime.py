@@ -18,7 +18,7 @@ async def test_idempotency_and_both_completion_orders(env):
     with pytest.raises(AgentError) as error:
         agent.accept(command(code="different"))
     assert error.value.status == 409
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     kernel.emit(kernel.sent[-1][2], "execute_reply", {"status": "ok"}, "shell")
     await asyncio.sleep(0.01)
@@ -54,7 +54,7 @@ async def test_queue_capacity_and_drain(env):
     assert agent.journal.execution(sid, "q-99")["state"] == "CANCELLED"
     assert not session.queue.qsize()
     assert not agent.snapshot()["ready"]
-    assert len(backend.kernels[sid].sent) == 1
+    assert len(backend.kernel.sent) == 1
     with pytest.raises(AgentError) as error:
         agent.accept(command("new"))
     assert error.value.status == 503
@@ -65,7 +65,7 @@ async def test_late_output_and_cumulative_limit(env):
     agent.session.settings = replace(agent.settings, max_output_bytes=2000)
     sid, session = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     old_parent = kernel.sent[0][2]
     kernel.complete()
@@ -89,12 +89,12 @@ async def test_late_output_and_cumulative_limit(env):
 async def test_timeout(env, respond, state):
     agent, backend, _ = env
     sid, session = await new_session(agent)
-    backend.kernels[sid].respond_to_interrupt = respond
+    backend.kernel.respond_to_interrupt = respond
     agent.accept(command(timeout=0.01))
     await until(lambda: agent.journal.execution(sid, "run-1")["state"] == state)
     if not respond:
         await until(lambda: session.closed)
-        assert sid in backend.removed
+        assert backend.removed
 
 
 async def test_channel_loss_cancels_queue_without_replay(env):
@@ -103,7 +103,7 @@ async def test_channel_loss_cancels_queue_without_replay(env):
     agent.accept(command())
     await until(lambda: session.active)
     agent.accept(command("queued"))
-    backend.kernels[sid].messages.put_nowait(ConnectionError())
+    backend.kernel.messages.put_nowait(ConnectionError())
     await until(lambda: session.closed)
     assert agent.journal.execution(sid, "run-1")["state"] == "UNKNOWN"
     assert agent.journal.execution(sid, "queued")["state"] == "CANCELLED"
@@ -128,7 +128,7 @@ async def test_idle_clock_does_not_kill_active_execution(env):
     session.last_activity -= 1000
     await agent.check_session()
     assert not session.closed
-    backend.kernels[sid].complete()
+    backend.kernel.complete()
     await until(lambda: session.active is None)
     await agent.check_session()
     assert not session.closed
@@ -152,27 +152,22 @@ async def test_cleanup_failure_retries_before_stopping(env):
     assert agent.cleanup_pending is None
 
 
-@pytest.mark.parametrize("language", ["python", "r"])
-async def test_inspection_is_queued_and_returns_common_shape(env, language):
+async def test_inspection_is_queued_and_returns_common_shape(env):
     agent, backend, _ = env
-    sid, session = await new_session(agent, language)
+    sid, session = await new_session(agent)
     agent.accept(command())
     agent.accept({"execution_id": "inspect", "kind": "inspect", "timeout_seconds": 5.0})
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     assert len(kernel.sent) == 1
     kernel.complete()
     await until(lambda: len(kernel.sent) == 2)
     values = [{"name": "x", "type": "int", "preview": "42"}]
-    if language == "python":
-        kernel.complete(
-            user_expressions={
-                "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}}
-            }
-        )
-    else:
-        kernel.emit(kernel.sent[-1][2], "stream", {"name": "stdout", "text": json.dumps(values)})
-        kernel.complete()
+    kernel.complete(
+        user_expressions={
+            "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}}
+        }
+    )
     await until(lambda: session.active is None)
     assert agent.journal.execution(sid, "inspect")["result"] == {"variables": values}
     assert not kernel.sent[-1][1]["store_history"]
@@ -181,7 +176,7 @@ async def test_inspection_is_queued_and_returns_common_shape(env, language):
 async def test_unconfirmed_manual_interrupt_stops_session(env):
     agent, backend, _ = env
     sid, session = await new_session(agent)
-    backend.kernels[sid].respond_to_interrupt = False
+    backend.kernel.respond_to_interrupt = False
     agent.accept(command())
     await until(lambda: session.active)
     await session.interrupt()
@@ -192,7 +187,7 @@ async def test_unconfirmed_manual_interrupt_stops_session(env):
 async def test_delayed_interrupt_cannot_hit_next_cell(env):
     agent, backend, _ = env
     sid, session = await new_session(agent)
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     agent.accept(command())
     agent.accept(command("next"))
     await until(lambda: kernel.sent)

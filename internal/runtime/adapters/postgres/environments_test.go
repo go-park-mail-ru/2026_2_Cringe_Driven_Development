@@ -17,7 +17,7 @@ import (
 
 func testID() uuid.UUID { return uuid.MustParse("11111111-1111-1111-1111-111111111111") }
 
-func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock exposes an interface
+func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock отдаёт интерфейс
 	t.Helper()
 	db, err := pgxmock.NewPool(pgxmock.QueryMatcherOption(pgxmock.QueryMatcherEqual))
 	if err != nil {
@@ -39,13 +39,13 @@ func testEnv() domain.Environment {
 
 func envCols() []string {
 	return []string{"session_id", "operation_id", "language", "profile", "state", "desired_state", "server_id", "volume_id",
-		"port_id", "private_ip", "endpoint", "agent_version", "last_error", "cleanup_result", "version", "created_at", "updated_at"}
+		"port_id", "private_ip", "endpoint", "agent_version", "last_error", "cleanup_result", "pool_id", "version", "created_at", "updated_at"}
 }
 
 func envRow(e domain.Environment) *pgxmock.Rows {
 	return pgxmock.NewRows(envCols()).AddRow(e.SessionID, e.OperationID, e.Language, e.Profile, string(e.State), string(e.DesiredState),
 		e.Resources.ServerID, e.Resources.VolumeID, e.Resources.PortID, e.Resources.PrivateIP, e.Endpoint, e.AgentVersion,
-		e.LastError, e.CleanupResult, e.Version, e.CreatedAt, e.UpdatedAt)
+		e.LastError, e.CleanupResult, e.PoolID, e.Version, e.CreatedAt, e.UpdatedAt)
 }
 
 func insertEnvArgs(e domain.Environment) []any {
@@ -159,7 +159,7 @@ func TestMarkForDeleteFinishedNoopAndNotFound(t *testing.T) {
 
 func saveArgs(e domain.Environment, owner string) []any {
 	return []any{e.SessionID, e.Version, string(e.State), string(e.DesiredState), e.Resources.ServerID, e.Resources.VolumeID,
-		e.Resources.PortID, e.Resources.PrivateIP, e.Endpoint, e.AgentVersion, e.LastError, e.CleanupResult, owner}
+		e.Resources.PortID, e.Resources.PrivateIP, e.Endpoint, e.AgentVersion, e.LastError, e.CleanupResult, owner, e.PoolID}
 }
 
 func TestSaveStaleVersion(t *testing.T) {

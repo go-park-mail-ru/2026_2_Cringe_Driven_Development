@@ -21,8 +21,8 @@ const (
 	Delete OperationKind = "delete"
 )
 
-// Operation transmits only the requested change; Index selects legacy operations
-// only after the notebook revision has been checked under its row lock.
+// Operation передаёт только запрошенное изменение; Index выбирает legacy-операции
+// только после проверки ревизии ноутбука под блокировкой его строки.
 type Operation struct {
 	Kind     OperationKind
 	CellID   string
@@ -42,18 +42,18 @@ type Repository interface {
 	Apply(context.Context, int64, int64, string, Operation) (Change, error)
 }
 
-// ActiveSessions is supplied by #13. Notebook ID zero means no active session.
-// It is unrelated to authentication sessions and provisioned environments.
+// ActiveSessions поставляется из #13. Нулевой ID ноутбука означает отсутствие активной сессии.
+// Не связано с сессиями аутентификации и подготовленными окружениями.
 type ActiveSessions interface {
 	ActiveNotebook(context.Context, int64) (int64, error)
 }
 
-// NoActiveSessions supports standalone notebook tests; app uses the runtime session store.
+// NoActiveSessions нужен для автономных тестов ноутбуков; app использует хранилище runtime-сессий.
 type NoActiveSessions struct{}
 
 func (NoActiveSessions) ActiveNotebook(context.Context, int64) (int64, error) { return 0, nil }
 
-// ExecutionSource binds a dispatched execution to a stable cell and source version.
+// ExecutionSource привязывает отправленное выполнение к стабильной ячейке и версии исходника.
 type ExecutionSource struct{ CellID, Source, SourceVersion string }
 type CellResult struct {
 	OutputTruncated       bool

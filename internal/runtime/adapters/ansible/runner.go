@@ -1,4 +1,4 @@
-// Package ansible запускает ansible-playbook для настройки VPS сессии.
+// Package ansible запускает prepare.yml: подготовку runtime-VPS без сессии.
 package ansible
 
 import (
@@ -90,14 +90,10 @@ func (r *Runner) vars(c usecase.HostConfig) (map[string]any, error) {
 		blocked = []string{}
 	}
 	return map[string]any{
-		"session_id":         c.SessionID.String(),
-		"language":           c.Language,
 		"private_ip":         c.PrivateIP,
-		"token":              c.Token,
 		"server_cert_pem":    string(c.ServerCertPEM),
 		"server_key_pem":     string(c.ServerKeyPEM),
 		"python_image":       c.PythonImage,
-		"r_image":            c.RImage,
 		"kernel_dns":         c.KernelDNS,
 		"blocked_public_ips": blocked,
 		"agent_wheel":        r.art.AgentWheel,
@@ -121,7 +117,7 @@ func (r *Runner) Configure(ctx context.Context, c usecase.HostConfig) error {
 	if err := os.MkdirAll(r.workDir, 0o700); err != nil {
 		return fmt.Errorf("create work dir: %w", err)
 	}
-	dir, err := os.MkdirTemp(r.workDir, c.SessionID.String()+"-")
+	dir, err := os.MkdirTemp(r.workDir, c.Name.String()+"-")
 	if err != nil {
 		return fmt.Errorf("create session dir: %w", err)
 	}
@@ -169,7 +165,7 @@ func (r *Runner) Configure(ctx context.Context, c usecase.HostConfig) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 5 * time.Second
-	lw := newLogWriter(c.Token, c.SessionID.String())
+	lw := newLogWriter(c.Name.String())
 	cmd.Stdout, cmd.Stderr = lw, lw
 
 	runErr := cmd.Run()
@@ -183,14 +179,15 @@ func (r *Runner) Configure(ctx context.Context, c usecase.HostConfig) error {
 	return nil
 }
 
-// logWriter разбивает вывод на строки и пишет в slog с маскированием токена.
+// logWriter разбивает вывод на строки и пишет в slog. Секретов в выводе нет: токена сессии плейбук
+// не получает, TLS-ключ передаётся задачам с no_log.
 type logWriter struct {
 	pr   *io.PipeReader
 	pw   *io.PipeWriter
 	done chan struct{}
 }
 
-func newLogWriter(token, session string) *logWriter {
+func newLogWriter(name string) *logWriter {
 	pr, pw := io.Pipe()
 	l := &logWriter{pr: pr, pw: pw, done: make(chan struct{})}
 	go func() {
@@ -198,11 +195,7 @@ func newLogWriter(token, session string) *logWriter {
 		sc := bufio.NewScanner(pr)
 		sc.Buffer(make([]byte, 64*1024), 1024*1024)
 		for sc.Scan() {
-			line := sc.Text()
-			if token != "" {
-				line = strings.ReplaceAll(line, token, "***")
-			}
-			slog.Info(line, "component", "ansible", "session_id", session)
+			slog.Info(sc.Text(), "component", "ansible", "vps", name)
 		}
 		_, _ = io.Copy(io.Discard, pr)
 	}()

@@ -11,7 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 )
 
-// EnableTwoFactorAuth returns setup data without activating the secret.
+// EnableTwoFactorAuth возвращает данные настройки, не активируя секрет.
 func (h *Handler) EnableTwoFactorAuth(ctx context.Context, _ api.EnableTwoFactorAuthRequestObject) (api.EnableTwoFactorAuthResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -28,7 +28,7 @@ func (h *Handler) EnableTwoFactorAuth(ctx context.Context, _ api.EnableTwoFactor
 	return api.EnableTwoFactorAuth200JSONResponse{Body: api.TwoFactorSetupResponse{QrCode: setup.QRCode, Secret: setup.Secret}, Headers: api.EnableTwoFactorAuth200ResponseHeaders{CacheControl: "no-store"}}, nil
 }
 
-// ConfirmTwoFactorAuth enables 2FA only after a valid code is consumed.
+// ConfirmTwoFactorAuth включает 2FA только после использования валидного кода.
 func (h *Handler) ConfirmTwoFactorAuth(ctx context.Context, req api.ConfirmTwoFactorAuthRequestObject) (api.ConfirmTwoFactorAuthResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -48,7 +48,7 @@ func (h *Handler) ConfirmTwoFactorAuth(ctx context.Context, req api.ConfirmTwoFa
 	return api.ConfirmTwoFactorAuth200Response{}, nil
 }
 
-// DisableTwoFactorAuth checks the account password before deleting its secret.
+// DisableTwoFactorAuth проверяет пароль аккаунта перед удалением его секрета.
 func (h *Handler) DisableTwoFactorAuth(ctx context.Context, req api.DisableTwoFactorAuthRequestObject) (api.DisableTwoFactorAuthResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {

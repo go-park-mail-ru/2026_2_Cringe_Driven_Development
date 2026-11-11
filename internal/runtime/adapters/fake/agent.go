@@ -42,7 +42,7 @@ type agentState struct {
 
 // Agent — in-memory usecase.AgentClient. Агенты адресуются по AgentEndpoint.BaseURL.
 //
-// FailNext[метод] — ошибка следующего вызова (Health, Drain, Stop, Execute, Execution, Events).
+// FailNext[метод] — ошибка следующего вызова (Health, Assign, Drain, Stop, Execute, Execution, Events).
 // Health: незарегистрированный адрес → ErrUnreachable; неверный токен → 401; после Drain/Stop или
 // SetStatus(≠200) → ready=false.
 type Agent struct {
@@ -58,7 +58,41 @@ func NewAgent() *Agent {
 	return &Agent{FailNext: map[string]error{}, agents: map[string]*agentState{}, calls: map[string]int{}}
 }
 
-// Register запускает «агента» сессии по адресу baseURL с токеном token.
+// RegisterWaiting запускает «агента» без сессии по адресу baseURL: /health без токена отвечает
+// WAITING, сессию назначает Assign.
+func (a *Agent) RegisterWaiting(baseURL string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.agents[baseURL] = &agentState{state: "WAITING", executions: map[string]string{}}
+}
+
+// Assign назначает ждущего агента сессии один раз: повтор с той же сессией и токеном — тот же ответ,
+// другая сессия или токен — 409, язык не python — 400.
+func (a *Agent) Assign(ctx context.Context, ep usecase.AgentEndpoint, sessionID uuid.UUID, language string) (usecase.AgentHealth, int, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls["Assign"]++
+	if err := take(a.FailNext, "Assign"); err != nil {
+		return usecase.AgentHealth{}, 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return usecase.AgentHealth{}, 0, err
+	}
+	s, ok := a.agents[ep.BaseURL]
+	switch {
+	case !ok:
+		return usecase.AgentHealth{}, 0, fmt.Errorf("%w: %s", ErrUnreachable, ep.BaseURL)
+	case language != "python":
+		return usecase.AgentHealth{}, http.StatusBadRequest, nil
+	case s.state == "WAITING":
+		s.session, s.token, s.language, s.state = sessionID, ep.Token, language, "READY"
+	case s.session != sessionID || s.token != ep.Token:
+		return usecase.AgentHealth{}, http.StatusConflict, nil
+	}
+	return a.snapshotLocked(s)
+}
+
+// Register запускает «агента», уже назначенного сессии, по адресу baseURL с токеном token.
 func (a *Agent) Register(baseURL, token string, session uuid.UUID, language string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -112,6 +146,12 @@ func (a *Agent) call(ctx context.Context, method string, ep usecase.AgentEndpoin
 	if !ok {
 		return nil, 0, fmt.Errorf("%w: %s", ErrUnreachable, ep.BaseURL)
 	}
+	if s.state == "WAITING" {
+		if method == "Health" {
+			return s, http.StatusOK, nil
+		}
+		return nil, http.StatusServiceUnavailable, nil
+	}
 	if ep.Token != s.token {
 		return nil, http.StatusUnauthorized, nil
 	}
@@ -126,7 +166,16 @@ func (a *Agent) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.A
 	if s == nil {
 		return usecase.AgentHealth{}, status, err
 	}
+	return a.snapshotLocked(s)
+}
+
+// snapshotLocked — ответ /health и /assign по состоянию агента; вызывающий держит a.mu.
+func (a *Agent) snapshotLocked(s *agentState) (usecase.AgentHealth, int, error) {
+	if s.state == "WAITING" {
+		return usecase.AgentHealth{State: "WAITING", Ready: true}, http.StatusOK, nil
+	}
 	h := usecase.AgentHealth{SessionID: s.session.String(), Language: s.language, State: s.state, Ready: s.state == "READY", Generation: s.generation}
+	status := http.StatusOK
 	switch {
 	case s.status != 0:
 		status = s.status

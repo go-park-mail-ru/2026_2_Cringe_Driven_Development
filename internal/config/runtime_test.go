@@ -8,7 +8,7 @@ import (
 )
 
 func runtimeBase() map[string]string {
-	return map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
+	return map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "RUNTIME_PROVIDER": "fake", "RUNTIME_SECRETS_KEY": testKey()}
 }
 
 func testKey() string { return base64.StdEncoding.EncodeToString(make([]byte, 32)) }
@@ -16,7 +16,7 @@ func testKey() string { return base64.StdEncoding.EncodeToString(make([]byte, 32
 func openstackValues() map[string]string {
 	v := runtimeBase()
 	for k, val := range map[string]string{
-		"RUNTIME_ENABLED": "true", "RUNTIME_PROVIDER": "openstack", "RUNTIME_SECRETS_KEY": testKey(),
+		"RUNTIME_PROVIDER": "openstack", "RUNTIME_SECRETS_KEY": testKey(),
 		"RUNTIME_OS_AUTH_URL": "https://auth", "RUNTIME_OS_USERNAME": "u", "RUNTIME_OS_PASSWORD": "pw-VALUE",
 		"RUNTIME_OS_USER_DOMAIN_NAME": "d", "RUNTIME_OS_PROJECT_ID": "p", "RUNTIME_OS_REGION": "ru-1",
 		"RUNTIME_AVAILABILITY_ZONE": "ru-1a", "RUNTIME_NETWORK_ID": "n", "RUNTIME_SUBNET_ID": "s",
@@ -31,18 +31,9 @@ func openstackValues() map[string]string {
 	return v
 }
 
-func TestRuntimeDisabledByDefault(t *testing.T) {
-	v := runtimeBase()
-	v["RUNTIME_MAX_ACTIVE"] = "garbage"
-	c, err := LoadFrom(settings(v))
-	if err != nil || c.Runtime.Enabled {
-		t.Fatalf("enabled=%v err=%v", c.Runtime.Enabled, err)
-	}
-}
-
 func TestRuntimeDefaults(t *testing.T) {
 	v := runtimeBase()
-	v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+	v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
 	c, err := LoadFrom(settings(v))
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +43,7 @@ func TestRuntimeDefaults(t *testing.T) {
 		r.StartupTimeout != 20*time.Minute || r.AnsibleTimeout != 15*time.Minute || r.DrainTimeout != 30*time.Second ||
 		r.DeleteTimeout != 10*time.Minute || r.ReconcileInterval != 5*time.Minute ||
 		r.MaxConcurrentOps != 2 || r.MaxActive != 3 || r.WorkDir != "/var/lib/cellestial/runtime" ||
-		r.AgentVersion != "dev" || r.PythonImage != "cellestial-kernel-python:local" || r.RImage != "cellestial-kernel-r:local" ||
+		r.AgentVersion != "dev" || r.PythonImage != "cellestial-kernel-python:local" || r.WarmPoolSize != 2 ||
 		len(r.SecretsKey) != 32 {
 		t.Fatalf("unexpected defaults: %+v", r)
 	}
@@ -94,7 +85,7 @@ func TestRuntimeOpenStackRequiresEnvName(t *testing.T) {
 
 func TestRuntimeFakeEnvNameOverride(t *testing.T) {
 	v := runtimeBase()
-	v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+	v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
 	v["RUNTIME_ENV_NAME"] = "local"
 	c, err := LoadFrom(settings(v))
 	if err != nil || c.Runtime.EnvName != "local" {
@@ -106,10 +97,8 @@ func TestRuntimeRequiresSecretsKey32Bytes(t *testing.T) {
 	for name, key := range map[string]string{"missing": "", "short": base64.StdEncoding.EncodeToString(make([]byte, 16)), "notbase64": "!!!secret-value"} {
 		t.Run(name, func(t *testing.T) {
 			v := runtimeBase()
-			v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"] = "true", "fake"
-			if key != "" {
-				v["RUNTIME_SECRETS_KEY"] = key
-			}
+			v["RUNTIME_PROVIDER"] = "fake"
+			v["RUNTIME_SECRETS_KEY"] = key
 			_, err := LoadFrom(settings(v))
 			if err == nil || !strings.Contains(err.Error(), "RUNTIME_SECRETS_KEY") || strings.Contains(err.Error(), "secret-value") {
 				t.Fatalf("err=%v", err)
@@ -131,7 +120,7 @@ func TestRuntimeRequiresBlockedPublicIPs(t *testing.T) {
 
 func TestRuntimeFakeNeedsNoCloud(t *testing.T) {
 	v := runtimeBase()
-	v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+	v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
 	if _, err := LoadFrom(settings(v)); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +128,7 @@ func TestRuntimeFakeNeedsNoCloud(t *testing.T) {
 
 func TestRuntimeUnknownProvider(t *testing.T) {
 	v := runtimeBase()
-	v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "aws-secret", testKey()
+	v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "aws-secret", testKey()
 	_, err := LoadFrom(settings(v))
 	if err == nil || !strings.Contains(err.Error(), "RUNTIME_PROVIDER") || strings.Contains(err.Error(), "aws-secret") {
 		t.Fatalf("err=%v", err)
@@ -147,9 +136,9 @@ func TestRuntimeUnknownProvider(t *testing.T) {
 }
 
 func TestRuntimeInvalidNumbersAndDurations(t *testing.T) {
-	for k, val := range map[string]string{"RUNTIME_MAX_ACTIVE": "0", "RUNTIME_MAX_CONCURRENT_OPS": "x", "RUNTIME_STARTUP_TIMEOUT": "soon", "RUNTIME_ROOT_DISK_GIB": "-1"} {
+	for k, val := range map[string]string{"RUNTIME_MAX_ACTIVE": "0", "RUNTIME_MAX_CONCURRENT_OPS": "x", "RUNTIME_STARTUP_TIMEOUT": "soon", "RUNTIME_ROOT_DISK_GIB": "-1", "RUNTIME_WARM_POOL_SIZE": "-1"} {
 		v := runtimeBase()
-		v["RUNTIME_ENABLED"], v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "true", "fake", testKey()
+		v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
 		v[k] = val
 		if _, err := LoadFrom(settings(v)); err == nil || !strings.Contains(err.Error(), k) {
 			t.Fatalf("%s=%s err=%v", k, val, err)
@@ -157,10 +146,20 @@ func TestRuntimeInvalidNumbersAndDurations(t *testing.T) {
 	}
 }
 
-func TestRuntimeInvalidEnabled(t *testing.T) {
+func TestRuntimeWarmPoolSize(t *testing.T) {
+	for raw, want := range map[string]int{"0": 0, "5": 5} {
+		v := runtimeBase()
+		v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
+		v["RUNTIME_WARM_POOL_SIZE"] = raw
+		c, err := LoadFrom(settings(v))
+		if err != nil || c.Runtime.WarmPoolSize != want {
+			t.Fatalf("RUNTIME_WARM_POOL_SIZE=%s: %d, %v", raw, c.Runtime.WarmPoolSize, err)
+		}
+	}
 	v := runtimeBase()
-	v["RUNTIME_ENABLED"] = "maybe"
-	if _, err := LoadFrom(settings(v)); err == nil || !strings.Contains(err.Error(), "RUNTIME_ENABLED") {
-		t.Fatalf("err=%v", err)
+	v["RUNTIME_PROVIDER"], v["RUNTIME_SECRETS_KEY"] = "fake", testKey()
+	v["RUNTIME_WARM_POOL_SIZE"] = "two"
+	if _, err := LoadFrom(settings(v)); err == nil || !strings.Contains(err.Error(), "RUNTIME_WARM_POOL_SIZE") {
+		t.Fatalf("err = %v", err)
 	}
 }

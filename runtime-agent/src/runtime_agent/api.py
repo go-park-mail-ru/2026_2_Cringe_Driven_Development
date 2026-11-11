@@ -12,27 +12,32 @@ from .config import Settings
 from .containers import Containers
 from .journal import Journal
 from .lifecycle import complete_before_cancel
-from .models import AgentError, Execute, Inspect
+from .models import AgentError, Assign, Execute, Inspect
 from .runtime import Agent
 
 
 class HTTPGuard:
     """Authorize before reading a body, and bound memory before JSON validation.
 
+    POST /assign is authorized by the mTLS proxy only: Go API sends the session
+    token in its body. Before the assignment GET /health is open as well, and
+    other requests get 503 because no session token exists yet.
+
     Attributes:
         app (Callable): Downstream ASGI application.
-        expected (bytes): Expected bearer header encoded for constant-time comparison.
+        token (Callable[[], str | None]): Current session token, None before the
+            assignment.
     """
 
     def __init__(self, app, token):
-        """Configure the ASGI application and expected bearer credentials.
+        """Configure the ASGI application and the session token source.
 
         Args:
             app (Callable): Downstream ASGI application.
-            token (str): Validated ASCII API token.
+            token (Callable[[], str | None]): Returns the current session token.
         """
         self.app = app
-        self.expected = ("Bearer " + token).encode("ascii")
+        self.token = token
 
     async def __call__(self, scope, receive, send):
         """Authorize HTTP requests and enforce a 2 MiB request body limit.
@@ -47,11 +52,18 @@ class HTTPGuard:
         """
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        headers = dict(scope["headers"])
-        if not hmac.compare_digest(headers.get(b"authorization", b""), self.expected):
-            return await JSONResponse({"detail": "Invalid runtime token"}, 401)(
-                scope, receive, send
-            )
+        token = self.token()
+        path = scope["path"]
+        if path != "/assign" and not (token is None and path == "/health"):
+            if token is None:
+                return await JSONResponse({"detail": "Runtime is not assigned"}, 503)(
+                    scope, receive, send
+                )
+            expected = ("Bearer " + token).encode("ascii")
+            if not hmac.compare_digest(dict(scope["headers"]).get(b"authorization", b""), expected):
+                return await JSONResponse({"detail": "Invalid runtime token"}, 401)(
+                    scope, receive, send
+                )
         body = bytearray()
         while True:
             message = await receive()
@@ -129,7 +141,13 @@ def create_app(settings=None, containers_factory=Containers):
     app = FastAPI(
         title="Cellestial runtime agent", lifespan=lifespan, docs_url=None, redoc_url=None
     )
-    app.add_middleware(HTTPGuard, token=settings.token)
+
+    def current_token():
+        """Return the session token, or None before the assignment or startup."""
+        agent = getattr(app.state, "agent", None)
+        return agent.token if agent is not None else None
+
+    app.add_middleware(HTTPGuard, token=current_token)
 
     @app.exception_handler(AgentError)
     async def agent_error(request, exc):
@@ -143,6 +161,19 @@ def create_app(settings=None, containers_factory=Containers):
             JSONResponse: Error detail with the supplied HTTP status.
         """
         return JSONResponse({"detail": exc.detail}, status_code=exc.status)
+
+    @app.post("/assign")
+    async def assign(body: Assign):
+        """Assign the agent to a session once; answer after the session kernel is ready.
+
+        Args:
+            body (Assign): Session ID, language and session token.
+
+        Returns:
+            JSONResponse: Session snapshot; HTTP 200 when ready, otherwise HTTP 503.
+        """
+        snapshot = await app.state.agent.assign(str(body.session_id), body.language, body.token)
+        return JSONResponse(snapshot, status_code=200 if snapshot["ready"] else 503)
 
     @app.get("/health")
     async def health():
@@ -187,8 +218,9 @@ def create_app(settings=None, containers_factory=Containers):
         Returns:
             dict: Execution ID, state, and decoded result, if available.
         """
-        app.state.agent.journal.session(settings.session_id)
-        return app.state.agent.journal.execution(settings.session_id, execution_id)
+        sid = app.state.agent.assigned().id
+        app.state.agent.journal.session(sid)
+        return app.state.agent.journal.execution(sid, execution_id)
 
     @app.post("/variables", status_code=202)
     async def variables(body: Inspect):
@@ -266,8 +298,9 @@ def create_app(settings=None, containers_factory=Containers):
         Returns:
             dict: An events list containing up to 100 journal records.
         """
-        app.state.agent.journal.session(settings.session_id)
-        return {"events": app.state.agent.journal.events(settings.session_id, after)}
+        sid = app.state.agent.assigned().id
+        app.state.agent.journal.session(sid)
+        return {"events": app.state.agent.journal.events(sid, after)}
 
     @app.websocket("/events/ws")
     async def stream(ws: WebSocket):
@@ -279,16 +312,18 @@ def create_app(settings=None, containers_factory=Containers):
         Args:
             ws (WebSocket): Connection carrying the bearer header and optional after cursor.
         """
-        expected = ("Bearer " + settings.token).encode("ascii")
-        if not hmac.compare_digest(ws.headers.get("authorization", "").encode(), expected):
+        agent = app.state.agent
+        if agent.token is None or not hmac.compare_digest(
+            ws.headers.get("authorization", "").encode(), ("Bearer " + agent.token).encode()
+        ):
             await ws.close(code=1008)
             return
-        agent = app.state.agent
+        sid = agent.assigned().id
         try:
             after = int(ws.query_params.get("after", "0"))
             if not 0 <= after <= 2**63 - 1:
                 raise ValueError()
-            agent.journal.session(settings.session_id)
+            agent.journal.session(sid)
         except (ValueError, AgentError):
             await ws.close(code=1008)
             return
@@ -305,12 +340,12 @@ def create_app(settings=None, containers_factory=Containers):
             nonlocal after
             while True:
                 wakeup.clear()
-                batch = agent.journal.events(settings.session_id, after)
+                batch = agent.journal.events(sid, after)
                 if batch:
                     for event in batch:
                         await asyncio.wait_for(ws.send_json(event), 10)
                         after = event["seq"]
-                    # Yield even if an in-process client writes instantly.
+                    # Отдаём управление циклу, даже если in-process клиент пишет мгновенно.
                     await asyncio.sleep(0)
                 else:
                     try:
@@ -336,8 +371,8 @@ def create_app(settings=None, containers_factory=Containers):
             agent.subscribers.discard(wakeup)
             for task in tasks:
                 task.cancel()
-            # ASGI servers may cancel the handler while it is closing. Shield
-            # cleanup from repeated cancellation until both child tasks exit.
+            # ASGI-серверы могут отменить обработчик во время закрытия. Защищаем
+            # очистку от повторной отмены, пока обе дочерние задачи не завершатся.
             with anyio.CancelScope(shield=True):
                 await asyncio.gather(*tasks, return_exceptions=True)
 

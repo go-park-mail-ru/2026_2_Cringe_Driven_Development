@@ -83,7 +83,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	users := useruc.NewUserUsecase(userpg.NewUserRepository(pool), sessions, issuer, security.PasswordHasher{}, security.RefreshTokens{}, time.Hour)
 	store := storepg.New(pool)
 	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store)
-	module, err := runtime.Build(ctx, config.RuntimeConfig{Enabled: true, Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
+	module, err := runtime.Build(ctx, config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			return language, queryErr
 		})
 	}
-	service := UC.NewService(store, UC.Settings{Enabled: true}, nil, sessionAgent)
+	service := UC.NewService(store, nil, sessionAgent)
 	worker := UC.NewWorker(store, env.New(module.Environments), sessionAgent, nil)
 	handler, err := transport.NewRouter(transport.Server{UserHandler: userhttp.NewHandler(users), NotebookHandler: nbhttp.NewHandler(notebooks), RuntimeHandler: delivery.NewHandler(service)}, issuer, sessions, "test-bff-key")
 	if err != nil {
@@ -164,6 +164,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	}
 	startPath := fmt.Sprintf("/notebooks/%d/runtime-sessions", first.ID)
 	startBody := `{"request_id":"start-first","language":"python"}`
+	call("POST", startPath, `{"request_id":"start-r","language":"r"}`, 400)
 	w = call("POST", startPath, startBody, 202)
 	var session struct {
 		ID uuid.UUID `json:"id"`
@@ -175,7 +176,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), session.ID.String()) {
 		t.Fatal("start repeated as new session")
 	}
-	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"start-second","language":"r"}`, 409)
+	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"start-second","language":"python"}`, 409)
 	if !strings.Contains(w.Body.String(), `"active_session"`) || !strings.Contains(w.Body.String(), session.ID.String()) {
 		t.Fatal(w.Body.String())
 	}
@@ -258,7 +259,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"output_truncated":false`) || !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal("saved content result missing", w.Body.String())
 	}
-	// Each result field independently stays outside the editor's hash/ETag.
+	// Каждое поле результата независимо остаётся вне hash/ETag редактора.
 	resultRepo := nbpg.NewNotebookRepository(pool)
 	executionSource, err := resultRepo.ExecutionSource(ctx, first.ID, user.ID, cell.Cell.ID)
 	if err != nil {
@@ -300,7 +301,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			t.Fatal("GET content lost executed cell")
 		}
 	}
-	// Edit with the hash read before execution; source changes still invalidate it.
+	// Правка с хешем, прочитанным до выполнения; изменения исходника по-прежнему его инвалидируют.
 	cellPath := contentPath + "/cells/" + cell.Cell.ID
 	w = call("PATCH", cellPath, `{"source":"print(43)"}`, 200, cell.Hash)
 	var edited struct {
@@ -311,7 +312,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	}
 	call("PATCH", cellPath, `{"source":"stale"}`, 409, cell.Hash)
 
-	// Execute the edited source and then create with the hash read before that run.
+	// Выполнить отредактированный исходник, затем создать с хешем, прочитанным до этого запуска.
 	beforeETag = call("GET", contentPath, "", 200).Header().Get("ETag")
 	sum = sha256.Sum256([]byte("print(43)"))
 	call("POST", base+"/executions", fmt.Sprintf(`{"execution_id":"run-before-create","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:])), 202)
@@ -458,7 +459,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	call("POST", base+"/activity", "", 200)
 	pump()
 	call("POST", base+"/stop", "", 202)
-	call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"while-stopping","language":"r"}`, 409)
+	call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"while-stopping","language":"python"}`, 409)
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && v.State == D.Stopped })
 	assertBadge(0)
 	w = call("GET", fmt.Sprintf("/notebooks/%d/content", first.ID), "", 200)
@@ -471,7 +472,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	// Пользовательская сессия уже завершена, но тест также дожидается реальной очистки тестового окружения.
 	wait(func() bool { v, e := store.Owned(ctx, user.ID, session.ID); return e == nil && !v.CleanupError })
 	call("GET", "/runtime-sessions/active", "", 200)
-	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"r-session","language":"r"}`, 202)
+	w = call("POST", fmt.Sprintf("/notebooks/%d/runtime-sessions", second.ID), `{"request_id":"second-session","language":"python"}`, 202)
 	var rSession struct {
 		ID uuid.UUID `json:"id"`
 	}

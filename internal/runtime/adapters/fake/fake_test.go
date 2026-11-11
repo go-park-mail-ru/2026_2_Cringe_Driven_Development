@@ -135,27 +135,39 @@ func TestCloudConcurrentUse(t *testing.T) {
 	}
 }
 
-func TestHostConfigureRegistersAgent(t *testing.T) {
+func TestHostConfigureStartsWaitingAgent(t *testing.T) {
 	ctx := context.Background()
 	_, host, agent := New(0)
-	sid := uuid.New()
+	sid, name := uuid.New(), uuid.New()
 	ep := usecase.AgentEndpoint{BaseURL: "https://10.0.0.5:8443", Token: "tok"}
 
 	if _, _, err := agent.Health(ctx, ep); err == nil {
 		t.Fatal("unconfigured agent must be unreachable")
 	}
-	cfg := usecase.HostConfig{SessionID: sid, Language: "r", PrivateIP: "10.0.0.5", Token: "tok"}
-	if err := host.Configure(ctx, cfg); err != nil {
+	if err := host.Configure(ctx, usecase.HostConfig{Name: name, PrivateIP: "10.0.0.5"}); err != nil {
 		t.Fatal(err)
 	}
-	h, status, err := agent.Health(ctx, ep)
-	if err != nil || status != 200 || !h.Ready || h.SessionID != sid.String() || h.Language != "r" {
-		t.Fatalf("Health = %+v, %d, %v", h, status, err)
+	h, status, err := agent.Health(ctx, usecase.AgentEndpoint{BaseURL: ep.BaseURL})
+	if err != nil || status != 200 || !h.Ready || h.State != "WAITING" || h.SessionID != "" {
+		t.Fatalf("waiting Health = %+v, %d, %v", h, status, err)
+	}
+	if _, rStatus, _ := agent.Assign(ctx, ep, sid, "r"); rStatus != 400 {
+		t.Fatalf("assign r status = %d", rStatus)
+	}
+	h, status, err = agent.Assign(ctx, ep, sid, "python")
+	if err != nil || status != 200 || !h.Ready || h.SessionID != sid.String() || h.Language != "python" {
+		t.Fatalf("Assign = %+v, %d, %v", h, status, err)
+	}
+	if _, status, _ := agent.Assign(ctx, ep, sid, "python"); status != 200 {
+		t.Fatalf("repeated assign status = %d", status)
+	}
+	if _, status, _ := agent.Assign(ctx, ep, uuid.New(), "python"); status != 409 {
+		t.Fatalf("conflicting assign status = %d", status)
 	}
 	if _, status, _ := agent.Health(ctx, usecase.AgentEndpoint{BaseURL: ep.BaseURL, Token: "bad"}); status != 401 {
 		t.Fatalf("wrong token status = %d", status)
 	}
-	if host.Calls() != 1 || host.Last().SessionID != sid {
+	if host.Calls() != 1 || host.Last().Name != name {
 		t.Fatalf("host calls = %d", host.Calls())
 	}
 
@@ -171,8 +183,8 @@ func TestHostConfigureRegistersAgent(t *testing.T) {
 	if h, _, _ := agent.Health(ctx, ep); h.State != "STOPPED" {
 		t.Fatalf("after stop = %+v", h)
 	}
-	if agent.Calls("Drain") != 1 || agent.Calls("Stop") != 1 {
-		t.Fatal("drain/stop calls not counted")
+	if agent.Calls("Drain") != 1 || agent.Calls("Stop") != 1 || agent.Calls("Assign") != 4 {
+		t.Fatal("calls not counted")
 	}
 }
 
@@ -181,7 +193,7 @@ func TestHostBlockAndFailNext(t *testing.T) {
 	host.Block = make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- host.Configure(ctx, usecase.HostConfig{SessionID: uuid.New()}) }()
+	go func() { done <- host.Configure(ctx, usecase.HostConfig{Name: uuid.New()}) }()
 	select {
 	case <-done:
 		t.Fatal("Configure must block")

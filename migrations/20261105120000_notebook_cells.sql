@@ -1,5 +1,5 @@
 -- +goose Up
--- Run the offline notebook migration and verification before starting the API.
+-- Запустить офлайн-миграцию ноутбуков и проверку до старта API.
 CREATE TABLE notebook_legacy_sources (
  notebook_id bigint PRIMARY KEY REFERENCES notebooks(id) ON DELETE CASCADE,
  file_key text NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE notebook_cells (
  CONSTRAINT notebook_cells_position_key UNIQUE(notebook_id,position) DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX notebook_cells_preview_idx ON notebook_cells(notebook_id,position) WHERE kind='code' AND preview_candidate;
--- The unique B-tree above also serves ordered lookup by (notebook_id,position).
+-- Уникальный B-tree выше также обслуживает упорядоченный поиск по (notebook_id,position).
 CREATE TABLE notebook_cell_data (
  notebook_id bigint NOT NULL,
  cell_id text NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE notebook_cell_data (
  FOREIGN KEY(notebook_id,cell_id) REFERENCES notebook_cells(notebook_id,cell_id) ON DELETE CASCADE
 );
 -- +goose Down
--- Data migration is intentionally irreversible; restore a database backup instead.
+-- Миграция данных намеренно необратима; вместо отката восстановите бэкап БД.
 -- +goose StatementBegin
 DO $$ BEGIN RAISE EXCEPTION 'notebook cell migration requires restoring a backup for rollback'; END $$;
 -- +goose StatementEnd

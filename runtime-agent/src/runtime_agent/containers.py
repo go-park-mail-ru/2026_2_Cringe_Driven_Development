@@ -59,16 +59,16 @@ class Containers:
         """
         return await asyncio.to_thread(self.client.ping)
 
-    def name(self, session_id):
-        """Build a deterministic container name scoped to this agent.
+    def name(self):
+        """Build the deterministic name of this agent's only kernel container.
 
-        Args:
-            session_id (str): Canonical UUID of the assigned session.
+        The container starts before the session is assigned, so its name does not
+        contain the session.
 
         Returns:
-            str: Docker container name containing the agent and session UUIDs.
+            str: Docker container name containing the agent UUID.
         """
-        return f"cellestial-{self.instance_id}-{session_id}"
+        return f"cellestial-{self.instance_id}-kernel"
 
     async def network(self):
         """Validate the infra-provisioned IPv4 bridge network.
@@ -118,17 +118,13 @@ class Containers:
         for container in containers:
             await asyncio.to_thread(container.remove, force=True, v=True)
 
-    async def start(self, session_id, language):
-        """Start one restricted container and connect to its Jupyter server.
+    async def start(self):
+        """Start one restricted Python kernel container and connect to its Jupyter server.
 
         Jupyter uses private TCP without published ports. A fresh container token
         is generated, and startup failure triggers container cleanup. Cancellation
         waits for container creation and cleanup to finish, including repeated
         cancellation, before propagating to the caller.
-
-        Args:
-            session_id (str): Canonical UUID of the assigned session.
-            language (str): Validated kernel language, python or r.
 
         Returns:
             Jupyter: Open transport whose kernel has confirmed readiness.
@@ -146,13 +142,12 @@ class Containers:
         """
         network = await self.network()
         token = secrets.token_urlsafe(32)
-        image = self.settings.python_image if language == "python" else self.settings.r_image
         try:
             container = await complete_before_cancel(
                 asyncio.to_thread(
                     lambda: self.client.containers.run(
-                        image,
-                        name=self.name(session_id),
+                        self.settings.python_image,
+                        name=self.name(),
                         detach=True,
                         user="65532:65532",
                         network=network.id,
@@ -169,7 +164,7 @@ class Containers:
                         memswap_limit="1g",
                         nano_cpus=1_000_000_000,
                         pids_limit=128,
-                        labels={LABEL: self.instance_id, "ru.cellestial.session": session_id},
+                        labels={LABEL: self.instance_id},
                         tmpfs={
                             "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
                             "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
@@ -194,7 +189,7 @@ class Containers:
             await asyncio.to_thread(container.reload)
             address = container.attrs["NetworkSettings"]["Networks"][network.name]["IPAddress"]
             address = str(ipaddress.IPv4Address(address))
-            transport = Jupyter(f"http://{address}:8888", token, language)
+            transport = Jupyter(f"http://{address}:8888", token)
             try:
                 await transport.start(self.settings.startup_seconds)
             except BaseException:
@@ -203,20 +198,17 @@ class Containers:
             return transport
         except BaseException as startup_error:
             try:
-                await complete_before_cancel(self.remove(session_id))
+                await complete_before_cancel(self.remove())
             except Exception:
                 if not isinstance(startup_error, asyncio.CancelledError):
                     raise
-                # Preserve cancellation; the owning runtime retries cleanup and
-                # records cleanup_failed before the journal is closed.
-                log.exception("Container cleanup failed after cancelled startup: %s", session_id)
+                # Сохраняем отмену; владеющий runtime повторяет очистку и
+                # записывает cleanup_failed до закрытия журнала.
+                log.exception("Container cleanup failed after cancelled startup")
             raise startup_error
 
-    async def alive(self, session_id):
-        """Check whether the assigned container is running.
-
-        Args:
-            session_id (str): Canonical UUID used to identify the container.
+    async def alive(self):
+        """Check whether the kernel container is running.
 
         Returns:
             bool: True for a running container; False if it is stopped or missing.
@@ -225,26 +217,23 @@ class Containers:
             docker.errors.APIError: Docker cannot inspect the container.
         """
         try:
-            container = await asyncio.to_thread(self.client.containers.get, self.name(session_id))
+            container = await asyncio.to_thread(self.client.containers.get, self.name())
             return container.status == "running"
         except NotFound:
             return False
 
-    async def remove(self, session_id):
+    async def remove(self):
         """Remove the owned container and all of its temporary data.
 
         Missing containers are treated as already removed. Cleanup never traverses
         user-controlled directories on the host.
-
-        Args:
-            session_id (str): Canonical UUID used to identify the container.
 
         Raises:
             docker.errors.APIError: Docker cannot inspect or remove the container.
             RuntimeError: The named container has another ownership label.
         """
         try:
-            container = await asyncio.to_thread(self.client.containers.get, self.name(session_id))
+            container = await asyncio.to_thread(self.client.containers.get, self.name())
             if container.labels.get(LABEL) != self.instance_id:
                 raise RuntimeError("Refusing to remove a foreign container")
             await asyncio.to_thread(container.remove, force=True, v=True)

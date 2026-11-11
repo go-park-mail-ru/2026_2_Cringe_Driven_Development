@@ -1,4 +1,4 @@
-// Package delivery translates user usecases to the server-side HTTP contract.
+// Package delivery переводит usecase пользователей в серверный HTTP-контракт.
 package delivery
 
 import (

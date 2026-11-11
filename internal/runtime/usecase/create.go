@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/domain"
+	"github.com/google/uuid"
 )
 
 // createStep выполняет один шаг создания по env.State и сохраняет результат.
@@ -21,6 +22,11 @@ func (r *jobRun) createStep(env domain.Environment) (bool, error) {
 	defer cancel()
 	switch env.State {
 	case domain.StateQueued:
+		if r.w.s.PoolSize > 0 {
+			if claimed, err := r.claimPool(env); claimed || err != nil {
+				return false, err
+			}
+		}
 		_, err := r.save(env, domain.StateCreating)
 		return false, err
 	case domain.StateCreating:
@@ -32,7 +38,10 @@ func (r *jobRun) createStep(env domain.Environment) (bool, error) {
 		_, err := r.save(env, domain.StateVerifying)
 		return false, err
 	case domain.StateVerifying:
-		if err := r.verify(ctx, env); err != nil {
+		if err := r.assign(ctx, env); err != nil {
+			if env.PoolID != uuid.Nil && ctx.Err() == nil {
+				return false, r.leavePool(env, err)
+			}
 			return false, startupErr(ctx, err)
 		}
 		env.Endpoint = agentURL(env.Resources.PrivateIP)
@@ -179,27 +188,26 @@ func (r *jobRun) agentEndpoint(env domain.Environment, s SealedSecrets) (AgentEn
 	return AgentEndpoint{BaseURL: agentURL(env.Resources.PrivateIP), Token: string(tok)}, nil
 }
 
-// configure запускает настройку VPS с лимитом AnsibleTimeout.
+// configure готовит новую VPS сессии (prepare.yml) с лимитом AnsibleTimeout.
 func (r *jobRun) configure(ctx context.Context, env domain.Environment) error {
 	s, err := r.ensureSecrets()
 	if err != nil {
 		return err
 	}
-	ep, err := r.agentEndpoint(env, s)
-	if err != nil {
-		return err
-	}
-	certPEM, keyPEM, err := r.w.sec.IssueServerCert(env.Resources.PrivateIP)
+	return r.w.prepareHost(ctx, env.SessionID, env.Resources.PrivateIP, s.HostPublicKey)
+}
+
+// prepareHost запускает prepare.yml на VPS: агент стартует в режиме ожидания, данных сессии нет.
+func (w *Worker) prepareHost(ctx context.Context, name uuid.UUID, ip, hostPublicKey string) error {
+	certPEM, keyPEM, err := w.sec.IssueServerCert(ip)
 	if err != nil {
 		return fmt.Errorf("issue server cert: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.w.s.AnsibleTimeout)
+	ctx, cancel := context.WithTimeout(ctx, w.s.AnsibleTimeout)
 	defer cancel()
-	err = r.w.host.Configure(ctx, HostConfig{
-		SessionID: env.SessionID, Language: env.Language, PrivateIP: env.Resources.PrivateIP,
-		HostPublicKey: s.HostPublicKey, Token: ep.Token, ServerCertPEM: certPEM, ServerKeyPEM: keyPEM,
-		PythonImage: r.w.s.PythonImage, RImage: r.w.s.RImage, KernelDNS: r.w.s.KernelDNS,
-		BlockedPublicIPs: r.w.s.BlockedPublicIPs,
+	err = w.host.Configure(ctx, HostConfig{
+		Name: name, PrivateIP: ip, HostPublicKey: hostPublicKey, ServerCertPEM: certPEM, ServerKeyPEM: keyPEM,
+		PythonImage: w.s.PythonImage, KernelDNS: w.s.KernelDNS, BlockedPublicIPs: w.s.BlockedPublicIPs,
 	})
 	if err != nil {
 		return fmt.Errorf("configure host: %w", err)
@@ -207,10 +215,11 @@ func (r *jobRun) configure(ctx context.Context, env domain.Environment) error {
 	return nil
 }
 
-// verify опрашивает /health, пока агент не ответит готовностью своей сессии и языка,
-// не сообщит о завершённой сессии (FAILED/STOPPED — сразу ошибка) или не истечёт StartupTimeout. Каждый вызов ограничен healthTimeout, чтобы зависший запрос
-// не откладывал проверку StartupTimeout.
-func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
+// assign назначает агента сессии (POST /assign) и ждёт ответа о готовности её kernel. Новая VPS
+// повторяется до StartupTimeout: агент мог ещё не подняться. VPS пула не повторяется: её агент уже
+// проверен, и сбой — повод взять новую VPS (leavePool). Отказ агента (400/409) и завершённая сессия
+// агента (FAILED/STOPPED, например kernel не стартовал) — постоянные ошибки, ждать бесполезно.
+func (r *jobRun) assign(ctx context.Context, env domain.Environment) error {
 	s, err := r.w.repo.LoadSecrets(r.leaseCtx, r.job.SessionID)
 	if err != nil {
 		return fmt.Errorf("load secrets: %w", err)
@@ -220,28 +229,32 @@ func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
 		return err
 	}
 	for {
-		hctx, cancel := context.WithTimeout(ctx, r.w.healthTimeout)
-		h, status, herr := r.w.agent.Health(hctx, ep)
+		actx, cancel := context.WithTimeout(ctx, r.w.assignTimeout)
+		h, status, aerr := r.w.agent.Assign(actx, ep, env.SessionID, env.Language)
 		cancel()
-		reason := healthProblem(env, h, status, herr)
-		if reason == "" {
+		reason := healthProblem(env, h, status, aerr)
+		switch {
+		case reason == "":
 			return nil
-		}
-		if herr == nil && h.SessionID == env.SessionID.String() && (h.State == "FAILED" || h.State == "STOPPED") {
+		case status == httpStatusBadRequest || status == httpStatusConflict:
+			return fmt.Errorf("%w: %s", errAssignRejected, reason)
+		case aerr == nil && h.SessionID == env.SessionID.String() && (h.State == "FAILED" || h.State == "STOPPED"):
 			return fmt.Errorf("%w: %s", errAgentStopped, reason)
+		case env.PoolID != uuid.Nil:
+			return fmt.Errorf("pool vps: %s", reason)
 		}
 		if ctx.Err() != nil {
 			if errors.Is(context.Cause(ctx), errStartupTimeout) {
-				return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
+				return fmt.Errorf("%w: agent is not assigned: %s", errStartupTimeout, reason)
 			}
 			return context.Cause(ctx)
 		}
 		if r.startupExpired(env) {
-			return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
+			return fmt.Errorf("%w: agent is not assigned: %s", errStartupTimeout, reason)
 		}
 		if err := sleepCtx(ctx, r.w.verifyInterval); err != nil {
 			if errors.Is(err, errStartupTimeout) {
-				return fmt.Errorf("%w: agent is not ready: %s", errStartupTimeout, reason)
+				return fmt.Errorf("%w: agent is not assigned: %s", errStartupTimeout, reason)
 			}
 			return err
 		}
@@ -251,21 +264,21 @@ func (r *jobRun) verify(ctx context.Context, env domain.Environment) error {
 func healthProblem(env domain.Environment, h AgentHealth, status int, err error) string {
 	switch {
 	case err != nil:
-		return "health: " + err.Error()
+		return "agent: " + err.Error()
 	case status != httpStatusOK && h.State != "":
-		problem := "health: HTTP " + strconv.Itoa(status) + ", agent state " + h.State
+		problem := "agent: HTTP " + strconv.Itoa(status) + ", agent state " + h.State
 		if h.Reason != "" {
 			problem += " (" + h.Reason + ")"
 		}
 		return problem
 	case status != httpStatusOK:
-		return "health: HTTP " + strconv.Itoa(status)
+		return "agent: HTTP " + strconv.Itoa(status)
 	case h.SessionID != env.SessionID.String():
-		return "health: foreign session " + h.SessionID
+		return "agent: foreign session " + h.SessionID
 	case h.Language != env.Language:
-		return "health: language " + h.Language + ", want " + env.Language
+		return "agent: language " + h.Language + ", want " + env.Language
 	case !h.Ready:
-		return "health: agent state " + h.State
+		return "agent: state " + h.State
 	}
 	return ""
 }
@@ -278,7 +291,8 @@ func (r *jobRun) createFailed(cause error) (bool, error) {
 	if err != nil {
 		return true, fmt.Errorf("get environment: %w", err)
 	}
-	if provisioning(env.State) && (errors.Is(cause, ErrCloudPermanent) || errors.Is(cause, errAgentStopped) ||
+	if provisioning(env.State) && (errors.Is(cause, ErrCloudPermanent) || errors.Is(cause, errAssignRejected) ||
+		errors.Is(cause, errAgentStopped) ||
 		errors.Is(cause, errStartupTimeout) || r.startupExpired(env)) {
 		env.LastError = "provisioning failed: " + cause.Error()
 		r.w.log.Warn("provisioning failed", "session_id", env.SessionID, "state", env.State, "error", cause)

@@ -47,7 +47,7 @@ func TestFinished(t *testing.T) {
 }
 
 func TestValidLanguage(t *testing.T) {
-	for l, want := range map[string]bool{"python": true, "r": true, "R": false, "": false, "julia": false} {
+	for l, want := range map[string]bool{"python": true, "r": false, "R": false, "": false, "julia": false} {
 		if got := ValidLanguage(l); got != want {
 			t.Errorf("ValidLanguage(%q)=%v want %v", l, got, want)
 		}

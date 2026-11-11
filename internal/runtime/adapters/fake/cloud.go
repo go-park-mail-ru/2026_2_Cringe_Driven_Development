@@ -15,7 +15,7 @@ import (
 )
 
 // New создаёт связанные облако, настройщик и агента: после Host.Configure агент по адресу
-// https://<private_ip>:8443 отвечает сессией и языком из HostConfig.
+// https://<private_ip>:8443 ждёт назначения (POST /assign).
 func New(delay time.Duration) (*Cloud, *Host, *Agent) {
 	agent := NewAgent()
 	host := NewHost()
@@ -25,7 +25,8 @@ func New(delay time.Duration) (*Cloud, *Host, *Agent) {
 
 type resource struct {
 	kind, id, ip string
-	session      uuid.UUID
+	session      uuid.UUID // сессия или VPS пула (pool)
+	pool         bool
 }
 
 // Cloud — in-memory usecase.CloudProvider. Каждый вызов ждёт Delay (с учётом ctx).
@@ -94,7 +95,14 @@ func (c *Cloud) Count(kind string) int {
 func (c *Cloud) Add(kind string, session uuid.UUID) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.create(kind, session).id
+	return c.create(kind, session, false).id
+}
+
+// AddPool создаёт ресурс VPS пула (метка pool_id) в обход Ensure* и возвращает ID.
+func (c *Cloud) AddPool(kind string, pool uuid.UUID) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.create(kind, pool, true).id
 }
 
 // begin учитывает вызов, ждёт задержку и возвращает ошибку из FailNext.
@@ -135,9 +143,9 @@ func take(m map[string]error, key string) error {
 }
 
 // create добавляет ресурс; вызывается под c.mu.
-func (c *Cloud) create(kind string, session uuid.UUID) *resource {
+func (c *Cloud) create(kind string, session uuid.UUID, pool bool) *resource {
 	c.seq++
-	r := &resource{kind: kind, id: fmt.Sprintf("%s-%d", kind, c.seq), session: session}
+	r := &resource{kind: kind, id: fmt.Sprintf("%s-%d", kind, c.seq), session: session, pool: pool}
 	if kind == "port" {
 		r.ip = fmt.Sprintf("10.0.%d.%d", c.seq/250, c.seq%250+2)
 	}
@@ -145,17 +153,17 @@ func (c *Cloud) create(kind string, session uuid.UUID) *resource {
 	return r
 }
 
-// ensure находит ресурс по known или session, иначе создаёт; вызывается под c.mu.
-func (c *Cloud) ensure(kind, known string, session uuid.UUID) *resource {
+// ensure находит ресурс по known или владельцу окружения, иначе создаёт; вызывается под c.mu.
+func (c *Cloud) ensure(kind, known string, env domain.Environment) *resource {
 	if r, ok := c.resources[known]; ok && r.kind == kind {
 		return r
 	}
 	for _, r := range c.sortedLocked() {
-		if r.kind == kind && r.session == session {
+		if r.kind == kind && r.session == env.SessionID && r.pool == env.IsPoolVPS() {
 			return r
 		}
 	}
-	return c.create(kind, session)
+	return c.create(kind, env.SessionID, env.IsPoolVPS())
 }
 
 func (c *Cloud) sortedLocked() []*resource {
@@ -173,7 +181,7 @@ func (c *Cloud) EnsurePort(ctx context.Context, env domain.Environment) (string,
 		return "", "", err
 	}
 	c.mu.Lock()
-	r := c.ensure("port", env.Resources.PortID, env.SessionID)
+	r := c.ensure("port", env.Resources.PortID, env)
 	c.mu.Unlock()
 	return r.id, r.ip, c.after("EnsurePort")
 }
@@ -184,7 +192,7 @@ func (c *Cloud) EnsureVolume(ctx context.Context, env domain.Environment) (strin
 		return "", err
 	}
 	c.mu.Lock()
-	r := c.ensure("volume", env.Resources.VolumeID, env.SessionID)
+	r := c.ensure("volume", env.Resources.VolumeID, env)
 	c.mu.Unlock()
 	return r.id, c.after("EnsureVolume")
 }
@@ -198,7 +206,7 @@ func (c *Cloud) EnsureServer(ctx context.Context, env domain.Environment, _ stri
 		return "", fmt.Errorf("fake: server needs port and volume: %w", usecase.ErrCloudPermanent)
 	}
 	c.mu.Lock()
-	r := c.ensure("server", env.Resources.ServerID, env.SessionID)
+	r := c.ensure("server", env.Resources.ServerID, env)
 	c.mu.Unlock()
 	return r.id, c.after("EnsureServer")
 }
@@ -238,7 +246,11 @@ func (c *Cloud) ListOwned(ctx context.Context) ([]usecase.CloudResource, error) 
 	c.mu.Lock()
 	var out []usecase.CloudResource
 	for _, r := range c.sortedLocked() {
-		out = append(out, usecase.CloudResource{Kind: r.kind, ID: r.id, SessionID: r.session})
+		res := usecase.CloudResource{Kind: r.kind, ID: r.id, SessionID: r.session}
+		if r.pool {
+			res.SessionID, res.PoolID = uuid.Nil, r.session
+		}
+		out = append(out, res)
 	}
 	c.mu.Unlock()
 	return out, c.after("ListOwned")

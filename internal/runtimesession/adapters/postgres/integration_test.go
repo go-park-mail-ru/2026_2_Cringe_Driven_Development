@@ -215,7 +215,7 @@ func TestOversizedWireCommandRejectedBeforeAdmission(t *testing.T) {
 		t.Fatal(e)
 	}
 	code := strings.Repeat("😀", 600000)
-	// Corrupt the disposable fixture deliberately to test defensive admission.
+	// Намеренно портим одноразовую фикстуру, чтобы проверить защитный admission.
 	if _, e = p.Exec(ctx, `ALTER TABLE notebook_cells DROP CONSTRAINT notebook_cells_source_check`); e != nil {
 		t.Fatal(e)
 	}

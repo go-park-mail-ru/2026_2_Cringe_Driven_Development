@@ -19,14 +19,14 @@ func TestLogLevel(t *testing.T) {
 			if tc.value != "" {
 				values["LOG_LEVEL"] = tc.value
 			}
-			got, err := LoadFrom(settings(values))
+			got, err := LoadFrom(withFakeRuntime(values))
 			if err != nil || got.LogLevel != tc.want {
 				t.Fatalf("level=%v err=%v", got.LogLevel, err)
 			}
 		})
 	}
 	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key", "LOG_LEVEL": "trace-SECRET"}
-	_, err := LoadFrom(settings(values))
+	_, err := LoadFrom(withFakeRuntime(values))
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("invalid level error=%v", err)
 	}
@@ -50,7 +50,7 @@ func settings(values map[string]string) func(string) (string, bool) {
 }
 func TestLoadDefaultsAndOverrides(t *testing.T) {
 	values := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
-	c, err := LoadFrom(settings(values))
+	c, err := LoadFrom(withFakeRuntime(values))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	values["PORT"] = "9000"
 	values["ACCESS_TOKEN_TTL"] = "5m"
 	values["WRITE_TIMEOUT"] = "invalid"
-	c, err = LoadFrom(settings(values))
+	c, err = LoadFrom(withFakeRuntime(values))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestMissingRequiredSettings(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			v := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff-test-key"}
 			delete(v, key)
-			_, err := LoadFrom(settings(v))
+			_, err := LoadFrom(withFakeRuntime(v))
 			if err == nil || !strings.Contains(err.Error(), key) {
 				t.Fatalf("missing %s: %v", key, err)
 			}
@@ -89,4 +89,13 @@ func TestPostgresURLCredentials(t *testing.T) {
 	if p.ConnConfig.User != c.DBUser || p.ConnConfig.Password != c.DBPassword || p.ConnConfig.Host != c.DBHost || p.ConnConfig.Database != c.DBName || p.ConnConfig.Port != 5432 {
 		t.Fatal("connection parameters changed")
 	}
+}
+
+// withFakeRuntime передаёт явный валидный runtime-ввод в тесты несвязанных настроек.
+func withFakeRuntime(values map[string]string) func(string) (string, bool) {
+	full := map[string]string{"RUNTIME_PROVIDER": "fake", "RUNTIME_SECRETS_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
+	for key, value := range values {
+		full[key] = value
+	}
+	return settings(full)
 }

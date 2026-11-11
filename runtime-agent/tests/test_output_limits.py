@@ -21,7 +21,7 @@ async def test_large_non_output_message_is_not_persisted(env, kind, extra):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, session = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     parent = kernel.sent[-1][2]
     if kind == "execute_reply":
@@ -43,13 +43,13 @@ async def test_reply_copies_share_budget(env):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, session = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     kernel.complete(payload=[{"data": "é" * 200}])
     await until(lambda: session.active is None)
     events = agent.journal.events(sid, 0)
     result = agent.journal.execution(sid, "run-1")["result"]
-    # Count actual stored copies, including the result duplicated in the state event.
+    # Считаем реально сохранённые копии, включая результат, продублированный в событии состояния.
     copies = [e["content"] for e in events if e["kind"] == "kernel_message"]
     copies += [e["result"] for e in events if e.get("result")]
     copies += [result]
@@ -68,7 +68,7 @@ async def test_metadata_and_buffers_are_bounded(env, extra):
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, runtime = await new_session(agent)
     agent.accept(command())
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     kernel.emit(kernel.sent[-1][2], "display_data", {"data": {}}, **extra)
     kernel.complete()
@@ -79,24 +79,19 @@ async def test_metadata_and_buffers_are_bounded(env, extra):
     assert agent.journal.execution(sid, "run-1")["state"] == "SUCCEEDED"
 
 
-@pytest.mark.parametrize("language", ["python", "r"])
-async def test_inspection_result_obeys_budget(env, language):
+async def test_inspection_result_obeys_budget(env):
     agent, backend, _ = env
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
-    sid, runtime = await new_session(agent, language)
+    sid, runtime = await new_session(agent)
     agent.accept({"execution_id": "inspect", "kind": "inspect", "timeout_seconds": 5.0})
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     await until(lambda: kernel.sent)
     values = [{"name": "x" * 200_000, "type": "str", "preview": "tiny"}]
-    if language == "python":
-        kernel.complete(
-            user_expressions={
-                "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}},
-            }
-        )
-    else:
-        kernel.emit(kernel.sent[-1][2], "stream", {"name": "stdout", "text": json.dumps(values)})
-        kernel.complete()
+    kernel.complete(
+        user_expressions={
+            "variables": {"status": "ok", "data": {"text/plain": repr(json.dumps(values))}},
+        }
+    )
     await until(lambda: runtime.active is None)
     result = agent.journal.execution(sid, "inspect")
     assert result["state"] == "SUCCEEDED"
@@ -108,7 +103,7 @@ async def test_unattributed_non_output_data_is_bounded(env):
     agent, backend, _ = env
     agent.session.settings = replace(agent.settings, max_output_bytes=1024)
     sid, _ = await new_session(agent)
-    kernel = backend.kernels[sid]
+    kernel = backend.kernel
     kernel.emit("unknown", "custom", {"blob": "x" * 200_000})
     kernel.emit("unknown", "custom", {"blob": "x" * 200_000})
     await until(lambda: agent.session.unattributed_truncated)

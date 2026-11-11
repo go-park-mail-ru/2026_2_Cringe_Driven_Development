@@ -49,7 +49,8 @@ class LocalJupyter:
     async def recover(self):
         pass
 
-    async def start(self, sid, language):
+    async def start(self):
+        sid = "kernel"
         directory = self.settings.state_dir.parent / "local-jupyter" / sid
         directory.mkdir(parents=True)
         config = Path(__file__).parents[1] / "images/jupyter_server_config.py"
@@ -77,7 +78,7 @@ class LocalJupyter:
             stderr=asyncio.subprocess.STDOUT,
             start_new_session=True,
         )
-        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only", language)
+        transport = Jupyter(f"http://127.0.0.1:{port}", "local-test-only")
         try:
             await transport.start(30)
             return transport
@@ -85,13 +86,13 @@ class LocalJupyter:
             await transport.close()
             log.seek(0)
             print(log.read())
-            await self.remove(sid)
+            await self.remove()
             raise
 
-    async def alive(self, sid):
-        return self.processes[sid].returncode is None
+    async def alive(self):
+        return "kernel" in self.processes and self.processes["kernel"].returncode is None
 
-    async def remove(self, sid):
+    async def remove(self, sid="kernel"):
         process = self.processes.pop(sid, None)
         if process and process.returncode is None:
             os.killpg(process.pid, signal.SIGTERM)
@@ -129,14 +130,11 @@ async def real_agent(settings, request):
 
 @pytest.mark.jupyter
 @pytest.mark.docker
-@pytest.mark.parametrize("language", ["python", "r"])
-async def test_real_execution_inspection_interrupt_restart(real_agent, language):
+async def test_real_execution_inspection_interrupt_restart(real_agent):
     agent, backend = real_agent
-    if backend == "local" and language == "r":
-        pytest.skip("R is provided by the Docker image")
-    sid, session = await new_session(agent, language)
+    sid, session = await new_session(agent)
     assert session.ready, agent.snapshot()
-    code = "x = 42\nprint(x)\nx * 2" if language == "python" else "x <- 42; print(x); x * 2"
+    code = "x = 42\nprint(x)\nx * 2"
     agent.accept(command(code=code))
     assert (await completed(agent, sid, "run-1"))["state"] == "SUCCEEDED"
     assert agent.accept(command(code=code))["state"] == "SUCCEEDED"
@@ -147,17 +145,13 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
     assert x["preview"] == "42"
     agent.accept(command("next", "x + 1"))
     assert (await completed(agent, sid, "next"))["state"] == "SUCCEEDED"
-    error_code = "raise ValueError('expected')" if language == "python" else "stop('expected')"
+    error_code = "raise ValueError('expected')"
     agent.accept(command("error", error_code))
     assert (await completed(agent, sid, "error"))["state"] == "FAILED"
-    # Large real Python/R exceptions must not bypass the persistent budget via reply.
+    # Большие настоящие исключения Python не должны обходить постоянный бюджет через reply.
     previous = session.settings
     session.settings = replace(previous, max_output_bytes=1024)
-    large_error = (
-        "raise ValueError('x' * 200000)"
-        if language == "python"
-        else "stop(paste(rep('x', 200000L), collapse=''))"
-    )
+    large_error = "raise ValueError('x' * 200000)"
     agent.accept(command("large-error", large_error))
     large_result = await completed(agent, sid, "large-error")
     assert large_result["state"] == "FAILED"
@@ -168,18 +162,14 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
         if event.get("execution_id") == "large-error"
     )
     session.settings = previous
-    rich = (
-        "from IPython.display import display\ndisplay({'text/html': '<b>hi</b>'}, raw=True)"
-        if language == "python"
-        else "IRdisplay::display_html('<b>hi</b>')"
-    )
+    rich = "from IPython.display import display\ndisplay({'text/html': '<b>hi</b>'}, raw=True)"
     agent.accept(command("rich", rich))
     assert (await completed(agent, sid, "rich"))["state"] == "SUCCEEDED"
     assert any(
         e.get("content", {}).get("data", {}).get("text/html") == "<b>hi</b>"
         for e in all_events(agent, sid)
     )
-    sleep = "import time; time.sleep(20)" if language == "python" else "Sys.sleep(20)"
+    sleep = "import time; time.sleep(20)"
     agent.accept(command("timeout", sleep, 1.0))
     assert (await completed(agent, sid, "timeout"))["state"] == "TIMED_OUT"
     agent.accept(command("interrupt", sleep))
@@ -194,14 +184,8 @@ async def test_real_execution_inspection_interrupt_restart(real_agent, language)
     assert generation != session.generation
     agent.accept(command("cleared", "x"))
     assert (await completed(agent, sid, "cleared"))["state"] == "FAILED"
-    # IRkernel replaces quit()/q() with an ask_exit payload for the frontend;
-    # kill the process directly to exercise kernel death before an execute_reply.
-    crash = (
-        "import os; os._exit(1)"
-        if language == "python"
-        else "tools::pskill(Sys.getpid(), signal = 9L)"
-    )
-    agent.accept(command("crash", crash))
+    # Убиваем процесс напрямую, чтобы проверить смерть ядра до execute_reply.
+    agent.accept(command("crash", "import os; os._exit(1)"))
     assert (await completed(agent, sid, "crash"))["state"] == "UNKNOWN"
     async with asyncio.timeout(10):
         while not session.closed:
@@ -242,7 +226,7 @@ async def test_docker_limits_no_mounts_and_permission_tampering(docker_settings)
         sid, runtime = await new_session(agent)
         assert runtime.ready
         container = await asyncio.to_thread(
-            agent.containers.client.containers.get, agent.containers.name(sid)
+            agent.containers.client.containers.get, agent.containers.name()
         )
         config = container.attrs["HostConfig"]
         assert config["ReadonlyRootfs"]
@@ -270,7 +254,7 @@ for base in ('/workspace', '/tmp'):
     directory = Path(base) / 'hostile'
     directory.mkdir()
     os.chmod(directory, 0)
-# The root-owned tmpfs mount itself is not owned by the kernel user.
+# Сама точка монтирования tmpfs принадлежит root, а не пользователю ядра.
 try:
     os.chmod('/workspace', 0)
 except PermissionError:
@@ -282,7 +266,7 @@ else:
         assert (await completed(agent, sid, "run-1"))["state"] == "SUCCEEDED"
         await runtime.finish()
         assert runtime.closed
-        assert not await agent.containers.alive(sid)
+        assert not await agent.containers.alive()
         assert agent.snapshot()["reason"] == "requested"
 
 
@@ -323,7 +307,7 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
         async with asyncio.timeout(5):
             while not runtime.active:
                 await asyncio.sleep(0.01)
-        # Simulate process loss without graceful container removal or completed journal state.
+        # Симулируем потерю процесса без удаления контейнера и без завершения журнала.
         tasks = [agent.monitor, runtime.worker, runtime.reader]
         for task in tasks:
             task.cancel()
@@ -337,7 +321,7 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
             recovered = app.state.agent
             await asyncio.to_thread(foreign.reload)
             assert foreign.status == "running"
-            assert not await recovered.containers.alive(sid)
+            assert not await recovered.containers.alive()
             assert recovered.journal.execution(sid, "run-1")["state"] == "UNKNOWN"
             assert recovered.snapshot()["reason"] == "agent_restarted"
             assert not recovered.session.ready

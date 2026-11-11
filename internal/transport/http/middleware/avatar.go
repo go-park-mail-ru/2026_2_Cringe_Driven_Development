@@ -13,14 +13,14 @@ import (
 
 type avatarBodyKey struct{}
 
-// AvatarRequestBody allows the streaming handler to validate the HTTP epilogue too.
+// AvatarRequestBody позволяет потоковому обработчику проверить и HTTP-эпилог.
 func AvatarRequestBody(ctx context.Context) io.Reader {
 	body, _ := ctx.Value(avatarBodyKey{}).(io.Reader)
 	return body
 }
 
-// AvatarUpload limits the full pipeline to one upload and bounds request bytes.
-// Install after S2S and AuthenticateBearer, before any body validation or binding.
+// AvatarUpload ограничивает весь конвейер одной загрузкой и ограничивает байты запроса.
+// Ставится после S2S и AuthenticateBearer, до любой валидации или биндинга тела.
 func AvatarUpload(prefix string) func(http.Handler) http.Handler {
 	slot := make(chan struct{}, 1)
 	return func(next http.Handler) http.Handler {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
+	"github.com/google/uuid"
 )
 
 const (
@@ -83,7 +84,9 @@ func (c *Client) do(ctx context.Context, ep usecase.AgentEndpoint, method, path 
 	if err != nil {
 		return 0, nil, fmt.Errorf("agent %s %s: bad request", method, path)
 	}
-	req.Header.Set("Authorization", "Bearer "+ep.Token)
+	if ep.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+ep.Token)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -110,12 +113,23 @@ func statusErr(method, path string, status int) error {
 	return fmt.Errorf("agent %s %s: HTTP %d", method, path, status)
 }
 
-// Health возвращает /health; 503 — не ошибка (тело разбирается), прочие статусы ≠200 возвращаются без разбора.
-// Вызов ограничен healthTimeout.
+// Health запрашивает GET /health. 200 и 503 декодируются в AgentHealth; иные коды — без тела.
 func (c *Client) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.AgentHealth, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.healthTimeout)
 	defer cancel()
 	status, data, err := c.do(ctx, ep, http.MethodGet, "/health", nil)
+	return snapshot("GET /health", status, data, err)
+}
+
+// Assign назначает агента сессии: POST /assign с session_id, языком и токеном сессии (ep.Token в
+// теле, не в заголовке: доступ к /assign закрывает mTLS). Ответ — снимок сессии, как у /health.
+func (c *Client) Assign(ctx context.Context, ep usecase.AgentEndpoint, sessionID uuid.UUID, language string) (usecase.AgentHealth, int, error) {
+	body := map[string]string{"session_id": sessionID.String(), "language": language, "token": ep.Token}
+	status, data, err := c.do(ctx, usecase.AgentEndpoint{BaseURL: ep.BaseURL}, http.MethodPost, "/assign", body)
+	return snapshot("POST /assign", status, data, err)
+}
+
+func snapshot(what string, status int, data []byte, err error) (usecase.AgentHealth, int, error) {
 	if err != nil {
 		return usecase.AgentHealth{}, 0, err
 	}
@@ -123,20 +137,30 @@ func (c *Client) Health(ctx context.Context, ep usecase.AgentEndpoint) (usecase.
 		return usecase.AgentHealth{}, status, nil
 	}
 	var v struct {
-		SessionID         string  `json:"session_id"`
-		Language          string  `json:"language"`
+		SessionID         *string `json:"session_id"`
+		Language          *string `json:"language"`
 		State             string  `json:"state"`
 		Ready             bool    `json:"ready"`
-		Reason            string  `json:"reason"`
-		Generation        string  `json:"generation"`
+		Reason            *string `json:"reason"`
+		Generation        *string `json:"generation"`
 		ActiveExecutionID *string `json:"active_execution_id"`
 		Queued            int     `json:"queued"`
 		Draining          bool    `json:"draining"`
 	}
 	if err := json.Unmarshal(data, &v); err != nil {
-		return usecase.AgentHealth{}, status, fmt.Errorf("agent GET /health: decode: %w", err)
+		return usecase.AgentHealth{}, status, fmt.Errorf("agent %s: decode: %w", what, err)
 	}
-	return usecase.AgentHealth{SessionID: v.SessionID, Language: v.Language, State: v.State, Ready: v.Ready, Reason: v.Reason, Generation: v.Generation, ActiveExecutionID: v.ActiveExecutionID, Queued: v.Queued, Draining: v.Draining}, status, nil
+	str := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	return usecase.AgentHealth{
+		SessionID: str(v.SessionID), Language: str(v.Language), State: v.State, Ready: v.Ready,
+		Reason: str(v.Reason), Generation: str(v.Generation), ActiveExecutionID: v.ActiveExecutionID,
+		Queued: v.Queued, Draining: v.Draining,
+	}, status, nil
 }
 
 func (c *Client) post(ctx context.Context, ep usecase.AgentEndpoint, path string, want int) error {

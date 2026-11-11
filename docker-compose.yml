@@ -34,7 +34,6 @@ services:
       - S3_AVATARS_BUCKET=${S3_AVATARS_BUCKET:-}
       - S3_AVATARS_PUBLIC_URL=${S3_AVATARS_PUBLIC_URL:-}
       # Локальная разработка: фейковый провайдер, реальное облако не используется.
-      - RUNTIME_ENABLED=true
       - RUNTIME_PROVIDER=fake
       # ТОЛЬКО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ (base64 от 32 нулевых байт). Не использовать в production.
       - RUNTIME_SECRETS_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -53,7 +52,7 @@ services:
 
   redis:
     image: redis:8-alpine
-    # Local development only; production config and Vault belong to infra.
+    # Только для локальной разработки; продовая конфигурация и Vault живут в infra.
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-local-development}
       REDISCLI_AUTH: ${REDIS_PASSWORD:-redis-local-development}

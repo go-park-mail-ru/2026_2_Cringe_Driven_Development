@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DeleteNotebook removes a notebook and its completed runtime history atomically.
+// DeleteNotebook атомарно удаляет ноутбук и его завершённую историю runtime.
 func (r *NotebookRepository) DeleteNotebook(ctx context.Context, id, ownerID int64) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -24,8 +24,8 @@ func (r *NotebookRepository) DeleteNotebook(ctx context.Context, id, ownerID int
 		return err
 	}
 
-	// Start, admission and projection also lock the notebook before runtime rows.
-	// Lock sessions before checking flags so a worker cannot change them mid-delete.
+	// Start, admission и projection тоже блокируют ноутбук раньше строк runtime.
+	// Сессии блокируются до проверки флагов, чтобы воркер не изменил их посреди удаления.
 	rows, err := tx.Query(ctx, `SELECT state NOT IN ('STOPPED','FAILED')
   OR COALESCE((data->'public'->>'cleanup_pending')::boolean,false)
   OR COALESCE((data->>'CreateUnknown')::boolean,false)
@@ -62,7 +62,7 @@ func (r *NotebookRepository) DeleteNotebook(ctx context.Context, id, ownerID int
 	if busy {
 		return usecase.ErrNotebookInUse
 	}
-	// Runtime FKs deliberately do not cascade; only fully quiescent history is removed.
+	// FK runtime намеренно без каскада; удаляется только полностью завершённая история.
 	for _, query := range []string{
 		`DELETE FROM runtime_batches WHERE session_id IN (SELECT id FROM runtime_sessions WHERE notebook_id=$1)`,
 		`DELETE FROM runtime_events WHERE session_id IN (SELECT id FROM runtime_sessions WHERE notebook_id=$1)`,

@@ -11,7 +11,7 @@ import (
 	"github.com/pashagolub/pgxmock/v5"
 )
 
-// Literal SQL and exact arguments protect the driver boundary against interpolation.
+// Литеральный SQL и точные аргументы защищают границу драйвера от интерполяции.
 func TestUserRepositoryParameterizedQueries(t *testing.T) {
 	for _, payload := range []string{"x' OR '1'='1' --", "x'); DROP TABLE users; --"} {
 		t.Run(payload, func(t *testing.T) {

@@ -61,8 +61,9 @@ class FakeKernel:
 
 class FakeContainers:
     def __init__(self, settings=None, instance_id=None):
-        self.kernels = {}
-        self.removed = []
+        self.kernel = None
+        self.started = 0
+        self.removed = 0
         self.recovered = False
         self.fail_remove = False
         self.fail_start = False
@@ -74,35 +75,32 @@ class FakeContainers:
     async def recover(self):
         self.recovered = True
 
-    async def start(self, session_id, language):
+    async def start(self):
         if self.start_gate:
             await self.start_gate.wait()
         if self.fail_start:
             raise RuntimeError("start failed")
-        kernel = self.kernels[session_id] = FakeKernel()
-        return kernel
+        self.started += 1
+        self.kernel = FakeKernel()
+        return self.kernel
 
-    async def alive(self, session_id):
-        return session_id in self.kernels
+    async def alive(self):
+        return self.kernel is not None
 
-    async def remove(self, session_id):
+    async def remove(self):
         if self.fail_remove:
             raise RuntimeError("Docker is down")
-        self.removed.append(session_id)
-        self.kernels.pop(session_id, None)
+        self.removed += 1
+        self.kernel = None
 
     async def close(self):
         pass
 
 
 @pytest.fixture
-def settings(tmp_path, request):
-    params = getattr(getattr(request.node, "callspec", None), "params", {})
+def settings(tmp_path):
     return Settings(
-        token=TOKEN,
         state_dir=tmp_path / "state",
-        session_id=str(uuid4()),
-        language=params.get("language", "python"),
         kernel_network="cellestial-kernel-test",
         kernel_dns="1.1.1.1",
         monitor_seconds=60,
@@ -110,15 +108,30 @@ def settings(tmp_path, request):
     )
 
 
+def assignment(session_id=None, language="python", token=TOKEN):
+    return {"session_id": session_id or str(uuid4()), "language": language, "token": token}
+
+
 @pytest.fixture
-async def env(settings):
+async def waiting(settings):
+    """Started agent before the assignment, with a ready waiting kernel."""
     backend = FakeContainers()
     app = create_app(settings, lambda *_: backend)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=AUTH
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
+            await until(lambda: app.state.agent.warm is not None)
             yield app.state.agent, backend, client
+
+
+@pytest.fixture
+async def env(waiting):
+    agent, backend, client = waiting
+    response = await client.post("/assign", json=assignment())
+    assert response.status_code == 200, response.text
+    client.headers.update(AUTH)
+    yield agent, backend, client
 
 
 async def until(predicate):
@@ -127,8 +140,13 @@ async def until(predicate):
             await asyncio.sleep(0.001)
 
 
-async def new_session(agent, language=None):
-    assert language is None or agent.session.language == language
+async def new_session(agent):
+    """Return the assigned session, assigning the waiting kernel first if needed."""
+    if agent.session is None:
+        async with asyncio.timeout(60):
+            while agent.warm is None:
+                await asyncio.sleep(0.01)
+        await agent.assign(str(uuid4()), "python", TOKEN)
     return agent.session.id, agent.session
 
 

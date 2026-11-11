@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// WithAuthLock serializes setup, confirmation, login and disable for one account.
-// The callback must not return tokens to the caller before this transaction commits.
+// WithAuthLock сериализует настройку, подтверждение, вход и отключение для одного аккаунта.
+// Колбэк не должен возвращать токены вызывающему до коммита этой транзакции.
 func (r *UserRepository) WithAuthLock(ctx context.Context, id int64, fn func(*usecase.AuthState) error) error {
 	beginner, ok := r.db.(interface {
 		Begin(context.Context) (pgx.Tx, error)

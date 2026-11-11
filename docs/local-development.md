@@ -22,6 +22,8 @@ cp -n .env.example .env
 # Задайте JWT_SECRET и BFF_API_KEY: два разных случайных значения.
 # Например, каждое получите командой: openssl rand -hex 32
 # Задайте отдельный TOTP_ENCRYPTION_KEY: openssl rand -base64 32
+# Для запуска Go вне Compose задайте RUNTIME_PROVIDER=fake и отдельный
+# RUNTIME_SECRETS_KEY: openssl rand -base64 32 (Compose задаёт свой локальный ключ).
 make doctor
 make up           # PostgreSQL + Redis + SeaweedFS + API, health до 120 секунд
 make health       # {"status": "alive"}; по умолчанию http://localhost:8080/health
@@ -175,10 +177,10 @@ Compose запускает Redis с healthcheck, отдельным volume, AOF 
 CDN и переменные приложения настраивает infra (infra#30); локальный init туда
 не переносится. Правила загрузки — в [профиле пользователя](user-profile.md).
 
-## Агент исполнения Python/R
+## Агент исполнения Python
 
 [runtime-agent](../runtime-agent/README.md) — Python 3.13 сервис systemd на выделенной
-VPS пользовательской сессии. Запускает один контейнер с одним Python или R kernel,
+VPS пользовательской сессии. Запускает один контейнер с одним Python kernel,
 принимает команды через внутренний HTTP/WebSocket API и хранит журнал SQLite.
 UUID сессии и язык задаются при запуске; лимиты — 1 CPU / 1 GiB RAM, простой — 15 минут.
 Контейнер без host mounts; связь агента с Jupyter — закрытый TCP без публикации порта.
@@ -196,7 +198,7 @@ VPS создаёт и удаляет backend; роли установки аге
 [пользовательские runtime-сессии](runtime-sessions.md).
 
 Локальный Compose включает `RUNTIME_PROVIDER=fake`: он не создаёт облачные VPS
-и не подтверждает реальное исполнение Python/R. Проверки с настоящими kernels
+и не подтверждает реальное исполнение Python. Проверки с настоящими kernels
 описаны в [README агента](../runtime-agent/README.md#разработка-и-проверки),
 сквозной smoke на VPS — в [provisioning](runtime-provisioning.md).
 
@@ -217,7 +219,7 @@ make docker-build  # локальная сборка образа без пуб�
 окружения (`TEST_POSTGRES_DSN`, `RUNTIME_TEST_DATABASE_URL`, `REDIS_TEST_ADDR`);
 команды — в [runtime-сессиях](runtime-sessions.md#запуск-и-проверки)
 и [Redis runbook](redis-sessions.md). CI поднимает эти сервисы сам.
-Проверки Python/R — в разделе [агента исполнения](#агент-исполнения-pythonr).
+Проверки Python — в разделе [агента исполнения](#агент-исполнения-python).
 Результаты и ограничения проверок укажите в PR.
 
 ## Как работать с задачами

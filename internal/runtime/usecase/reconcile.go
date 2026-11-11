@@ -41,10 +41,30 @@ func (w *Worker) reconcilePass(ctx context.Context) error {
 // ошибки удаления — не чаще раза за ReconcileInterval) и удаляет ресурсы рантайма, чья сессия неизвестна БД или уже DELETED/FAILED.
 // ListOwned возвращает только ресурсы этого окружения (cellestial_env); ресурсы без session_id
 // не трогаются.
+//
+// Ресурсы VPS пула помечены pool_id: без строки в runtime_pool они сироты. Строки пула разбирает
+// reconcilePool.
 func (w *Worker) reconcile(ctx context.Context) error {
 	errs := w.retryCleanups(ctx)
-	if err := w.deleteOrphans(ctx); err != nil {
+	// Ресурсы читаются раньше строк пула: строка VPS пула создаётся до её ресурсов, поэтому у каждого
+	// ресурса из списка строка уже есть, если VPS не удалена.
+	owned, err := w.cloud.ListOwned(ctx)
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("list resources: %w", err))...)
+	}
+	var rows []domain.PoolVPS
+	if w.pool != nil {
+		if rows, err = w.pool.ListPool(ctx); err != nil {
+			return errors.Join(append(errs, fmt.Errorf("list pool: %w", err))...)
+		}
+	}
+	if err := w.deleteOrphans(ctx, owned, rows); err != nil {
 		errs = append(errs, err)
+	}
+	if w.pool != nil {
+		if err := w.reconcilePool(ctx, rows); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -65,11 +85,28 @@ func (w *Worker) retryCleanups(ctx context.Context) []error {
 	return errs
 }
 
-func (w *Worker) deleteOrphans(ctx context.Context) error {
-	owned, err := w.cloud.ListOwned(ctx)
-	if err != nil {
-		return fmt.Errorf("list resources: %w", err)
+func (w *Worker) deleteOrphans(ctx context.Context, owned []CloudResource, pool []domain.PoolVPS) error {
+	var errs []error
+	for _, kind := range deleteOrder() {
+		for _, r := range owned {
+			if r.Kind != kind || r.PoolID == uuid.Nil ||
+				slices.ContainsFunc(pool, func(p domain.PoolVPS) bool { return p.ID == r.PoolID }) {
+				continue
+			}
+			if err := w.deleteResource(ctx, r.Kind, r.ID); err != nil {
+				errs = append(errs, fmt.Errorf("delete pool orphan %s %s: %w", r.Kind, r.ID, err))
+				continue
+			}
+			w.log.Info("pool orphan deleted", "kind", r.Kind, "id", r.ID, "pool_id", r.PoolID)
+		}
 	}
+	if err := w.deleteSessionOrphans(ctx, owned); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+func (w *Worker) deleteSessionOrphans(ctx context.Context, owned []CloudResource) error {
 	var ids []uuid.UUID
 	for _, r := range owned {
 		if r.SessionID != uuid.Nil && !slices.Contains(ids, r.SessionID) {

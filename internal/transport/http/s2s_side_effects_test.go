@@ -52,8 +52,8 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 				if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"s2s_forbidden"`) {
 					t.Fatalf("rejection: %d %s", rec.Code, rec.Body)
 				}
-				// No expectations existed during rejection: any storage/session call fails.
-				// Positive control grants exact calls only after the rejected request.
+				// Во время отклонения ожиданий нет: любой вызов хранилища/сессий падает.
+				// Положительный контроль разрешает точные вызовы только после отклонённого запроса.
 				if op.path == BaseURL+"/notebooks" {
 					repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, n domain.Notebook) (domain.Notebook, error) { n.ID = 1; return n, nil })
 				} else {

@@ -266,8 +266,8 @@ runtime-agent/dist/
 runtime-agent/**/__pycache__/
 runtime-agent/**/*.egg-info/
 
-# Superpowers plugin documentation
+# Документация плагина Superpowers
 docs/superpowers/
 
-# Local Apidog CLI metadata
+# Локальные метаданные Apidog CLI
 .apidog/

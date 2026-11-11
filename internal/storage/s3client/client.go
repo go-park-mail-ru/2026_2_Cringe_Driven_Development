@@ -1,4 +1,4 @@
-// Package s3client creates the shared AWS client used by avatars.
+// Package s3client создаёт общий AWS-клиент, используемый аватарами.
 package s3client
 
 import (

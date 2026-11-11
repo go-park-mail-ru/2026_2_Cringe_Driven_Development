@@ -1,6 +1,7 @@
 """Coordinate per-session execution queues, lifecycle operations, and recovery."""
 
 import asyncio
+import hmac
 import json
 import logging
 import time
@@ -34,7 +35,6 @@ class Active:
         reply (dict | None): Received execute_reply content, if any.
         idle (bool): Whether a matching idle status has been received.
         interrupted (bool): Whether manual interruption was requested.
-        stdout (str): Captured stdout used to decode R variable inspection.
     """
 
     command: dict
@@ -43,7 +43,6 @@ class Active:
     reply: dict | None = None
     idle: bool = False
     interrupted: bool = False
-    stdout: str = ""
 
 
 class Session:
@@ -55,7 +54,7 @@ class Session:
     Attributes:
         agent (Agent): Coordinator owning this single runtime.
         id (str): Canonical UUID of the assigned session.
-        language (str): Fixed kernel language, python or r.
+        language (str): Fixed kernel language, python.
         journal (Journal): Persistent commands, state and event journal.
         settings (Settings): Resource limits and lifecycle deadlines.
         lock (asyncio.Lock): Serializes dispatch and kernel control operations.
@@ -80,7 +79,7 @@ class Session:
         Args:
             agent (Agent): Owning coordinator and shared infrastructure.
             session_id (str): Canonical UUID of the session.
-            language (str): Validated kernel language, python or r.
+            language (str): Validated kernel language, python.
         """
         self.agent = agent
         self.id = session_id
@@ -115,14 +114,17 @@ class Session:
         """
         return self.queue.qsize() + int(self.pending is not None and self.active is None)
 
-    async def start(self):
-        """Start the kernel, record readiness, and launch reader and worker tasks.
+    async def start(self, transport):
+        """Take over a prepared kernel, record readiness, and launch reader and worker tasks.
 
         Startup errors are logged and converted to a FAILED session with cleanup attempted.
+
+        Args:
+            transport (Jupyter): Open transport of the kernel prepared before the assignment.
         """
         try:
             async with self.lock:
-                self.transport = await self.agent.containers.start(self.id, self.language)
+                self.transport = transport
                 self.generation = str(uuid.uuid4())
                 self.ready = True
                 self.touch()
@@ -191,7 +193,7 @@ class Session:
 
         Raises:
             KernelDiedError: Jupyter reports that the kernel is dead.
-            ValueError: Inspection stdout exceeds its 1 MiB limit or serialization fails.
+            ValueError: Serialization fails.
             KeyError: A required protocol field is missing.
         """
         parent = msg.get("parent_header", {}).get("msg_id")
@@ -217,10 +219,6 @@ class Session:
                 self.journal.output(self.id, row, payload, self.settings.max_output_bytes)
             active = self.active
             if active is not None and active.msg_id == parent:
-                if inspect and kind == "stream" and content.get("name") == "stdout":
-                    if len(active.stdout.encode()) + len(content["text"].encode()) > 1024 * 1024:
-                        raise ValueError("Inspection output exceeds 1 MiB")
-                    active.stdout += content["text"]
                 if channel == "shell" and kind == "execute_reply":
                     active.reply = content
                 if channel == "iopub" and kind == "status":
@@ -258,8 +256,8 @@ class Session:
             execution_id = command["execution_id"]
             failure = None
             try:
-                # Dispatch and control share a lock: a delayed interrupt must never
-                # hit the next cell after the previous cell completes naturally.
+                # Dispatch и control делят блокировку: запоздалый interrupt никогда не должен
+                # попасть в следующую ячейку после естественного завершения предыдущей.
                 async with self.lock:
                     if not self.ready or self.draining:
                         self.journal.transition(
@@ -269,12 +267,12 @@ class Session:
                     active = Active(command, str(uuid.uuid4()))
                     self.active = active
                     self.journal.transition(self.id, execution_id, "RUNNING")
-                    # Correlation is durable before sending an execution request.
+                    # Корреляция сохраняется надёжно до отправки запроса на выполнение.
                     self.journal.dispatched(self.id, execution_id, active.msg_id, self.generation)
                     await asyncio.wait_for(
                         self.transport.send(
                             "execute_request",
-                            inspection.request_content(command, self.language),
+                            inspection.request_content(command),
                             active.msg_id,
                         ),
                         10,
@@ -302,7 +300,7 @@ class Session:
                     result = reply
                 if command["kind"] == "inspect" and state == "SUCCEEDED":
                     try:
-                        result = inspection.result(reply, self.language, active.stdout)
+                        result = inspection.result(reply)
                     except (ValueError, KeyError, SyntaxError):
                         state, result = "FAILED", {"reason": "invalid_inspection_result"}
                 self.journal.transition(
@@ -446,9 +444,9 @@ class Session:
                 with suppress(Exception):
                     await self.transport.close()
             try:
-                await self.agent.containers.remove(self.id)
+                await self.agent.containers.remove()
             except Exception:
-                # Keep the runtime unavailable until cleanup succeeds. The monitor retries.
+                # Runtime остаётся недоступным, пока очистка не пройдёт. Монитор повторяет попытки.
                 log.exception("Container cleanup failed: %s", self.id)
                 self.agent.cleanup_pending = (state, reason)
                 self.journal.session_state(self.id, "DRAINING", "cleanup_failed")
@@ -462,16 +460,23 @@ class Session:
 
 
 class Agent:
-    """Own exactly one assigned runtime and its persistent journal.
+    """Own one kernel container, its one-time session assignment and the journal.
 
-    The first startup creates a kernel. Later process startups recover the
-    journal and leave the previous assignment stopped without replaying code.
+    Before the assignment the agent keeps a fresh, unused Python kernel ready.
+    POST /assign hands this kernel to the session without starting a container.
+    Later process startups recover the journal and leave the assignment stopped
+    without replaying code.
 
     Attributes:
-        settings (Settings): Immutable assignment and resource configuration.
+        settings (Settings): Immutable host configuration.
         journal (Journal): Exclusively owned persistent execution journal.
-        containers (Containers): Backend owning the assignment's container.
-        session (Session): The single assigned runtime.
+        containers (Containers): Backend owning the kernel container.
+        session (Session | None): The assigned runtime, or None while waiting.
+        token (str | None): Bearer token of the assigned session.
+        warm (Jupyter | None): Ready kernel waiting for the assignment.
+        warming (asyncio.Task | None): Startup of the waiting kernel.
+        draining_warm (asyncio.Task | None): Reader of the waiting kernel channel.
+        assigning (asyncio.Lock): Serializes the assignment and waiting kernel checks.
         cleanup_pending (tuple[str, str] | None): Final state and reason to retry
             after container removal fails.
         subscribers (set[asyncio.Event]): Independent event-stream wakeups.
@@ -482,17 +487,22 @@ class Agent:
     """
 
     def __init__(self, settings, journal, containers):
-        """Initialize one runtime without starting Docker operations or tasks.
+        """Initialize the agent without starting Docker operations or tasks.
 
         Args:
-            settings (Settings): Validated immutable assignment configuration.
+            settings (Settings): Validated immutable host configuration.
             journal (Journal): Open journal owned by this process.
             containers (Containers): Container backend or compatible implementation.
         """
         self.settings = settings
         self.journal = journal
         self.containers = containers
-        self.session = Session(self, settings.session_id, settings.language)
+        self.session: Session | None = None
+        self.token: str | None = None
+        self.warm = None
+        self.warming: asyncio.Task | None = None
+        self.draining_warm: asyncio.Task | None = None
+        self.assigning = asyncio.Lock()
         self.cleanup_pending: tuple[str, str] | None = None
         self.subscribers = set()
         self.stopping = False
@@ -506,49 +516,143 @@ class Agent:
             wakeup.set()
 
     async def start(self):
-        """Recover owned resources and start a kernel only for a new assignment.
+        """Recover owned resources, restore an assignment or prepare a waiting kernel.
 
-        Validate journal ownership before cleanup. An existing assignment is
-        recovered as stopped, and pending commands are never dispatched again.
-        Kernel startup failures are recorded by Session.start instead of replayed.
+        An existing assignment is recovered as stopped, and pending commands are
+        never dispatched again.
 
         Raises:
-            RuntimeError: STATE_DIR belongs to a different session or language,
-                contains multiple assignments, or the network is invalid.
+            RuntimeError: STATE_DIR holds several sessions or the network is invalid.
             docker.errors.DockerException: Docker health or resource recovery fails.
             sqlite3.Error: Assignment metadata or recovery cannot be persisted.
         """
-        rows = self.journal.db.execute("SELECT id,language FROM sessions").fetchall()
-        if rows and (
-            len(rows) != 1
-            or rows[0]["id"] != self.settings.session_id
-            or rows[0]["language"] != self.settings.language
-        ):
-            raise RuntimeError("STATE_DIR belongs to another session; reprovision the VPS")
+        assignment = self.journal.assignment()
         await self.containers.ping()
         await self.containers.recover()
         self.journal.recover()
         self.started = True
         self.ready = True
-        if rows:
-            # Never restart a completed or interrupted assignment on process reboot.
+        if assignment:
+            session_id, language, self.token = assignment
+            self.session = Session(self, session_id, language)
+            # Не перезапускаем завершённое или прерванное назначение при рестарте процесса.
             self.session.closed = True
         else:
-            self.journal.create(self.session.id, self.session.language)
-            await self.session.start()
+            self.warming = asyncio.create_task(self.warm_up(), name="kernel-warm-up")
         self.monitor = asyncio.create_task(self.watch(), name="runtime-monitor")
+
+    async def warm_up(self):
+        """Start the kernel for a future session; failures are retried by the monitor."""
+        try:
+            self.warm = await self.containers.start()
+            log.info("Waiting kernel is ready")
+        except Exception:
+            log.exception("Waiting kernel startup failed")
+            return
+        self.draining_warm = asyncio.create_task(self.drain_warm(self.warm), name="kernel-wait")
+
+    async def drain_warm(self, transport):
+        """Read the waiting kernel channel until the assignment takes it over.
+
+        Jupyter Server pings the WebSocket and closes it when no pong arrives for
+        90 s; pongs are sent only while the channel is read. A closed channel
+        leaves the agent without a kernel, and the monitor starts a new one.
+
+        Args:
+            transport (Jupyter): Open transport of the waiting kernel.
+        """
+        try:
+            while True:
+                await transport.receive()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.warning("Waiting kernel channel closed; a new kernel will be started")
+            if self.warm is transport:
+                self.warm = None
+                with suppress(Exception):
+                    await transport.close()
+
+    async def stop_draining(self):
+        """Stop reading the waiting kernel channel before handing it over or closing it."""
+        if self.draining_warm is not None:
+            self.draining_warm.cancel()
+            await asyncio.gather(self.draining_warm, return_exceptions=True)
+            self.draining_warm = None
+
+    async def assign(self, session_id, language, token):
+        """Assign the agent to a session once and hand it the prepared kernel.
+
+        A repeated request for the same session and token returns the current state.
+
+        Args:
+            session_id (str): Canonical UUID of the session.
+            language (str): Requested kernel language.
+            token (str): Bearer token for following session requests.
+
+        Returns:
+            dict: Session snapshot after the kernel is ready.
+
+        Raises:
+            AgentError: The language is not python (400), the agent is assigned to
+                another session or token (409), or no kernel is available (503).
+        """
+        if language != "python":
+            raise AgentError(400, "Only python sessions are supported")
+        async with self.assigning:
+            if self.session is not None:
+                if self.session.id == session_id and hmac.compare_digest(self.token, token):
+                    return self.snapshot()
+                raise AgentError(409, "Runtime is assigned to another session")
+            if self.warming is not None:
+                await asyncio.shield(self.warming)
+            await self.stop_draining()
+            if self.warm is None or self.stopping or not self.ready:
+                raise AgentError(503, "Kernel is not ready")
+            self.journal.create(session_id, language, token)
+            self.token = token
+            self.session = Session(self, session_id, language)
+            transport, self.warm = self.warm, None
+            log.info("Assigned to session %s", session_id)
+            await self.session.start(transport)
+            self.notify()
+            return self.snapshot()
+
+    def assigned(self):
+        """Return the assigned runtime.
+
+        Returns:
+            Session: Assigned runtime, which may be stopped.
+
+        Raises:
+            AgentError: The agent is not assigned yet (HTTP 503).
+        """
+        if self.session is None:
+            raise AgentError(503, "Runtime is not assigned")
+        return self.session
 
     def snapshot(self):
         """Combine persisted assignment state with current runtime status.
 
         Returns:
             dict: Assignment metadata, session_id, readiness, draining status,
-            active execution ID and number of waiting commands.
-
-        Raises:
-            AgentError: The configured session has not been recorded in the journal.
+            active execution ID and number of waiting commands. Before the
+            assignment the state is WAITING and readiness means a ready kernel.
         """
         runtime = self.session
+        if runtime is None:
+            return {
+                "session_id": None,
+                "language": None,
+                "state": "WAITING",
+                "generation": None,
+                "reason": None,
+                "last_activity": None,
+                "ready": self.ready and self.warm is not None and not self.stopping,
+                "draining": False,
+                "active_execution_id": None,
+                "queued": 0,
+            }
         result = self.journal.session(runtime.id)
         return {
             **result,
@@ -568,12 +672,13 @@ class Agent:
             Session: Assigned runtime, which may be draining.
 
         Raises:
-            AgentError: The agent is unavailable, stopping or the runtime is closed
-                (HTTP 503).
+            AgentError: The agent is unassigned, unavailable, stopping or the runtime
+                is closed (HTTP 503).
         """
-        if not self.ready or self.stopping or self.session.closed:
+        runtime = self.assigned()
+        if not self.ready or self.stopping or runtime.closed:
             raise AgentError(503, "Runtime is stopped or unavailable")
-        return self.session
+        return runtime
 
     def accept(self, command):
         """Resolve an idempotent retry or queue a command on the live runtime.
@@ -589,9 +694,9 @@ class Agent:
 
         Raises:
             AgentError: The ID is reused for different content (409), the queue
-                is full (429), or the runtime is unavailable (503).
+                is full (429), or the runtime is unassigned or unavailable (503).
         """
-        sid = self.session.id
+        sid = self.assigned().id
         if self.journal.existing(sid, command):
             return self.journal.execution(sid, command["execution_id"])
         return self.live().accept(command)
@@ -604,27 +709,53 @@ class Agent:
 
         Returns:
             dict: Assignment snapshot after the cleanup attempt.
+
+        Raises:
+            AgentError: The agent is not assigned yet (HTTP 503).
         """
-        await self.session.finish()
+        await self.assigned().finish()
         return self.snapshot()
+
+    async def check_waiting(self):
+        """Keep a live waiting kernel: replace a dead one and retry a failed startup.
+
+        Raises:
+            docker.errors.DockerException: Docker cannot inspect or remove the container.
+        """
+        if self.assigning.locked() or (self.warming is not None and not self.warming.done()):
+            return
+        if self.warm is not None and await self.containers.alive():
+            return
+        await self.stop_draining()
+        if self.warm is not None:
+            log.warning("Waiting kernel died; starting a new one")
+            transport, self.warm = self.warm, None
+            with suppress(Exception):
+                await transport.close()
+        await self.containers.remove()
+        self.warming = asyncio.create_task(self.warm_up(), name="kernel-warm-up")
 
     async def check_session(self):
         """Retry cleanup, detect container death and expire an idle runtime.
 
         Active executions, queued work and locked control operations prevent idle
-        expiration. Closed runtimes are left unchanged.
+        expiration. Closed runtimes are left unchanged. Before the assignment only
+        the waiting kernel is checked; idle expiration does not apply.
 
         Raises:
             docker.errors.DockerException: Docker cannot inspect container health.
             sqlite3.Error: A lifecycle transition cannot be persisted.
         """
         runtime = self.session
+        if runtime is None:
+            await self.check_waiting()
+            return
         if runtime.closed:
             return
         if self.cleanup_pending:
             await runtime.finish(*self.cleanup_pending)
         elif not runtime.lock.locked():
-            if not await self.containers.alive(runtime.id):
+            if not await self.containers.alive():
                 await runtime.finish("FAILED", "kernel_died")
             elif (
                 not runtime.active
@@ -635,7 +766,7 @@ class Agent:
                 await runtime.finish("STOPPED", "idle_timeout")
 
     async def watch(self):
-        """Monitor Docker health and the assigned runtime until cancellation.
+        """Monitor Docker health and the runtime until cancellation.
 
         Unexpected check failures are logged and mark the agent unavailable. The
         next successful iteration restores availability without replaying commands.
@@ -653,14 +784,25 @@ class Agent:
     async def close(self):
         """Stop monitoring, release owned resources and close the Docker client.
 
-        An assignment rejected during startup is not stopped or modified. The
-        persistent journal is closed separately by the application's lifespan.
+        A rejected startup is not cleaned up. The persistent journal is closed
+        separately by the application's lifespan.
         """
         self.stopping = True
         self.ready = False
-        if self.monitor:
-            self.monitor.cancel()
-            await asyncio.gather(self.monitor, return_exceptions=True)
+        for task in (self.monitor, self.warming, self.draining_warm):
+            if task:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
         if self.started:
-            await self.session.finish()
+            if self.session is not None:
+                await self.session.finish()
+            else:
+                if self.warm is not None:
+                    with suppress(Exception):
+                        await self.warm.close()
+                    self.warm = None
+                try:
+                    await self.containers.remove()
+                except Exception:
+                    log.exception("Waiting kernel cleanup failed")
         await self.containers.close()

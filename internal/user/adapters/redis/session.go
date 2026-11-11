@@ -1,4 +1,4 @@
-// Package redis stores authorization sessions on a standalone Redis primary.
+// Package redis хранит сессии авторизации на отдельном primary Redis.
 package redis
 
 import (
@@ -20,8 +20,8 @@ import (
 //go:embed session.lua
 var sessionScript string
 
-// Store never retries mutations: a timeout may follow a committed write.
-// The caller must also disable go-redis command retries on the supplied client.
+// Store не повторяет мутации: таймаут мог случиться уже после записи.
+// Вызывающий также обязан отключить ретраи команд go-redis на переданном клиенте.
 type Store struct {
 	client  *goredis.Client
 	prefix  string
@@ -58,7 +58,7 @@ func validClaims(c usecase.SessionClaims) bool {
 func sessionRecord(n usecase.NewSession) record {
 	r := claimsRecord(n.SessionClaims)
 	r.TokenHash = n.TokenHash
-	// Round up the storage deadline, never truncate a token's validity.
+	// Округляем дедлайн хранилища вверх, чтобы не укоротить срок действия токена.
 	r.RefreshExpiresAt = n.ExpiresAt.Add(time.Millisecond - 1).UnixMilli()
 	r.AccessValidUntil = n.AccessExpiresAt.Add(time.Millisecond - 1).UnixMilli()
 	return r
@@ -70,7 +70,7 @@ func (s *Store) run(ctx context.Context, op string, r record, keys ...string) (s
 	if err != nil {
 		return "", err
 	}
-	// EVAL avoids an extra EVALSHA/NOSCRIPT round trip and any retry ambiguity.
+	// EVAL избегает лишнего раунда EVALSHA/NOSCRIPT и любой неоднозначности ретраев.
 	out, err := s.client.Eval(ctx, sessionScript, keys, op, string(b), s.prefix).Text()
 	if err != nil {
 		return "", fmt.Errorf("redis session %s: %w", op, err)

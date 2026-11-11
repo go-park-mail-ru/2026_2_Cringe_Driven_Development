@@ -1,6 +1,6 @@
 # Backend: инструкции для агента
 
-Разрабатываем аналог Google Colab: блокноты с блоками Python/R и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
+Разрабатываем аналог Google Colab: блокноты с блоками Python и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
 
 ## Wiki и общий поиск
 
@@ -41,7 +41,7 @@
 - HTTP: `net/http`, Gorilla mux; PostgreSQL: `pgx/v5/pgxpool`.
 - Локально: Docker Compose с Go API, PostgreSQL 18, Redis 8 и SeaweedFS (S3).
 - `runtime-agent/`: Python 3.13 сервис systemd; одна VPS, одна сессия, один контейнер/kernel.
-  SESSION_ID и KERNEL_LANGUAGE задаются при запуске. SQLite и токен — только на хосте.
+  Агент ждёт с готовым kernel; сессию назначает Go API (`POST /assign`). SQLite и токен — только на хосте.
   Jupyter — закрытый TCP без host mounts; сеть и firewall реализует infra (роль `runtime_host`) по docs/runtime-agent-network.md.
 
 Нужны Go, C-компилятор (`-race`), Make, curl, Docker с Compose. `.env` — см. [.env.example](.env.example). Команды из корня:
@@ -60,7 +60,7 @@ make up               # собрать и запустить API, PostgreSQL, Re
 make health           # GET /health; make logs — последние логи; make down — остановка
 make run              # то же окружение с логами в терминале
 make agent-setup agent-lint agent-test agent-build # Python-агент: установка и проверки
-make agent-images agent-integration # Docker-образы Python/R и интеграционные тесты
+make agent-images agent-integration # Docker-образ kernel Python и интеграционные тесты
 make agent-network-check # отдельная VPS с firewall infra; не обычный CI. smoke: — docs/runtime-provisioning.md
 ```
 
@@ -104,7 +104,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 
 - Backend отвечает за Go API, данные и бизнес-логику; местный Compose — для разработки.
 - Агент сам VPS не создаёт: создание, настройку (воркер запускает playbook) и удаление runtime-VPS выполняет
-  `internal/runtime` ([docs](docs/runtime-provisioning.md)). Роли (`runtime_host`, `runtime_agent`, `site.yml`, mount `/app/deploy/runtime`): установка агента/systemd, mTLS-доступ Go API
+  `internal/runtime` ([docs](docs/runtime-provisioning.md)). Роли (`runtime_host`, `runtime_agent`, `prepare.yml`, mount `/app/deploy/runtime`): установка агента/systemd, mTLS-доступ Go API
   к агенту, сеть/firewall и секреты — в `infra`; запускает их воркер `internal/runtime`.
 - `infra`: Pulumi, Ansible Vault, production Compose и Caddyfile. Не переноси
   production-конфигурацию в backend и не коммить открытые секреты.
@@ -121,7 +121,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 - Откат — тот же playbook с прежним digest-ref через `backend_image_ref`, без автоматических миграций Down.
 
 Фактический [CI backend](.github/workflows/ci.yml) публикует
-`ghcr.io/cringe-driven-development-team/backend`: теги `sha-<short>` и `main`,
+`ghcr.io/cringe-driven-development-team/backend`: теги `sha-<полный SHA>` и `main`,
 без `latest`. Пакет должен быть публичным: CI проверяет видимость `public`, привязку
 к репозиторию и анонимную доступность опубликованного digest с пустым Docker config.
 Публикация использует `GITHUB_TOKEN` с `packages: write`; CD и Ansible скачивают
@@ -129,9 +129,9 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 Выкатывается полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
 Deploy требует PRODUCTION_ENABLED=true; sync — COURSE_SYNC_ENABLED=true,
 needs lint/test/docker, независимо от deploy. Повтор sync принимает только ci_run_id.
-Pull старого GHCR path требует old sha-tag и прежний read credential.
-Без registry используй проверенный сохранённый образ и manual override из
-infra/ansible/README.md: pull_policy never, только API, без миграций Down.
+Deploy/Rollback создают явные production Deployments; прямого Telegram sender нет.
+Откат — Actions → Rollback на main, цель из успешных Deployments; правила — docs/release.md.
+Runtime всегда включён: обязательные настройки проверяются при старте, локально provider=fake.
 ## Коммиты
 
 Формат: `<тип>: <описание>` или `<тип>(<область>): <описание>`.

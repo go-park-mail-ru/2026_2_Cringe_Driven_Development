@@ -50,7 +50,7 @@ async def test_jupyter_does_not_follow_redirects_to_host_services():
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = runner.addresses[0][1]
-    transport = Jupyter(f"http://127.0.0.1:{port}", "test", "python")
+    transport = Jupyter(f"http://127.0.0.1:{port}", "test")
     try:
         with pytest.raises(ValueError, match="redirect"):
             await transport.start(0.2)

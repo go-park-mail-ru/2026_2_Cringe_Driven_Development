@@ -22,8 +22,8 @@ func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler 
 	// Без этого в текст ошибки попадает вся схема целиком.
 	openapi3.SchemaErrorDetailsDisabled = true
 
-	// kin-openapi buffers the body when validating security too. Authentication
-	// is enforced explicitly below; retain header validation without that second read.
+	// kin-openapi буферизует тело и при валидации security. Аутентификация
+	// явно проверяется ниже; валидация заголовков остаётся без повторного чтения.
 	streamSpec := *spec
 	streamSpec.Paths = openapi3.NewPaths()
 	for path, item := range spec.Paths.Map() {

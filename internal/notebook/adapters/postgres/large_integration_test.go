@@ -21,16 +21,16 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 )
 
-// Opt in: this allocates full-size documents and performs two real minute-long
-// PostgreSQL runs. It is deliberately separate from the ordinary unit suite.
+// Только по явному включению: тест выделяет документы полного размера и выполняет
+// два настоящих минутных прогона PostgreSQL. Намеренно отделён от обычных unit-тестов.
 func TestLargeNotebookAccountingAndAutosave(t *testing.T) {
 	if os.Getenv("NOTEBOOK_LARGE_TEST") != "1" {
 		t.Skip("set NOTEBOOK_LARGE_TEST=1 for 128 MiB acceptance/performance test")
 	}
 	repo, pool := testRepository(t)
 	ctx := context.Background()
-	// Incompressible base64, split between outputs and attachments. This exercises
-	// TOAST storage rather than a highly compressible repeated-string fixture.
+	// Несжимаемый base64, разделённый между outputs и attachments. Это нагружает
+	// TOAST-хранилище, а не легко сжимаемую фикстуру из повторяющейся строки.
 	random := make([]byte, 96*1024*1024)
 	if _, err := rand.Read(random); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestLargeNotebookAccountingAndAutosave(t *testing.T) {
 		{ID: "heavy", Kind: domain.CellKindCode, Source: "heavy", Metadata: json.RawMessage(`{}`), Outputs: json.RawMessage(`[{"output_type":"display_data","data":{"text/plain":"` + payload[:16*1024*1024] + `"}}]`), HasExecutionCount: true},
 		{ID: "attached", Kind: domain.CellKindMarkdown, Source: "attachment", Metadata: json.RawMessage(`{}`), Attachments: json.RawMessage(`{"blob":{"application/octet-stream":"` + payload[16*1024*1024:] + `"}}`)},
 	}
-	// Trim only payload bytes to make the canonical export exactly the limit.
+	// Обрезаем только байты полезной нагрузки, чтобы канонический экспорт был ровно на лимите.
 	size := ipynb.DocumentSize(ipynb.HeaderSize(doc), []int64{ipynb.CellSize(cells[0]), ipynb.CellSize(cells[1]), ipynb.CellSize(cells[2])})
 	excess := size - usecase.MaxNotebookBytes
 	if excess <= 0 {
@@ -68,7 +68,7 @@ func TestLargeNotebookAccountingAndAutosave(t *testing.T) {
 	export = nil
 	cells = nil
 	n.Cells = nil
-	// A one-byte expansion must fail without changing data or revision.
+	// Расширение на один байт должно падать, не меняя данных и ревизии.
 	if _, err = repo.Apply(ctx, n.ID, 1, n.Revision, usecase.Operation{Kind: usecase.Edit, CellID: "edit", Source: "x=00"}); !errors.Is(err, usecase.ErrTooLarge) {
 		t.Fatalf("source overflow: %v", err)
 	}
@@ -85,8 +85,8 @@ func TestLargeNotebookAccountingAndAutosave(t *testing.T) {
 		t.Fatalf("result overflow: %v", err)
 	}
 
-	// Fixed-width changes keep the full document exactly at the boundary while
-	// preserving both the heavy output row and the attachment row.
+	// Изменения фиксированной ширины держат полный документ ровно на границе,
+	// сохраняя и тяжёлую строку outputs, и строку вложения.
 	var heavyRowsBefore, heavyRowsAfter string
 	const physicalRows = `SELECT string_agg(cell_id||':'||xmin::text||':'||ctid::text,',' ORDER BY cell_id) FROM notebook_cell_data WHERE notebook_id=$1 AND cell_id IN ('heavy','attached')`
 	if err = pool.QueryRow(ctx, physicalRows, n.ID).Scan(&heavyRowsBefore); err != nil {
@@ -161,7 +161,7 @@ func TestLargeNotebookAccountingAndAutosave(t *testing.T) {
 
 }
 
-// Kept here so RSS is measured from the process rather than inferred from heap.
+// Оставлено здесь, чтобы RSS измерялся по процессу, а не выводился из heap.
 func processRSS() int64 {
 	b, _ := os.ReadFile("/proc/self/statm")
 	f := strings.Fields(string(b))

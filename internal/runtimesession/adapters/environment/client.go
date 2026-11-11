@@ -26,8 +26,6 @@ func mapError(err error) error {
 		return D.ErrConflict
 	case errors.Is(err, U.ErrCapacity):
 		return D.ErrQueueFull
-	case errors.Is(err, U.ErrDisabled):
-		return D.ErrUnavailable
 	case errors.Is(err, U.ErrUnknownProfile), errors.Is(err, U.ErrInvalidLanguage), errors.Is(err, U.ErrInvalidSession):
 		return D.ErrInvalid
 	default:

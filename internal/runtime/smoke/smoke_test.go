@@ -275,12 +275,12 @@ func setup() (smoke.Deps, *fake.Cloud, *fake.Host) {
 	cloud, host, ag := fake.New(20 * time.Millisecond)
 	sec := &stubSecrets{}
 	svc := usecase.NewService(st, usecase.Settings{
-		Enabled: true, MaxActive: 10, AgentVersion: "dev", Profiles: map[string]bool{"default": true},
+		MaxActive: 10, AgentVersion: "dev", Profiles: map[string]bool{"default": true},
 	})
 	return smoke.Deps{
 		Service: svc, Repo: st, Secrets: sec, Agent: ag, Cloud: cloud,
 		NewWorker: func(owner string, lease time.Duration) *usecase.Worker {
-			return usecase.NewWorker(st, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
+			return usecase.NewWorker(st, nil, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
 				Owner: owner, Concurrency: 1, Lease: lease, PollInterval: 10 * time.Millisecond, EnvName: "smoke-test",
 			})
 		},
@@ -321,7 +321,7 @@ func TestSmokeRejectsBadOptions(t *testing.T) {
 	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "go"}); err == nil {
 		t.Fatal("expected language error")
 	}
-	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "r", KillWorkerAfter: "port"}); err == nil {
+	if _, err := smoke.Run(context.Background(), deps, smoke.Options{Language: "python", KillWorkerAfter: "port"}); err == nil {
 		t.Fatal("expected kill-worker-after error")
 	}
 }

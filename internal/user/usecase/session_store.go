@@ -30,9 +30,9 @@ type NewSession struct {
 	AccessExpiresAt time.Time
 }
 
-// SessionStore is the authoritative state of access and refresh authorization.
-// Reads never initialize versions or extend TTL. Mutations must be atomic.
-// A transport error on a mutation may mean an unknown outcome, not a rollback.
+// SessionStore хранит основное состояние access- и refresh-авторизации.
+// Чтения никогда не инициализируют версии и не продлевают TTL. Мутации должны быть атомарны.
+// Транспортная ошибка при мутации может означать неизвестный исход, а не откат.
 type SessionStore interface {
 	CurrentVersion(context.Context, int64) (SessionVersion, error)
 	Create(context.Context, NewSession) error

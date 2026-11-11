@@ -14,7 +14,7 @@ const (
 	deleteSessionSQL = `DELETE FROM refresh_sessions WHERE token_hash = $1 RETURNING user_id, expires_at`
 )
 
-func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock exposes an interface
+func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock отдаёт интерфейс
 	t.Helper()
 	db, err := pgxmock.NewPool(pgxmock.QueryMatcherOption(pgxmock.QueryMatcherEqual))
 	if err != nil {

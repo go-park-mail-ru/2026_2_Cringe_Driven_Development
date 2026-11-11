@@ -64,7 +64,19 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install Redis CLI for recovery runbook tests
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+        # redis-cli берём из уже скачанного образа service-контейнера: apt-зеркала Ubuntu на runner часто не резолвятся.
+        run: |
+          printf '%s\n' '#!/bin/sh' 'exec docker run --rm -i --network host -e REDISCLI_AUTH redis:8-alpine redis-cli "$@"' |
+            sudo tee /usr/local/bin/redis-cli > /dev/null
+          sudo chmod +x /usr/local/bin/redis-cli
+          redis-cli -h 127.0.0.1 ping
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install release callback test tools
+        run: python -m pip install ansible-core==2.19.7
+      - name: Release producer contract tests
+        run: python3 -m unittest discover -s scripts/release/tests -v
       - name: Check dependencies
         run: go mod tidy -diff
       - name: Build
@@ -97,7 +109,7 @@ jobs:
         run: make agent-test
       - name: Build package
         run: make agent-build
-      - name: Build Python and R kernel images
+      - name: Build Python kernel image
         run: make agent-images
       - name: Test real kernels, isolation, limits and recovery
         run: make agent-integration
@@ -109,7 +121,6 @@ jobs:
     timeout-minutes: 30
     outputs:
       python_ref: ${{ steps.refs.outputs.python_ref }}
-      r_ref: ${{ steps.refs.outputs.r_ref }}
     permissions:
       contents: read
       packages: write
@@ -136,31 +147,16 @@ jobs:
           tags: ghcr.io/cringe-driven-development-team/cellestial-kernel-python:sha-${{ github.sha }}
           cache-from: type=gha,scope=kernel-python
           cache-to: type=gha,mode=max,scope=kernel-python
-      - name: Build and publish R kernel
-        id: r
-        uses: docker/build-push-action@v7
-        with:
-          context: runtime-agent
-          file: runtime-agent/images/r.Dockerfile
-          push: ${{ env.PUBLISH == 'true' }}
-          load: ${{ env.PUBLISH != 'true' }}
-          tags: ghcr.io/cringe-driven-development-team/cellestial-kernel-r:sha-${{ github.sha }}
-          cache-from: type=gha,scope=kernel-r
-          cache-to: type=gha,mode=max,scope=kernel-r
       - name: Export image references
         id: refs
         env:
           PYTHON_DIGEST: ${{ steps.python.outputs.digest }}
-          R_DIGEST: ${{ steps.r.outputs.digest }}
         run: |
           if [[ "$PUBLISH" == "true" ]]; then
             [[ "$PYTHON_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-            [[ "$R_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
             echo "python_ref=ghcr.io/cringe-driven-development-team/cellestial-kernel-python@${PYTHON_DIGEST}" >> "$GITHUB_OUTPUT"
-            echo "r_ref=ghcr.io/cringe-driven-development-team/cellestial-kernel-r@${R_DIGEST}" >> "$GITHUB_OUTPUT"
           else
             echo "python_ref=cellestial-kernel-python:local" >> "$GITHUB_OUTPUT"
-            echo "r_ref=cellestial-kernel-r:local" >> "$GITHUB_OUTPUT"
           fi
 
   docker:
@@ -202,7 +198,7 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           flavor: latest=false
           tags: |
-            type=sha,format=short
+            type=sha,format=long
             type=raw,value=pr-${{ steps.ref.outputs.name }}-{{sha}},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=main,enable=${{ github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           labels: |
@@ -216,7 +212,6 @@ jobs:
           push: ${{ github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
           build-args: |
             RUNTIME_PYTHON_IMAGE=${{ needs.kernel-images.outputs.python_ref }}
-            RUNTIME_R_IMAGE=${{ needs.kernel-images.outputs.r_ref }}
             RUNTIME_AGENT_VERSION=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -248,7 +243,7 @@ jobs:
           jq '{visibility, repository: .repository.full_name}' <<< "$metadata"
           docker_config=$(mktemp -d)
           trap 'rm -rf "$docker_config"' EXIT
-          docker --config "$docker_config" manifest inspect "$BACKEND_IMAGE_REF" > /dev/null
+          docker --config "$docker_config" pull --platform linux/amd64 "$BACKEND_IMAGE_REF"
 
   deploy:
     name: deploy
@@ -256,8 +251,12 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
+      actions: read
+      deployments: write
     uses: ./.github/workflows/cd.yml
     with:
+      action: deploy
+      target_sha: ${{ github.sha }}
       backend_image_ref: ${{ needs.docker.outputs.image_ref }}
     secrets: inherit
 

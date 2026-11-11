@@ -15,14 +15,13 @@ var (
 	ErrInvalidLanguage = errors.New("invalid kernel language")
 	ErrUnknownProfile  = errors.New("unknown environment profile")
 	ErrCapacity        = errors.New("active environments limit reached")
-	ErrDisabled        = errors.New("runtime provisioning is disabled")
 	ErrInvalidSession  = errors.New("invalid session id")
 )
 
 // CreateEnvironment — запрос на создание окружения.
 type CreateEnvironment struct {
 	SessionID uuid.UUID
-	Language  string // python | r
+	Language  string // только python
 	Profile   string // серверный allowlist, для MVP: default
 }
 

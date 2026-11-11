@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// LogStorage records a safe summary of one completed storage operation.
+// LogStorage записывает безопасную сводку одной завершённой операции с хранилищем.
 func LogStorage(ctx context.Context, operation string, started time.Time, err error) {
 	outcome := "success"
 	attrs := []any{slog.String("operation", operation), slog.Duration("duration", time.Since(started))}

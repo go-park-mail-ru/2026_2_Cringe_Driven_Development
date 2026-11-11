@@ -5,7 +5,7 @@ generate:
   strict-server: true
   models: true
   embedded-spec: true
-# Generate the implemented authentication, user profile and notebook operations.
+# Генерировать реализованные операции аутентификации, профиля пользователя и ноутбуков.
 output-options:
   include-operation-ids:
     - registerUser

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// target contains no JSONB values; even very large attachments stay in PostgreSQL.
+// target не содержит JSONB-значений; даже очень большие вложения остаются в PostgreSQL.
 type target struct {
 	runtimeBytes, runtimeOverhead         int64
 	cell                                  domain.Cell
