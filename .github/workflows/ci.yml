@@ -64,7 +64,13 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install Redis CLI for recovery runbook tests
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+        # Зеркала Ubuntu на runner иногда временно не резолвятся, повторяем установку.
+        run: |
+          for _ in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 redis-tools && exit 0
+            sleep 15
+          done
+          exit 1
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
