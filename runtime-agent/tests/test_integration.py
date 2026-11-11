@@ -300,7 +300,7 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
         async with asyncio.timeout(5):
             while not runtime.active:
                 await asyncio.sleep(0.01)
-        # Симулируем потерю процесса без штатного удаления контейнера и завершённого состояния журнала.
+        # Симулируем потерю процесса без удаления контейнера и без завершения журнала.
         tasks = [agent.monitor, runtime.worker, runtime.reader]
         for task in tasks:
             task.cancel()

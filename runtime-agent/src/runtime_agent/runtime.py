@@ -535,7 +535,7 @@ class Agent:
         if assignment:
             session_id, language, self.token = assignment
             self.session = Session(self, session_id, language)
-            # Никогда не перезапускаем завершённое или прерванное назначение при перезагрузке процесса.
+            # Не перезапускаем завершённое или прерванное назначение при рестарте процесса.
             self.session.closed = True
         else:
             self.warming = asyncio.create_task(self.warm_up(), name="kernel-warm-up")
