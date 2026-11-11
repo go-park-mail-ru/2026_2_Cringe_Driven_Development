@@ -1,8 +1,8 @@
 """Configure a private Jupyter Server with agent-managed restarts."""
 
-
 import os
 import site
+
 # Файл запекается в образ; конфигурация с хоста не монтируется.
 c = get_config()  # noqa: F821
 # Python adds the user site to sys.path only if it exists when the kernel starts,
