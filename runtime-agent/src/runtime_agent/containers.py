@@ -198,8 +198,8 @@ class Containers:
             except Exception:
                 if not isinstance(startup_error, asyncio.CancelledError):
                     raise
-                # Preserve cancellation; the owning runtime retries cleanup and
-                # records cleanup_failed before the journal is closed.
+                # Сохраняем отмену; владеющий runtime повторяет очистку и
+                # записывает cleanup_failed до закрытия журнала.
                 log.exception("Container cleanup failed after cancelled startup")
             raise startup_error
 

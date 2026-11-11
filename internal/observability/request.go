@@ -1,4 +1,4 @@
-// Package observability provides request context and safe structured logging.
+// Package observability предоставляет контекст запроса и безопасное структурированное логирование.
 package observability
 
 import "context"

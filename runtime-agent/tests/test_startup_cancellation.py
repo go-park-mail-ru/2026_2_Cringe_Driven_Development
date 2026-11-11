@@ -99,8 +99,8 @@ async def entered(event):
 
 
 async def assert_waiting(task):
-    # A deadline asserts that cancellation cannot finish while the controlled
-    # operation is blocked; the barriers, not sleeps, determine operation order.
+    # Дедлайн проверяет, что отмена не может завершиться, пока контролируемая
+    # операция заблокирована; порядок операций задают барьеры, а не sleep.
     with pytest.raises(TimeoutError):
         await asyncio.wait_for(asyncio.shield(task), 0.03)
 
@@ -154,7 +154,7 @@ async def test_cancelled_start_waits_for_creation_and_cleanup(
             await entered(client.close_entered)
             task.cancel()
             await assert_waiting(task)
-            # The journal must stay open until the Docker client finishes closing.
+            # Журнал должен оставаться открытым, пока Docker-клиент не закончит закрытие.
             app.state.agent.journal.db.execute("SELECT 1")
             client.allow_close.set()
         with pytest.raises(asyncio.CancelledError):
@@ -201,7 +201,7 @@ async def test_cleanup_failure_after_cancel_is_recovered(settings, docker_lifecy
     client.removal_error = None
     recovered = create_app(settings)
     async with recovered.router.lifespan_context(recovered):
-        # recover() removed the stale container before a new waiting kernel starts
+        # recover() удалил устаревший контейнер до старта нового ожидающего ядра
         assert client.order.count("removed") == 1
         assert recovered.state.agent.snapshot()["state"] == "WAITING"
 

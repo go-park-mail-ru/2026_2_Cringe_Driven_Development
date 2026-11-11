@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only preflight. Never source .env or print credentials.
+# Read-only предварительная проверка. Никогда не делает source .env и не печатает учётные данные.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 failures=0
@@ -19,7 +19,7 @@ need docker 'установите Docker Engine и Compose v2'
 need gh 'установите GitHub CLI и выполните gh auth login'
 
 if command -v go >/dev/null 2>&1; then
-    # Inspect the executable in PATH without Go auto-downloading a toolchain.
+    # Проверяем исполняемый файл в PATH без автозагрузки тулчейна Go.
     export GOTOOLCHAIN=local
     required=$(awk '$1 == "go" {print $2}' go.mod)
     installed=$(go env GOVERSION 2>/dev/null) || installed=''

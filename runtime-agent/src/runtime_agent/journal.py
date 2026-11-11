@@ -321,7 +321,7 @@ class Journal:
         """
         with self.db:
             if limit is not None and result is not None:
-                # Results are stored twice: in executions and in the state event.
+                # Результаты хранятся дважды: в executions и в событии состояния.
                 if not self._charge(
                     session_id, execution_id, 2 * len(encode(result).encode()), limit
                 ):

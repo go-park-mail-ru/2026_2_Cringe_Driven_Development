@@ -10,14 +10,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Avatar errors describe validation independently of image and HTTP adapters.
+// Ошибки аватара описывают валидацию независимо от адаптеров изображений и HTTP.
 var (
 	ErrInvalidImage         = errors.New("invalid avatar image")
 	ErrUnsupportedMediaType = errors.New("unsupported avatar media type")
 	ErrAvatarTooLarge       = errors.New("avatar exceeds upload size limit")
 )
 
-// SanitizedAvatar owns a temporary cleaned file; Close also removes that file.
+// SanitizedAvatar владеет временным очищенным файлом, Close его удаляет.
 type SanitizedAvatar struct {
 	Body        io.ReadSeekCloser
 	Size        int64
@@ -36,7 +36,7 @@ type AvatarRepository interface {
 	SwapAvatar(context.Context, int64, string) (domain.User, string, error)
 }
 
-// AvatarUsecase publishes the new object before changing the profile reference.
+// AvatarUsecase публикует новый объект до изменения ссылки в профиле.
 type AvatarUsecase struct {
 	users    AvatarRepository
 	storage  AvatarStorage
@@ -66,7 +66,7 @@ func (u *AvatarUsecase) Upload(ctx context.Context, id int64, source io.ReadSeek
 	}
 	user, oldKey, err := u.users.SwapAvatar(ctx, id, key)
 	if err != nil {
-		// A failed COMMIT may have succeeded. Do not remove a potentially referenced object.
+		// Неудачный COMMIT мог на самом деле пройти. Не удаляем объект, на который может быть ссылка.
 		return domain.User{}, err
 	}
 	if oldKey != "" && oldKey != key {

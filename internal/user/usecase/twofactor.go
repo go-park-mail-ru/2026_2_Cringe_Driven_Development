@@ -23,7 +23,7 @@ func (uc *UserUsecase) allow(ctx context.Context, key string, limit int) error {
 	return uc.limiter.Allow(ctx, key, limit)
 }
 
-// EnableTwoFactor prepares a stable pending secret without enabling authentication.
+// EnableTwoFactor готовит стабильный ожидающий секрет, не включая аутентификацию.
 func (uc *UserUsecase) EnableTwoFactor(ctx context.Context, id int64) (TwoFactorSetup, error) {
 	if err := uc.allow(ctx, accountAttemptKey("setup", id), 30); err != nil {
 		return TwoFactorSetup{}, err
@@ -60,7 +60,7 @@ func (uc *UserUsecase) EnableTwoFactor(ctx context.Context, id int64) (TwoFactor
 	return result, nil
 }
 
-// ConfirmTwoFactor activates a prepared secret and consumes the accepted step.
+// ConfirmTwoFactor активирует подготовленный секрет и расходует принятый шаг.
 func (uc *UserUsecase) ConfirmTwoFactor(ctx context.Context, id int64, code string) error {
 	if err := uc.allow(ctx, accountAttemptKey("confirm", id), 5); err != nil {
 		return err
@@ -80,7 +80,7 @@ func (uc *UserUsecase) ConfirmTwoFactor(ctx context.Context, id int64, code stri
 	})
 }
 
-// DisableTwoFactor deletes the secret after verifying the current password.
+// DisableTwoFactor удаляет секрет после проверки текущего пароля.
 func (uc *UserUsecase) DisableTwoFactor(ctx context.Context, id int64, password string) error {
 	if err := uc.allow(ctx, accountAttemptKey("disable", id), 5); err != nil {
 		return err

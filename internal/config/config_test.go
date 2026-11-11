@@ -91,7 +91,7 @@ func TestPostgresURLCredentials(t *testing.T) {
 	}
 }
 
-// withFakeRuntime supplies explicit valid runtime input to tests of unrelated settings.
+// withFakeRuntime передаёт явный валидный runtime-ввод в тесты несвязанных настроек.
 func withFakeRuntime(values map[string]string) func(string) (string, bool) {
 	full := map[string]string{"RUNTIME_PROVIDER": "fake", "RUNTIME_SECRETS_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
 	for key, value := range values {

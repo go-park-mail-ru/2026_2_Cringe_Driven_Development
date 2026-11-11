@@ -174,7 +174,7 @@ func TestProjectionRejectsSourceABA(t *testing.T) {
 	if err != nil || after.Revision != changed.Hash || string(after.Cells[0].Outputs) != "[]" {
 		t.Fatal("stale result changed notebook")
 	}
-	// The projection failure must not finish or replace the actual runtime session.
+	// Сбой проекции не должен завершать или подменять настоящую runtime-сессию.
 	active, err := s.ActiveNotebook(ctx, owner)
 	if err != nil || active != nb {
 		t.Fatalf("session badge: %d %v", active, err)

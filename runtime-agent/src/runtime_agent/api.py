@@ -345,7 +345,7 @@ def create_app(settings=None, containers_factory=Containers):
                     for event in batch:
                         await asyncio.wait_for(ws.send_json(event), 10)
                         after = event["seq"]
-                    # Yield even if an in-process client writes instantly.
+                    # Отдаём управление циклу, даже если in-process клиент пишет мгновенно.
                     await asyncio.sleep(0)
                 else:
                     try:
@@ -371,8 +371,8 @@ def create_app(settings=None, containers_factory=Containers):
             agent.subscribers.discard(wakeup)
             for task in tasks:
                 task.cancel()
-            # ASGI servers may cancel the handler while it is closing. Shield
-            # cleanup from repeated cancellation until both child tasks exit.
+            # ASGI-серверы могут отменить обработчик во время закрытия. Защищаем
+            # очистку от повторной отмены, пока обе дочерние задачи не завершатся.
             with anyio.CancelScope(shield=True):
                 await asyncio.gather(*tasks, return_exceptions=True)
 

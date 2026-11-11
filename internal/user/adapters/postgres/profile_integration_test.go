@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TEST_POSTGRES_DSN points at a disposable database. Every run owns a schema.
+// TEST_POSTGRES_DSN указывает на одноразовую БД. Каждый прогон владеет своей схемой.
 func TestProfilePostgresIntegration(t *testing.T) {
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
 	if dsn == "" {
@@ -59,7 +59,7 @@ func TestProfilePostgresIntegration(t *testing.T) {
 	if _, err = repo.UpdateLogin(ctx, b.ID, "aLiCe"); !errors.Is(err, usecase.ErrLoginTaken) {
 		t.Fatalf("login conflict: %v", err)
 	}
-	// Two changes using the same observed hash have exactly one winner.
+	// У двух изменений с одним и тем же наблюдённым хешем ровно один победитель.
 	var wg sync.WaitGroup
 	results := make(chan error, 2)
 	for _, hash := range []string{"new1", "new2"} {
@@ -79,7 +79,7 @@ func TestProfilePostgresIntegration(t *testing.T) {
 	if successes != 1 {
 		t.Fatalf("CAS winners=%d", successes)
 	}
-	// Concurrent swaps must return a chain: one sees empty, the other sees its predecessor.
+	// Конкурентные замены должны вернуть цепочку: одна видит пустое значение, другая видит предшественника.
 	type swap struct {
 		key, old string
 		err      error

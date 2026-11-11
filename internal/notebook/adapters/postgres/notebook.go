@@ -1,4 +1,4 @@
-// Package postgres stores notebooks and individual cells transactionally.
+// Package postgres транзакционно хранит ноутбуки и отдельные ячейки.
 package postgres
 
 import (

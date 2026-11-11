@@ -89,7 +89,7 @@ export async function checkOpenWiki(root: string, targetSha: string): Promise<Fr
     if (!fullSha.test(targetSha))
         throw new Error('Target must be a full 40-character SHA (--against <SHA>)');
     const { gitHead: sourceSha } = await readCheckpoint(root);
-    // Reject objects other than commits before checking ancestry or diffing trees.
+    // Отклоняем объекты, не являющиеся коммитами, до проверки предков и сравнения деревьев.
     await git(root, ['rev-parse', '--verify', `${sourceSha}^{commit}`]);
     await git(root, ['rev-parse', '--verify', `${targetSha}^{commit}`]);
     await git(root, ['merge-base', '--is-ancestor', sourceSha, targetSha]);

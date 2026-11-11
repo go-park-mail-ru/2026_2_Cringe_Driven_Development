@@ -140,7 +140,7 @@ type AgentHealth struct {
 
 // AgentClient — клиент управления агентом.
 type AgentClient interface {
-	Health(ctx context.Context, ep AgentEndpoint) (AgentHealth, int, error) // health, HTTP status
+	Health(ctx context.Context, ep AgentEndpoint) (AgentHealth, int, error) // состояние, HTTP-статус
 	// Assign назначает агента сессии (POST /assign, токен сессии — ep.Token); ответ — снимок сессии
 	// после готовности kernel и HTTP status.
 	Assign(ctx context.Context, ep AgentEndpoint, sessionID uuid.UUID, language string) (AgentHealth, int, error)

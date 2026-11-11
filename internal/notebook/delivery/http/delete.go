@@ -8,7 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 )
 
-// DeleteNotebook returns 204 after deletion or 409 while the notebook is in use.
+// DeleteNotebook возвращает 204 после удаления или 409, пока ноутбук используется.
 func (h *Handler) DeleteNotebook(ctx context.Context, req api.DeleteNotebookRequestObject) (api.DeleteNotebookResponseObject, error) {
 	err := h.uc.DeleteNotebook(ctx, req.Id, userID(ctx))
 	switch {

@@ -110,7 +110,7 @@ func TestNotebookTransactionsAndResults(t *testing.T) {
 	if noop.Hash != moved || !got.UpdatedAt.Equal(before) {
 		t.Fatal("no-op changed revision/date")
 	}
-	// Two writes to the same notebook revision have exactly one winner.
+	// У двух записей в одну ревизию ноутбука ровно один победитель.
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for _, s := range []string{"new1", "new2"} {
@@ -280,14 +280,14 @@ func TestResultFollowsCellAndRejectsDeletedSource(t *testing.T) {
 	}
 }
 
-// A hook after the metadata SELECT forces a commit between that SELECT and the
-// cell SELECT, proving repeatable-read consistency rather than relying on timing.
+// Хук после SELECT метаданных вызывает коммит между этим SELECT и SELECT ячеек,
+// доказывая согласованность repeatable read, а не полагаясь на тайминги.
 type snapshotDB struct {
 	DB
 	after func()
 }
 
-func (d snapshotDB) Begin(ctx context.Context) (pgx.Tx, error) { //nolint:ireturn // Implements the pgx transaction boundary for a deterministic snapshot test.
+func (d snapshotDB) Begin(ctx context.Context) (pgx.Tx, error) { //nolint:ireturn // Реализует границу транзакции pgx для детерминированного теста снимка.
 	tx, err := d.DB.Begin(ctx)
 	return snapshotTx{Tx: tx, after: d.after}, err
 }
@@ -297,7 +297,7 @@ type snapshotTx struct {
 	after func()
 }
 
-func (tx snapshotTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row { //nolint:ireturn // Implements pgx.Tx while injecting a commit after row scan.
+func (tx snapshotTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row { //nolint:ireturn // Реализует pgx.Tx, вставляя коммит после сканирования строки.
 	row := tx.Tx.QueryRow(ctx, sql, args...)
 	if sql == selectNotebook {
 		return snapshotRow{Row: row, after: tx.after}

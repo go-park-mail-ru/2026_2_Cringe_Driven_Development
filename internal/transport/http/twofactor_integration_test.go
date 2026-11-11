@@ -123,7 +123,7 @@ func TestTwoFactorHTTPPostgresRedis(t *testing.T) {
 		expect(path, nil, false, 401)
 	}
 	expect("/auth/confirm2fa", map[string]string{"user_code": "012345"}, true, 400)
-	// Independent concurrent setup requests must persist exactly one secret.
+	// Независимые конкурентные запросы настройки должны сохранить ровно один секрет.
 	results := make(chan usecase.TwoFactorSetup, 12)
 	failures := make(chan error, 12)
 	var wg sync.WaitGroup
@@ -217,7 +217,7 @@ func TestTwoFactorHTTPPostgresRedis(t *testing.T) {
 	if len(before) != len(after) {
 		t.Fatal("failed TOTP created a session")
 	}
-	// Next step is inside the allowed skew window; concurrent use has one winner.
+	// Следующий шаг внутри допустимого окна сдвига; при конкурентном использовании один победитель.
 	nextCode, err := totp.GenerateCode(setup.Secret, time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestTwoFactorHTTPPostgresRedis(t *testing.T) {
 	if err != nil || replacement.Secret == setup.Secret {
 		t.Fatal("secret reused after disable")
 	}
-	// Exhaustion is tied to the account, never reset by another setup request.
+	// Исчерпание лимита привязано к аккаунту и не сбрасывается другим запросом настройки.
 	for range 5 {
 		_ = uc.ConfirmTwoFactor(ctx, u.ID, invalid)
 	}
@@ -271,7 +271,7 @@ func TestTwoFactorHTTPPostgresRedis(t *testing.T) {
 			t.Fatal("authentication secret found in logs")
 		}
 	}
-	// An error while the row is locked must not persist partial activation.
+	// Ошибка под блокировкой строки не должна сохранить частичную активацию.
 	rollback := errors.New("test rollback")
 	err = userdb.NewUserRepository(pool).WithAuthLock(ctx, u.ID, func(state *usecase.AuthState) error { state.User.Has2FA = true; state.LastStep = 123; return rollback })
 	if !errors.Is(err, rollback) {

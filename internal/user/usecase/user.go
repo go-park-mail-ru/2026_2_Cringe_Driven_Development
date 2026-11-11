@@ -48,8 +48,8 @@ func (uc *UserUsecase) Register(ctx context.Context, login, password string) (do
 	if err != nil {
 		return domain.User{}, Session{}, err
 	}
-	// Capture the revocation fence before the final password read. Create must
-	// reject this version if a concurrent password change revokes sessions.
+	// Фиксируем барьер отзыва до финального чтения пароля. Create должен
+	// отклонить эту версию, если конкурентная смена пароля отзывает сессии.
 	version, err := uc.sessions.CurrentVersion(ctx, u.ID)
 	if err != nil {
 		return u, Session{}, err
@@ -157,7 +157,7 @@ func (uc *UserUsecase) Logout(ctx context.Context, refreshToken string, claims S
 	return refreshError(err)
 }
 
-// RevokeAll invalidates previously issued authorization.
+// RevokeAll инвалидирует ранее выданную авторизацию.
 func (uc *UserUsecase) RevokeAll(ctx context.Context, userID int64) error {
 	return uc.sessions.RevokeAll(ctx, userID)
 }

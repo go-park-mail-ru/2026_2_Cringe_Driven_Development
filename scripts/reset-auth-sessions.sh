@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run only with every API instance stopped, before restoring auth traffic.
+# Запускать только при остановленных инстансах API, до возобновления auth-трафика.
 set -eu
 if [ "${AUTH_API_STOPPED:-}" != yes ]; then
   echo 'Stop every API instance and set AUTH_API_STOPPED=yes.' >&2
@@ -18,13 +18,13 @@ redis_cli() {
   redis-cli -e --no-auth-warning -h "${REDIS_HOST:-redis}" \
     -p "${REDIS_PORT:-6379}" -n "${REDIS_DB:-0}" "$@"
 }
-# SCAN may return duplicates; DEL is idempotent. No writers may run during reset.
+# SCAN может вернуть дубликаты; DEL идемпотентен. Во время сброса писатели запрещены.
 for family in auth_session refresh_session user_session_version; do
   redis_cli --scan --pattern "${namespace}${family}:*" |
     while IFS= read -r key; do
       redis_cli DEL "$key" > /dev/null
     done
-  # Verify independently, also catching a failed SCAN in the pipeline above.
+  # Отдельная проверка, она же ловит упавший SCAN в пайплайне выше.
   remaining=$(redis_cli --scan --pattern "${namespace}${family}:*")
   if [ -n "$remaining" ]; then
     echo 'Authorization reset incomplete; keep the API stopped.' >&2

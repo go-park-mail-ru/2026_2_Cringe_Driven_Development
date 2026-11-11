@@ -144,10 +144,10 @@ func TestResultMetadataFailureRollsBackData(t *testing.T) {
 }
 
 func TestExpandedRuntimeOutputRejectedBeforeSQL(t *testing.T) {
-	// About 3 MB on the wire, but over 147 MiB in canonical decimal form.
+	// Около 3 МБ при передаче, но более 147 МиБ в каноническом десятичном виде.
 	outputs := json.RawMessage(`[{"output_type":"display_data","data":{"application/json":[` + strings.Repeat(`1e308,`, 499999) + `1e308]}}]`)
 	repo := &NotebookRepository{}
-	// A nil transaction is intentional: oversized output must fail before any SQL.
+	// nil-транзакция намеренна: слишком большой output должен упасть до любого SQL.
 	_, err := repo.SaveResultTx(context.Background(), nil, 1, 1, usecase.CellResult{CellID: "a", SourceVersion: "v1", Outputs: outputs})
 	if !errors.Is(err, usecase.ErrTooLarge) {
 		t.Fatalf("expected size rejection before SQL: %v", err)

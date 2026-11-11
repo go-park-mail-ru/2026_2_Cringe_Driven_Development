@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// sqlTrace records SQL text, never argument values, for the autosave acceptance
-// run. It is enabled only for the measured saves, excluding import/export.
+// sqlTrace записывает текст SQL, но никогда не значения аргументов, для приёмочного
+// прогона автосохранения. Включается только для измеряемых сохранений, без import/export.
 type sqlTrace struct {
 	mu      sync.Mutex
 	enabled bool

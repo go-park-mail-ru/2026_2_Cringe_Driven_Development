@@ -256,8 +256,8 @@ class Session:
             execution_id = command["execution_id"]
             failure = None
             try:
-                # Dispatch and control share a lock: a delayed interrupt must never
-                # hit the next cell after the previous cell completes naturally.
+                # Dispatch и control делят блокировку: запоздалый interrupt никогда не должен
+                # попасть в следующую ячейку после естественного завершения предыдущей.
                 async with self.lock:
                     if not self.ready or self.draining:
                         self.journal.transition(
@@ -267,7 +267,7 @@ class Session:
                     active = Active(command, str(uuid.uuid4()))
                     self.active = active
                     self.journal.transition(self.id, execution_id, "RUNNING")
-                    # Correlation is durable before sending an execution request.
+                    # Корреляция сохраняется надёжно до отправки запроса на выполнение.
                     self.journal.dispatched(self.id, execution_id, active.msg_id, self.generation)
                     await asyncio.wait_for(
                         self.transport.send(
@@ -446,7 +446,7 @@ class Session:
             try:
                 await self.agent.containers.remove()
             except Exception:
-                # Keep the runtime unavailable until cleanup succeeds. The monitor retries.
+                # Runtime остаётся недоступным, пока очистка не пройдёт. Монитор повторяет попытки.
                 log.exception("Container cleanup failed: %s", self.id)
                 self.agent.cleanup_pending = (state, reason)
                 self.journal.session_state(self.id, "DRAINING", "cleanup_failed")
@@ -535,7 +535,7 @@ class Agent:
         if assignment:
             session_id, language, self.token = assignment
             self.session = Session(self, session_id, language)
-            # Never restart a completed or interrupted assignment on process reboot.
+            # Никогда не перезапускаем завершённое или прерванное назначение при перезагрузке процесса.
             self.session.closed = True
         else:
             self.warming = asyncio.create_task(self.warm_up(), name="kernel-warm-up")

@@ -2,7 +2,7 @@ package domain
 
 import "strings"
 
-// Preview returns at most six lines and 1024 Unicode code points, unchanged.
+// Preview возвращает не более шести строк и 1024 кодовых точек Unicode без изменений.
 func Preview(source string) string {
 	if strings.TrimSpace(source) == "" {
 		return ""
