@@ -64,13 +64,12 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install Redis CLI for recovery runbook tests
-        # Зеркала Ubuntu на runner иногда временно не резолвятся, повторяем установку.
+        # redis-cli берём из уже скачанного образа service-контейнера: apt-зеркала Ubuntu на runner часто не резолвятся.
         run: |
-          for _ in 1 2 3; do
-            sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 redis-tools && exit 0
-            sleep 15
-          done
-          exit 1
+          printf '%s\n' '#!/bin/sh' 'exec docker run --rm -i --network host -e REDISCLI_AUTH redis:8-alpine redis-cli "$@"' |
+            sudo tee /usr/local/bin/redis-cli > /dev/null
+          sudo chmod +x /usr/local/bin/redis-cli
+          redis-cli -h 127.0.0.1 ping
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
