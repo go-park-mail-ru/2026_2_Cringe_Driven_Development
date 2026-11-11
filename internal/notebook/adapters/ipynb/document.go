@@ -13,15 +13,15 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 )
 
-// CanonicalJSON uses compact encoding/json escaping, sorted object keys, UTF-8,
-// and decimal numbers without an exponent or insignificant trailing zeroes.
-// Decimal normalization makes accounting independent of jsonb's number spelling.
+// CanonicalJSON использует компактное экранирование encoding/json, отсортированные ключи
+// объектов, UTF-8 и десятичные числа без экспоненты и незначащих хвостовых нулей.
+// Нормализация чисел делает учёт размера независимым от записи чисел в jsonb.
 func CanonicalJSON(raw []byte) (json.RawMessage, error) {
 	return CanonicalJSONLimit(raw, 128*1024*1024)
 }
 
-// CanonicalJSONLimit checks the complete encoded size before expanding numbers
-// or allocating the final JSON. The limit includes escaping and delimiters.
+// CanonicalJSONLimit проверяет полный закодированный размер до раскрытия чисел
+// и выделения итогового JSON. Лимит учитывает экранирование и разделители.
 func CanonicalJSONLimit(raw []byte, limit int) (json.RawMessage, error) {
 	if limit < 0 {
 		return nil, domain.ErrTooLarge
@@ -29,7 +29,7 @@ func CanonicalJSONLimit(raw []byte, limit int) (json.RawMessage, error) {
 	if !utf8.Valid(raw) {
 		return nil, errors.New("invalid UTF-8")
 	}
-	// encoding/json replaces unpaired UTF-16 surrogates. Reject them before decoding.
+	// encoding/json заменяет непарные суррогаты UTF-16. Отклоняем их до декодирования.
 	for i := 0; i < len(raw); i++ {
 		if raw[i] != '"' {
 			continue
@@ -133,8 +133,8 @@ func normalize(v any) (any, error) {
 	return v, nil
 }
 
-// decimalLayout computes the canonical decimal's shape without expanding its
-// exponent. JSON syntax has already been validated by encoding/json.
+// decimalLayout вычисляет форму канонического десятичного числа, не раскрывая
+// экспоненту. Синтаксис JSON уже проверен encoding/json.
 func decimalLayout(n json.Number) (digits string, point int, negative bool, err error) {
 	s := string(n)
 	negative = strings.HasPrefix(s, "-")
@@ -235,7 +235,7 @@ func canonicalBudget(v any, remaining *int) error {
 		n := 2
 		if len(x) > 0 {
 			n += 2*len(x) - 1
-		} // colons and commas
+		} // двоеточия и запятые
 		if err := spend(n); err != nil {
 			return err
 		}
@@ -263,7 +263,7 @@ func object(raw json.RawMessage) (map[string]json.RawMessage, error) {
 }
 func take(m map[string]json.RawMessage, k string) json.RawMessage { v := m[k]; delete(m, k); return v }
 
-// DecodeDocument is used only at import boundaries.
+// DecodeDocument используется только на границе импорта.
 func DecodeDocument(raw []byte) (domain.Document, []domain.Cell, error) {
 	var doc domain.Document
 	normalized, err := CanonicalJSON(raw)
@@ -397,7 +397,7 @@ func light(c domain.Cell) map[string]json.RawMessage {
 	return m
 }
 
-// NormalizeFields canonicalizes stored JSON fields without loading other cells.
+// NormalizeFields канонизирует хранимые JSON-поля, не загружая другие ячейки.
 func NormalizeFields(doc *domain.Document, cells []domain.Cell) error {
 	raw, e := json.Marshal(header(*doc))
 	if e != nil {
@@ -484,7 +484,7 @@ func DocumentSize(headerBytes int64, cellBytes []int64) int64 {
 	return size
 }
 
-// EncodeDocument constructs a full document only at the export boundary.
+// EncodeDocument собирает полный документ только на границе экспорта.
 func EncodeDocument(doc domain.Document, cells []domain.Cell) ([]byte, error) {
 	m := header(doc)
 	out := make([]map[string]json.RawMessage, 0, len(cells))
@@ -512,9 +512,9 @@ func EncodeDocument(doc domain.Document, cells []domain.Cell) ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// ValidateOutputs enforces the shared import/runtime/content representation.
-// Detailed nbformat output validation belongs to the producer, but every item
-// must be a JSON object so persisted documents remain readable through content.
+// ValidateOutputs обеспечивает общее представление для import/runtime/content.
+// Детально outputs по nbformat проверяет источник, но каждый элемент
+// должен быть JSON-объектом, чтобы сохранённые документы читались через content.
 func ValidateOutputs(raw json.RawMessage) error {
 	var items []json.RawMessage
 	if err := json.Unmarshal(raw, &items); err != nil {
@@ -531,8 +531,8 @@ func ValidateOutputs(raw json.RawMessage) error {
 	return nil
 }
 
-// splitRuntimeMetadata separates the owned result flag from arbitrary metadata.
-// The original namespace and all its other fields remain in the lightweight row.
+// splitRuntimeMetadata отделяет собственный флаг результата от произвольных метаданных.
+// Исходное пространство имён и все его прочие поля остаются в лёгкой строке.
 func splitRuntimeMetadata(c *domain.Cell) error {
 	if len(c.Metadata) == 0 {
 		return nil
@@ -547,14 +547,14 @@ func splitRuntimeMetadata(c *domain.Cell) error {
 	}
 	marker, err := object(raw)
 	if err != nil {
-		return nil // Preserve unrelated metadata; projection detects a namespace collision.
+		return nil // Сохраняем несвязанные метаданные; коллизию пространства имён обнаружит проекция.
 	}
 	flag, present := marker["output_truncated"]
 	if !present {
 		return nil
 	}
 	if string(flag) != "true" && string(flag) != "false" {
-		return nil // Preserve an unknown non-runtime value without coercion.
+		return nil // Сохраняем неизвестное не-runtime значение без приведения типа.
 	}
 	c.OutputTruncated = string(flag) == "true"
 	c.HasRuntimeMetadata = true
@@ -581,7 +581,7 @@ func runtimeMetadata(c domain.Cell, fields map[string]json.RawMessage) map[strin
 	return fields
 }
 
-// RuntimeMetadataOverhead is stored once so a flag change needs no metadata read.
+// RuntimeMetadataOverhead хранится один раз, чтобы смена флага не требовала чтения метаданных.
 func RuntimeMetadataOverhead(c domain.Cell) int64 {
 	if len(c.Metadata) > 0 {
 		var metadata map[string]json.RawMessage

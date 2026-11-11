@@ -17,7 +17,7 @@ import (
 
 func testID() uuid.UUID { return uuid.MustParse("11111111-1111-1111-1111-111111111111") }
 
-func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock exposes an interface
+func newPool(t *testing.T) pgxmock.PgxPoolIface { //nolint:ireturn // pgxmock отдаёт интерфейс
 	t.Helper()
 	db, err := pgxmock.NewPool(pgxmock.QueryMatcherOption(pgxmock.QueryMatcherEqual))
 	if err != nil {

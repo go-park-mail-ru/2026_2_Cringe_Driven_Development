@@ -25,13 +25,13 @@ type Cell struct {
 	Outputs        json.RawMessage
 	ExecutionCount *int64
 	Attachments    json.RawMessage
-	// Presence preserves optional fields during ipynb export.
+	// Presence сохраняет необязательные поля при экспорте в ipynb.
 	OutputTruncated    bool
 	HasRuntimeMetadata bool
 	HasExecutionCount  bool
 }
 
-// Notebook is a consistent snapshot of metadata, document fields and ordered cells.
+// Notebook содержит согласованный снимок метаданных, полей документа и упорядоченных ячеек.
 type Notebook struct {
 	ID          int64
 	OwnerID     int64
@@ -68,7 +68,7 @@ type CellChange struct {
 	Cell Cell
 }
 
-// Document contains the top-level ipynb fields, without cells.
+// Document содержит поля верхнего уровня ipynb, без ячеек.
 type Document struct {
 	NBFormat      int
 	NBFormatMinor int

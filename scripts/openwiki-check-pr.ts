@@ -1,4 +1,4 @@
-// A fresh checkpoint against the base does not cover source edits inside the PR.
+// Свежий чекпоинт относительно base не покрывает правки исходников внутри PR.
 try {
     const [base, head, ...extra] = process.argv.slice(2);
     const fullSha = /^[a-f0-9]{40}$/i;

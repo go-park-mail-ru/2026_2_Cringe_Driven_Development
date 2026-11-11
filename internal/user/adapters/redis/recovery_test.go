@@ -44,8 +44,8 @@ func TestRestoredBackupMustBeInvalidatedBeforeTraffic(t *testing.T) {
 	must(t, c.Set(ctx, unrelated, "keep", 0).Err())
 	must(t, s.Revoke(ctx, a.TokenHash, a.SessionClaims))
 	invalid(t, s.ValidateAccess(ctx, a.SessionClaims))
-	// Redis RESTORE uses the RDB serialization returned by DUMP. Replaying old
-	// data really can resurrect a revoked session, before the required purge.
+	// Redis RESTORE использует RDB-сериализацию, возвращённую DUMP. Повтор старых
+	// данных действительно может воскресить отозванную сессию до обязательной очистки.
 	for _, k := range keys {
 		must(t, c.Del(ctx, k).Err())
 		must(t, c.Restore(ctx, k, time.Minute, backup[k]).Err())
@@ -68,8 +68,8 @@ func TestRestoredBackupMustBeInvalidatedBeforeTraffic(t *testing.T) {
 	invalid(t, s.ValidateAccess(ctx, a.SessionClaims))
 }
 
-// A dedicated server is necessary: restarting the shared integration Redis would
-// interfere with other packages. CI uses Docker; local runs may supply a binary.
+// Нужен выделенный сервер: перезапуск общего интеграционного Redis помешал бы
+// другим пакетам. CI использует Docker; локально можно передать бинарник.
 func persistentServer(t *testing.T) (string, func() string, func()) {
 	t.Helper()
 	if os.Getenv("REDIS_RECOVERY_TESTS") != "1" {
@@ -144,8 +144,8 @@ func TestOrdinaryRedisRestartPreservesRevocationAndVersions(t *testing.T) {
 	must(t, s.RevokeAll(ctx, 7))
 	before, err := s.CurrentVersion(ctx, 7)
 	must(t, err)
-	// Docker may assign a new dynamic host port after restart. Reconnect using
-	// the current address; authorization state must come from the persisted AOF.
+	// После перезапуска Docker может назначить новый динамический порт хоста. Переподключаемся
+	// по текущему адресу; состояние авторизации должно браться из сохранённого AOF.
 	must(t, c.Close())
 	addr = restart()
 	c = goredis.NewClient(&goredis.Options{Addr: addr, Password: "test-redis-password", MaxRetries: -1, DialTimeout: 100 * time.Millisecond})

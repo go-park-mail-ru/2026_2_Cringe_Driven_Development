@@ -35,7 +35,7 @@ func encoded(t *testing.T, width, height int, format string) []byte {
 
 func TestSanitizePNGFlattensAlphaAndRemovesMetadata(t *testing.T) {
 	input := encoded(t, 200, 200, "png")
-	// A valid ancillary text chunk must not survive re-encoding.
+	// Валидный вспомогательный текстовый чанк не должен пережить перекодирование.
 	chunk := []byte("tEXtprivate\x00secret")
 	var metadata bytes.Buffer
 	_ = binary.Write(&metadata, binary.BigEndian, uint32(len(chunk)-4))
@@ -186,8 +186,8 @@ func TestSanitizeCanceledLeavesNoFiles(t *testing.T) {
 	}
 }
 
-// cancelWhenOutputExists deterministically cancels while the encoded output is
-// being produced, so the test covers cleanup after file creation.
+// cancelWhenOutputExists детерминированно отменяет во время записи закодированного
+// результата, поэтому тест покрывает очистку после создания файла.
 type cancelWhenOutputExists struct {
 	context.Context
 	dir    string

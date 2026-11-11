@@ -14,7 +14,7 @@ var (
 	ErrRateLimited       = errors.New("too many requests")
 )
 
-// AuthState is private authentication state, available only under the user row lock.
+// AuthState содержит приватное состояние аутентификации и доступен только под блокировкой строки пользователя.
 type AuthState struct {
 	User         domain.User
 	PasswordHash string
@@ -22,10 +22,10 @@ type AuthState struct {
 	LastStep     int64
 }
 
-// TwoFactorSetup contains sensitive setup data and must never be logged.
+// TwoFactorSetup содержит чувствительные данные настройки и никогда не должен логироваться.
 type TwoFactorSetup struct{ QRCode, Secret string }
 
-// TwoFactorSecurity isolates encryption, TOTP and QR rendering from scenarios.
+// TwoFactorSecurity изолирует шифрование, TOTP и рендеринг QR от сценариев.
 type TwoFactorSecurity interface {
 	NewSecret() (string, error)
 	Setup(secret, login string) (TwoFactorSetup, error)
@@ -34,12 +34,12 @@ type TwoFactorSecurity interface {
 	Match(secret, code string, now time.Time) (step int64, valid bool)
 }
 
-// AttemptLimiter atomically admits attempts across API instances; errors fail closed.
+// AttemptLimiter атомарно учитывает попытки на всех инстансах API и при ошибке отказывает.
 type AttemptLimiter interface {
 	Allow(ctx context.Context, key string, limit int) error
 }
 
-// WithTwoFactor wires mandatory production authentication safeguards.
+// WithTwoFactor подключает обязательные продовые защиты аутентификации.
 func WithTwoFactor(security TwoFactorSecurity, limiter AttemptLimiter) func(*UserUsecase) {
 	return func(uc *UserUsecase) { uc.twoFactor = security; uc.limiter = limiter }
 }

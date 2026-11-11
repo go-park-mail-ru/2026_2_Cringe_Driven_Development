@@ -16,7 +16,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 )
 
-// AvatarUploader persists a sanitized upload through the application layer.
+// AvatarUploader сохраняет очищенную загрузку через слой приложения.
 type AvatarUploader interface {
 	Upload(context.Context, int64, io.ReadSeeker, string) (domain.User, error)
 }
@@ -108,11 +108,11 @@ func (h *Handler) UploadCurrentUserAvatar(ctx context.Context, req api.UploadCur
 	if n == 0 {
 		return avatarError(usecase.ErrInvalidImage)
 	}
-	// Validate every part before publishing; never ignore a second file/field.
+	// Проверяем каждую часть до публикации; второй файл/поле никогда не игнорируется.
 	if _, err = req.Body.NextRawPart(); !errors.Is(err, io.EOF) {
 		return avatarParseError(err)
 	}
-	// multipart.Reader can stop before the epilogue. Count the entire HTTP body.
+	// multipart.Reader может остановиться до эпилога. Считаем всё HTTP-тело.
 	if body := middleware.AvatarRequestBody(ctx); body != nil {
 		if _, err = io.Copy(io.Discard, body); err != nil {
 			return avatarError(err)
@@ -143,12 +143,12 @@ func avatarError(err error) (api.UploadCurrentUserAvatarResponseObject, error) {
 	case errors.Is(err, usecase.ErrInvalidImage), errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), err == nil:
 		return api.UploadCurrentUserAvatar400JSONResponse{Code: api.UserProfileErrorCodeValidationError, Message: "invalid avatar upload"}, nil
 	default:
-		// Multipart parsing errors are handled separately from infrastructure failures.
+		// Ошибки разбора multipart обрабатываются отдельно от сбоев инфраструктуры.
 		return nil, err
 	}
 }
 
-// Malformed multipart syntax is user input, not an infrastructure failure.
+// Некорректный multipart считается ошибкой ввода, а не сбоем инфраструктуры.
 func avatarParseError(err error) (api.UploadCurrentUserAvatarResponseObject, error) {
 	var limit *http.MaxBytesError
 	if errors.As(err, &limit) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

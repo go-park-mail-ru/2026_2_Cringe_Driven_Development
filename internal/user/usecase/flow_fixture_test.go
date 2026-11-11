@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// fakeRepo stores users and sessions for token rotation/logout and logging flows.
-// This fixture does not verify PostgreSQL behavior.
+// fakeRepo хранит пользователей и сессии для сценариев ротации токенов/logout и логирования.
+// Эта фикстура не проверяет поведение PostgreSQL.
 type fakeRepo struct {
 	mu         sync.Mutex
 	authMu     sync.Mutex

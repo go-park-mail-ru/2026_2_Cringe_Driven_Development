@@ -216,7 +216,7 @@ class GitHub:
         return records
 
     def ensure_deployment(self, state):
-        # A rerun has a new attempt; repeated finalization never creates a Deployment.
+        # У перезапуска новая попытка; повторная финализация никогда не создаёт Deployment.
         def existing():
             matches = []
             for d in self.pages('/deployments?environment=production&per_page=100'):
@@ -259,7 +259,7 @@ class GitHub:
 def check_image(ref):
     validate_image(ref)
     with tempfile.TemporaryDirectory(prefix='backend-anonymous-') as config:
-        # Separate config has no helpers, login-action credentials or inherited auth.
+        # Отдельный конфиг без хелперов, учётных данных login-action и унаследованной аутентификации.
         subprocess.run(['docker', '--config', config, 'pull', '--platform', 'linux/amd64', ref], check=True, timeout=300)
 
 
@@ -312,7 +312,7 @@ def summary(state, api=None):
                     if pr.get('merged_at'):
                         number = int(pr['number'])
                         lines.append(f'  - [PR #{number}](https://github.com/{REPOSITORY}/pull/{number}) {md(pr["title"])}')
-                        # Preserve explicit issue references without inventing issue ownership.
+                        # Сохраняем явные ссылки на задачи, не придумывая принадлежность задаче.
                         body = pr.get('body') or ''
                         for issue in sorted(set(re.findall(r'(?i)(?:closes|fixes|resolves|part of)\s+#([1-9][0-9]*)', body))):
                             lines.append(f'  - [Задача #{issue}](https://github.com/{REPOSITORY}/issues/{issue})')
@@ -408,7 +408,7 @@ def main(argv=None):
             with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
                 f.write(summary(state, api))
     except (ReleaseError, OSError, subprocess.SubprocessError, KeyError, ValueError) as error:
-        # Never serialize exception text that can contain request URLs/secrets.
+        # Никогда не сериализуем текст исключения: в нём могут быть URL запросов/секреты.
         if args.command == 'finalize':
             state['registration_error'] = 'finalize'
         if args.command not in ('report', 'finalize'):

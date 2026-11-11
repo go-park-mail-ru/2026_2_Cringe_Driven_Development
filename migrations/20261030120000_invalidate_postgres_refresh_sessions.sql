@@ -1,6 +1,6 @@
 -- +goose Up
--- Stop the old API before switching to Redis. No sessions are migrated.
+-- Остановить старый API до переключения на Redis. Сессии не мигрируются.
 DELETE FROM refresh_sessions;
 
 -- +goose Down
--- Invalidated credentials must never be restored by rollback.
+-- Инвалидированные учётные данные никогда не должны восстанавливаться откатом.

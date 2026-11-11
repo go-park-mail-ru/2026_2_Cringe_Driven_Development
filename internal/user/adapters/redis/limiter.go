@@ -9,19 +9,19 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// AttemptLimiter shares one-minute attempt budgets between API processes.
+// AttemptLimiter разделяет минутные бюджеты попыток между процессами API.
 type AttemptLimiter struct {
 	client  *goredis.Client
 	prefix  string
 	timeout time.Duration
 }
 
-// NewAttemptLimiter uses the same no-retry Redis primary as authorization sessions.
+// NewAttemptLimiter использует тот же primary Redis без ретраев, что и сессии авторизации.
 func NewAttemptLimiter(client *goredis.Client, prefix string, timeout time.Duration) *AttemptLimiter {
 	return &AttemptLimiter{client: client, prefix: prefix, timeout: timeout}
 }
 
-// Allow reserves an attempt. Unavailable storage never permits a password/TOTP check.
+// Allow резервирует попытку. Недоступное хранилище никогда не разрешает проверку пароля/TOTP.
 func (l *AttemptLimiter) Allow(ctx context.Context, key string, limit int) error {
 	ctx, cancel := context.WithTimeout(ctx, l.timeout)
 	defer cancel()

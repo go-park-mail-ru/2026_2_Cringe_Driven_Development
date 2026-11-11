@@ -33,7 +33,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Local anonymous reads are scoped to the avatar bucket.
+  # Локальное анонимное чтение ограничено бакетом аватаров.
   s3-init:
     image: chrislusf/seaweedfs:4.48
     entrypoint: ["/bin/sh", "-ec"]

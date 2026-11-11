@@ -143,7 +143,7 @@ class HistoryProof(unittest.TestCase):
         self.assertFalse(api.record(raw)['trusted'])
     def test_expired_old_run_retains_unknown_barrier_not_global_failure(self):
         fixture=self.fixture();api=FakeGitHub([fixture['previous']])
-        # Real adapter error classification is exercised through HTTPError as well.
+        # Классификация ошибок настоящего адаптера проверяется и через HTTPError.
         class Missing:
             def open(self,*args,**kwargs):
                 import urllib.error

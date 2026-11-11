@@ -14,8 +14,8 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 )
 
-// S2S verifies the calling service before any user authentication or body parsing.
-// Only API routes are gated; the internal GET /health remains available.
+// S2S проверяет вызывающий сервис до любой аутентификации пользователя и разбора тела.
+// Проверяются только API-маршруты, внутренний GET /health доступен без неё.
 func S2S(key, prefix string) func(http.Handler) http.Handler {
 	allowed := sha256.Sum256([]byte(key))
 	return func(next http.Handler) http.Handler {
@@ -39,8 +39,8 @@ func S2S(key, prefix string) func(http.Handler) http.Handler {
 	}
 }
 
-// AuthenticateBearer never consults browser cookies. Validator enforces which
-// operations require an authenticated principal.
+// AuthenticateBearer никогда не смотрит в cookies браузера. Validator решает, какие
+// операции требуют аутентифицированного субъекта.
 type AccessSessions interface {
 	ValidateAccess(context.Context, usecase.SessionClaims) error
 }

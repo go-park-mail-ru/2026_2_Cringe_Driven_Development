@@ -66,7 +66,7 @@ func TestTOTPEncryptionAndRFC6238(t *testing.T) {
 		t.Fatal(err)
 	}
 	secret := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte("12345678901234567890"))
-	// RFC 6238 SHA-1 vector 94287082, truncated to the required six digits.
+	// Вектор RFC 6238 SHA-1 94287082, обрезанный до обязательных шести цифр.
 	step, ok := s.Match(secret, "287082", time.Unix(59, 0))
 	if !ok || step != 1 {
 		t.Fatalf("step=%d valid=%v", step, ok)

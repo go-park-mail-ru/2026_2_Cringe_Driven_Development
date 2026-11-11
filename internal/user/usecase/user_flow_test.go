@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// These flows exercise token rotation and logout against an in-memory session store.
+// Эти сценарии проверяют ротацию токенов и logout на in-memory хранилище сессий.
 func TestUserUsecaseRefresh(t *testing.T) {
 	tests := []struct {
 		name    string

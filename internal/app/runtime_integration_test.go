@@ -259,7 +259,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"output_truncated":false`) || !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal("saved content result missing", w.Body.String())
 	}
-	// Each result field independently stays outside the editor's hash/ETag.
+	// Каждое поле результата независимо остаётся вне hash/ETag редактора.
 	resultRepo := nbpg.NewNotebookRepository(pool)
 	executionSource, err := resultRepo.ExecutionSource(ctx, first.ID, user.ID, cell.Cell.ID)
 	if err != nil {
@@ -301,7 +301,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 			t.Fatal("GET content lost executed cell")
 		}
 	}
-	// Edit with the hash read before execution; source changes still invalidate it.
+	// Правка с хешем, прочитанным до выполнения; изменения исходника по-прежнему его инвалидируют.
 	cellPath := contentPath + "/cells/" + cell.Cell.ID
 	w = call("PATCH", cellPath, `{"source":"print(43)"}`, 200, cell.Hash)
 	var edited struct {
@@ -312,7 +312,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	}
 	call("PATCH", cellPath, `{"source":"stale"}`, 409, cell.Hash)
 
-	// Execute the edited source and then create with the hash read before that run.
+	// Выполнить отредактированный исходник, затем создать с хешем, прочитанным до этого запуска.
 	beforeETag = call("GET", contentPath, "", 200).Header().Get("ETag")
 	sum = sha256.Sum256([]byte("print(43)"))
 	call("POST", base+"/executions", fmt.Sprintf(`{"execution_id":"run-before-create","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:])), 202)

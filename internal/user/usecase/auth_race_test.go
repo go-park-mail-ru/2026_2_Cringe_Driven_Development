@@ -9,7 +9,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// Capture a revocation immediately before reading the current credentials.
+// Фиксируем отзыв непосредственно перед чтением текущих учётных данных.
 type passwordChangeOnVersion struct {
 	*faultSessions
 	change func()
