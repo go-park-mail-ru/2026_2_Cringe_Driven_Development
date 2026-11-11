@@ -64,7 +64,12 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install Redis CLI for recovery runbook tests
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+        # redis-cli берём из уже скачанного образа service-контейнера: apt-зеркала Ubuntu на runner часто не резолвятся.
+        run: |
+          printf '%s\n' '#!/bin/sh' 'exec docker run --rm -i --network host -e REDISCLI_AUTH redis:8-alpine redis-cli "$@"' |
+            sudo tee /usr/local/bin/redis-cli > /dev/null
+          sudo chmod +x /usr/local/bin/redis-cli
+          redis-cli -h 127.0.0.1 ping
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
