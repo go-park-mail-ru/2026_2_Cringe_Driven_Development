@@ -298,10 +298,10 @@ jobs:
         run: |
           if ! gh workflow run cd.yml --repo "$GITHUB_REPOSITORY" --ref main -f "release_tag=$RELEASE_TAG"; then
             echo "::error::Release is prepared, but CD dispatch failed. Run CD manually with $RELEASE_TAG."
-            printf '## CD dispatch failed\n\nRelease `%s` remains prepared. Run CD manually with this tag. Deployment success is unknown.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+            printf '## CD dispatch failed\n\nRelease %s remains prepared. Run CD manually with this tag. Deployment success is unknown.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          printf '## CD dispatched\n\nRelease: `%s`. Follow the separate CD run and production Deployment for its result.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          printf '## CD dispatched\n\nRelease: %s. Follow the separate CD run and production Deployment for its result.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   course-sync:
     needs: [lint, test, docker]
