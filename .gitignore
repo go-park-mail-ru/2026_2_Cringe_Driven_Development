@@ -269,5 +269,3 @@ docs/superpowers/
 
 # Redocly CLI для spec/openapi.json
 spec/node_modules/
-# Локальные метаданные Apidog CLI
-.apidog/
