@@ -159,3 +159,21 @@ func (c *Client) Restart(ctx context.Context, ep usecase.AgentEndpoint) (string,
 	}
 	return out.Generation, nil
 }
+
+// StopExecutions подтверждает остановку очереди агента.
+func (c *Client) StopExecutions(ctx context.Context, ep usecase.AgentEndpoint, operation string, executionIDs []string) error {
+	status, raw, err := c.do(ctx, ep, http.MethodPost, "/executions/stop", map[string]any{"operation_id": operation, "execution_ids": executionIDs})
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return sessionStatus(status)
+	}
+	var out struct {
+		Stopped bool `json:"stopped"`
+	}
+	if json.Unmarshal(raw, &out) != nil || !out.Stopped {
+		return D.ErrProtocol
+	}
+	return nil
+}

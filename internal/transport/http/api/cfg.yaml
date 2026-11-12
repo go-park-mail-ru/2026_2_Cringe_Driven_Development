@@ -45,3 +45,4 @@ output-options:
     - getRuntimeInspection
     - interruptRuntimeKernel
     - restartRuntimeKernel
+    - stopRuntimeExecutions

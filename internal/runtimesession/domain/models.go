@@ -99,6 +99,7 @@ func validID(s string) bool {
 
 // Session связывает пользователя, блокнот и окружение, сохраняя также состояние фоновой обработки.
 type Session struct {
+	StopOperation string `json:"-"`
 	// DeleteSent Признак отправленного запроса удаления окружения.
 	DeleteSent bool `json:"-"`
 	// AgentStarted Признак ранее подтверждённого запуска агента.

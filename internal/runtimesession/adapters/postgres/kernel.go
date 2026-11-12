@@ -20,7 +20,7 @@ func (s *Store) Control(ctx context.Context, owner int64, sid uuid.UUID, idle bo
 	if err != nil {
 		return "", err
 	}
-	if v.State != D.Ready {
+	if v.State != D.Ready || v.StopOperation != "" {
 		return "", D.ErrConflict
 	}
 	if idle {

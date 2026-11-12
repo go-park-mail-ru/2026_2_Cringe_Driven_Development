@@ -4458,6 +4458,102 @@
           }
         ]
       }
+    },
+    "/runtime-sessions/{id}/executions/stop": {
+      "post": {
+        "summary": "Остановить все исполнения",
+        "deprecated": false,
+        "description": "Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. Успех подтверждает остановку и отмену очереди. Пустая очередь также даёт 200. Сессия остаётся READY; kernel, generation, workspace и переменные сохраняются. Полученный вывод не теряется. Завершившаяся до прерывания команда сохраняет фактический статус, прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые запуски и параллельная остановка получают 409. Тело отсутствует.",
+        "operationId": "stopRuntimeExecutions",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stopped": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stopped"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "stopped": true
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю"
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова или остановка уже выполняется"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis"
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Агент недоступен или прерывание не подтверждено"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "webhooks": {},
