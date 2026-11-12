@@ -39,6 +39,7 @@ func New(db DB) *Store { return &Store{db: db, notebooks: notebookpostgres.NewNo
 
 // sessionRecord сохраняет публичную сессию вместе с внутренними флагами восстановления и очистки.
 type sessionRecord struct {
+	StopOperation string
 	// DeleteSent Признак отправленного запроса удаления окружения.
 	DeleteSent bool
 	// AgentStarted Признак ранее подтверждённого запуска агента.
@@ -65,7 +66,7 @@ type sessionRecord struct {
 
 // encodeSession сохраняет сессию вместе со служебными полями, исключёнными из публичного API.
 func encodeSession(s domain.Session) ([]byte, error) {
-	return json.Marshal(sessionRecord{Public: s, DeleteSent: s.DeleteSent, AgentStarted: s.AgentStarted, OwnerID: s.OwnerID, RequestID: s.RequestID, ActivityPending: s.ActivityPending, CreateSent: s.CreateSent, CreateUnknown: s.CreateUnknown, JournalArchived: s.JournalArchived, AgentSeq: s.AgentSeq, Retry: s.Retry, NextCheck: s.NextCheck, StopRetry: s.StopRetry, JournalRetry: s.JournalRetry})
+	return json.Marshal(sessionRecord{StopOperation: s.StopOperation, Public: s, DeleteSent: s.DeleteSent, AgentStarted: s.AgentStarted, OwnerID: s.OwnerID, RequestID: s.RequestID, ActivityPending: s.ActivityPending, CreateSent: s.CreateSent, CreateUnknown: s.CreateUnknown, JournalArchived: s.JournalArchived, AgentSeq: s.AgentSeq, Retry: s.Retry, NextCheck: s.NextCheck, StopRetry: s.StopRetry, JournalRetry: s.JournalRetry})
 }
 
 // decodeSession восстанавливает публичные и служебные поля сессии из записи PostgreSQL.
@@ -73,6 +74,7 @@ func decodeSession(b []byte) (domain.Session, error) {
 	var r sessionRecord
 	e := json.Unmarshal(b, &r)
 	s := r.Public
+	s.StopOperation = r.StopOperation
 	s.DeleteSent = r.DeleteSent
 	s.AgentStarted = r.AgentStarted
 	s.StopRetry = r.StopRetry
@@ -233,6 +235,7 @@ func (s *Store) save(ctx context.Context, l domain.Lease, v domain.Session, rele
 	if e != nil {
 		return e
 	}
+	v.StopOperation = current.StopOperation
 	v.AgentSeq = current.AgentSeq
 	v.PublicSeq = current.PublicSeq
 	if current.AgentSeq > l.Session.AgentSeq {

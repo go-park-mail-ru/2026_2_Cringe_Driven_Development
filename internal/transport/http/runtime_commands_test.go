@@ -58,6 +58,12 @@ func (s *commandRuntime) Kernel(_ context.Context, owner int64, _ uuid.UUID, _ b
 	return uuid.NewString(), nil
 }
 
+func (s *commandRuntime) StopExecutions(_ context.Context, owner int64, _ uuid.UUID) error {
+	s.calls++
+	s.owner = owner
+	return nil
+}
+
 // TestNewRuntimeCommandsRequireAuthAndPreserveWireContract проверяет авторизацию новых ручек до побочных
 // действий и соответствие их ответов контракту.
 func TestNewRuntimeCommandsRequireAuthAndPreserveWireContract(t *testing.T) {
@@ -80,6 +86,7 @@ func TestNewRuntimeCommandsRequireAuthAndPreserveWireContract(t *testing.T) {
 		{"POST", "/executions/batch", `{"request_id":"batch-1","cells":[{"cell_id":"a","source_hash":"` + strings.Repeat("a", 64) + `"}]}`, `"execution_ids":["run-1"]`, 202},
 		{"POST", "/variables", `{"execution_id":"inspect-1"}`, `"variables":[]`, 202},
 		{"GET", "/variables/inspect-1", "", `"execution_id":"inspect-1"`, 200},
+		{"POST", "/executions/stop", "", `"stopped":true`, 200},
 		{"POST", "/kernel/interrupt", "", `"interrupt_requested":true`, 200},
 		{"POST", "/kernel/restart", "", `"generation":`, 200},
 	} {

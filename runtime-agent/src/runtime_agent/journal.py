@@ -78,6 +78,10 @@ class Journal:
             );
             CREATE UNIQUE INDEX IF NOT EXISTS execution_message
                 ON executions(session_id, generation, msg_id);
+            CREATE TABLE IF NOT EXISTS stopped_execution_ids (
+                session_id TEXT NOT NULL REFERENCES sessions(id), id TEXT NOT NULL,
+                PRIMARY KEY (session_id, id)
+            );
             CREATE TABLE IF NOT EXISTS events (
                 seq INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL REFERENCES sessions(id), body TEXT NOT NULL
@@ -332,6 +336,24 @@ class Journal:
                 (state, encode(result), session_id, execution_id),
             )
             self._event(session_id, "execution_state", execution_id, state=state, result=result)
+
+    def fence_commands(self, session_id, execution_ids):
+        """Keep delayed deliveries from starting after a confirmed stop."""
+        with self.db:
+            self.db.executemany(
+                "INSERT OR IGNORE INTO stopped_execution_ids VALUES (?, ?)",
+                ((session_id, execution_id) for execution_id in execution_ids),
+            )
+
+    def fenced(self, session_id, execution_id):
+        """Check the durable cancellation barrier for a command ID."""
+        return (
+            self.db.execute(
+                "SELECT 1 FROM stopped_execution_ids WHERE session_id=? AND id=?",
+                (session_id, execution_id),
+            ).fetchone()
+            is not None
+        )
 
     def dispatched(self, session_id, execution_id, msg_id, generation):
         """Persist kernel-message correlation before sending a command.

@@ -64,6 +64,9 @@ func (w *Worker) Step(parent context.Context, l D.Lease) error {
 	ctx, cancel := context.WithTimeout(parent, 60*time.Second)
 	defer cancel()
 	v := l.Session
+	if v.StopOperation != "" && v.State == D.Ready {
+		return NewService(w.store, w.now, w.agent).stopExecutions(ctx, v.OwnerID, v.ID, true)
+	}
 	v.NextCheck = w.now().Add(2 * time.Second)
 	var err error
 	switch v.State {
@@ -345,6 +348,19 @@ func (w *Worker) ready(ctx context.Context, l D.Lease, v *D.Session) error {
 // dispatch отправляет одну ожидающую команду с прежним ID; при заполнении агента оставляет её в очереди
 // backend.
 func (w *Worker) dispatch(ctx context.Context, l D.Lease, v *D.Session) error {
+	if guard, ok := w.store.(interface {
+		DispatchGuard(context.Context, D.Lease, func(context.Context) error) error
+	}); ok {
+		err := guard.DispatchGuard(ctx, l, func(ctx context.Context) error { return w.dispatchCommand(ctx, l, v) })
+		if errors.Is(err, D.ErrConflict) {
+			return nil
+		}
+		return err
+	}
+	return w.dispatchCommand(ctx, l, v)
+}
+
+func (w *Worker) dispatchCommand(ctx context.Context, l D.Lease, v *D.Session) error {
 	x, err := w.store.NextPending(ctx, v.ID)
 	if errors.Is(err, D.ErrNotFound) {
 		return nil

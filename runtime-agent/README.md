@@ -65,6 +65,7 @@ Production-доступ из Go API, защищённый транспорт и 
 | GET | `/executions/{execution_id}` | Состояние и результат исполнения |
 | POST | `/variables` | `{execution_id}` → 202; инспекция в общей очереди |
 | POST | `/kernel/interrupt` | Прервать активную команду |
+| POST | `/executions/stop` | Подтверждённо прервать текущую команду и отменить очередь; `{"operation_id":"...","execution_ids":["..."]}` для безопасного повтора и отмены запоздалой доставки |
 | POST | `/kernel/restart` | Перезапустить свободный kernel, сохранив workspace |
 | POST | `/runtime/activity` | Продлить активность сессии |
 | POST | `/runtime/drain` | Запретить новые команды, отменить очередь, прервать активную |

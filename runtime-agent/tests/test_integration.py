@@ -330,3 +330,37 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
         if not journal.lock.closed:
             await agent.close()
             journal.close()
+
+
+@pytest.mark.jupyter
+@pytest.mark.docker
+async def test_real_stop_preserves_variables_and_cancels_effects(real_agent):
+    agent, _ = real_agent
+    sid, session = await new_session(agent)
+    generation, transport = session.generation, session.transport
+    agent.accept(command("marker", "marker = 42\nside_effects = []"))
+    assert (await completed(agent, sid, "marker"))["state"] == "SUCCEEDED"
+    agent.accept(command("long", "import time\nprint('started', flush=True)\ntime.sleep(30)"))
+    async with asyncio.timeout(10):
+        while not any(
+            event.get("execution_id") == "long"
+            and "started" in event.get("content", {}).get("text", "")
+            for event in all_events(agent, sid)
+        ):
+            await asyncio.sleep(0.01)
+    for i in range(3):
+        agent.accept(command(f"queued-{i}", f"side_effects.append({i})"))
+    await session.stop_executions("stop")
+    assert agent.journal.execution(sid, "long")["state"] == "INTERRUPTED"
+    for i in range(3):
+        assert agent.journal.execution(sid, f"queued-{i}")["state"] == "CANCELLED"
+    assert session.queued() == 0
+    assert session.id == sid and session.generation == generation
+    assert session.transport is transport and session.ready and not session.draining
+    agent.accept(command("verify", "assert side_effects == []\nprint(marker)"))
+    assert (await completed(agent, sid, "verify"))["state"] == "SUCCEEDED"
+    assert any(
+        event.get("execution_id") == "verify" and "42" in event.get("content", {}).get("text", "")
+        for event in all_events(agent, sid)
+    )
+    await session.stop_executions("empty")

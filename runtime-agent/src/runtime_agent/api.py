@@ -12,7 +12,7 @@ from .config import Settings
 from .containers import Containers
 from .journal import Journal
 from .lifecycle import complete_before_cancel
-from .models import AgentError, Assign, Execute, Inspect
+from .models import AgentError, Assign, Execute, Inspect, StopExecutions
 from .runtime import Agent
 
 
@@ -239,6 +239,12 @@ def create_app(settings=None, containers_factory=Containers):
                 "timeout_seconds": 5.0,
             },
         )
+
+    @app.post("/executions/stop")
+    async def stop_executions(body: StopExecutions):
+        """Stop accepted work while retaining the running kernel."""
+        await app.state.agent.live().stop_executions(body.operation_id, body.execution_ids)
+        return {"stopped": True}
 
     @app.post("/kernel/interrupt")
     async def interrupt():
