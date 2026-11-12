@@ -15,11 +15,8 @@ var (
 	ErrInvalidCurrentPassword = errors.New("invalid current password")
 	ErrLoginTaken             = errors.New("login is taken")
 	ErrInvalidCredentials     = errors.New("invalid login or password")
-	// ErrPasswordTooLong: bcrypt считает байты, а контракт символы.
-	// 72 символа кириллицей занимают 144 байта.
-	ErrPasswordTooLong = errors.New("password is longer than 72 bytes")
-	ErrInvalidRefresh  = errors.New("refresh token is invalid or expired")
-	ErrUserNotFound    = errors.New("user not found")
+	ErrInvalidRefresh         = errors.New("refresh token is invalid or expired")
+	ErrUserNotFound           = errors.New("user not found")
 )
 
 type Usecase interface {

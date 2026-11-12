@@ -34,8 +34,8 @@ func NewUserUsecase(users UserStore, sessions SessionStore, tokens TokenIssuer, 
 }
 
 func (uc *UserUsecase) Register(ctx context.Context, login, password string) (domain.User, Session, error) {
-	if len(password) > 72 {
-		return domain.User{}, Session{}, ErrPasswordTooLong
+	if !passwordRule.MatchString(password) {
+		return domain.User{}, Session{}, ErrValidation
 	}
 	hash, err := uc.passwords.Hash(password)
 	if err != nil {
