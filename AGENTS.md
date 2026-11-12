@@ -112,8 +112,8 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
   volumes Caddy сохраняются. Миграции goose выполняются при старте API.
 - S3 используется аватарами: `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`; блокноты в S3 не хранятся и не переносятся.
   Локально SeaweedFS: anonymous Read только аватарам через `s3-init`; production S3/CDN — infra.
-- `ci.yml` проверяет код и публикует образ, затем вызывает `cd.yml` через
-  `workflow_call` с полным digest-ref опубликованного образа из job `docker`. CD в environment `production`
+- `ci.yml` проверяет код и публикует immutable Release `release-<полный SHA>` с образом и manifest;
+  затем вызывает самостоятельный `cd.yml` через `workflow_dispatch` с release tag. CD в environment `production`
   запускает `deploy-backend.yml` из `infra/main`. Inventory статический;
   Selectel credentials и Pulumi в CI не используются.
 - Merge в `main` требует review ментора, кроме YarikMix; отдельного approval environment нет.

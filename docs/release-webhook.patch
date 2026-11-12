@@ -1,0 +1,190 @@
+diff --git a/services/webhook-alerts/src/release-api.ts b/services/webhook-alerts/src/release-api.ts
+index ff8916d..843251c 100644
+--- a/services/webhook-alerts/src/release-api.ts
++++ b/services/webhook-alerts/src/release-api.ts
+@@ -271,14 +271,14 @@ export function createReleaseApi(
+       actualAttempt = positive(raw.run_attempt);
+     const entry = [
+       ['ci.yml', 'CI', 'push', backend ? 'deploy / deploy' : 'Publish release'],
+-      ['cd.yml', 'CD', 'workflow_dispatch', 'CD'],
++      ['cd.yml', 'CD', 'workflow_dispatch', backend ? 'deploy' : 'CD'],
+       ['rollback.yml', 'Rollback', 'workflow_dispatch', backend ? 'rollback / deploy' : 'Rollback'],
+       ['release-import.yml', 'Release import', 'workflow_dispatch', 'Release import'],
+     ] as const;
+     const expected = entry.find((e) => raw.path === `.github/workflows/${e[0]}`);
+     if (
+       !expected ||
+-      (backend && !["CI", "Rollback"].includes(expected[1])) ||
++      (backend && !["CI", "CD", "Rollback"].includes(expected[1])) ||
+       raw.id !== id ||
+       (attempt !== undefined && attempt !== actualAttempt) ||
+       raw.head_branch !== 'main' ||
+@@ -328,7 +328,8 @@ export function createReleaseApi(
+     return { state: (states[0] ?? 'pending') as OperationState, everSucceeded: states.includes('success') };
+   }
+   function matchSource(info: RecordInfo, run: VerifiedRun): void {
+-    if (run.workflow !== (info.kind === 'deploy' ? (backend ? 'CI' : 'CD') : 'Rollback') || (backend && info.kind === 'deploy' && run.headSha !== info.sha)) throw new GithubApiError('untrusted_run');
++    const allowed = info.kind === 'deploy' ? (backend ? ['CI', 'CD'] : ['CD']) : ['Rollback'];
++    if (!allowed.includes(run.workflow) || (backend && run.workflow === 'CI' && run.headSha !== info.sha)) throw new GithubApiError('untrusted_run');
+   }
+   async function verifyRelease(value: unknown): Promise<VerifiedOperation> {
+     const r = obj(value),
+@@ -655,7 +656,7 @@ export function createReleaseApi(
+       if (raw.id !== id) throw new GithubApiError('invalid_job');
+       const run = await readRun(positive(raw.run_id), positive(raw.run_attempt), true),
+         name = str(raw.name),
+-        expected = backend ? (run.workflow === 'CI' ? 'deploy / deploy' : 'rollback / deploy') : run.workflow === 'CI' ? 'Publish release' : run.workflow;
++        expected = backend ? (run.workflow === 'CI' ? 'deploy / deploy' : run.workflow === 'CD' ? 'deploy' : 'rollback / deploy') : run.workflow === 'CI' ? 'Publish release' : run.workflow;
+       if (
+         name !== expected ||
+         raw.head_sha !== run.headSha ||
+diff --git a/services/webhook-alerts/src/releases.ts b/services/webhook-alerts/src/releases.ts
+index 49889ab..52b8276 100644
+--- a/services/webhook-alerts/src/releases.ts
++++ b/services/webhook-alerts/src/releases.ts
+@@ -276,7 +276,7 @@ export async function projectRelease(
+     const raw = object(payload.workflow_job);
+     if (
+       payload.action !== 'completed' ||
+-      !(backend ? ['deploy / deploy', 'rollback / deploy'] : ['CD', 'Rollback', 'Publish release']).includes(String(raw.name)) ||
++      !(backend ? ['deploy', 'deploy / deploy', 'rollback / deploy'] : ['CD', 'Rollback', 'Publish release']).includes(String(raw.name)) ||
+       ['success', 'skipped', null, undefined].includes(raw.conclusion as null | undefined | string)
+     )
+       return [];
+diff --git a/services/webhook-alerts/tests/backend-release-api.test.ts b/services/webhook-alerts/tests/backend-release-api.test.ts
+index b914f09..e531f86 100644
+--- a/services/webhook-alerts/tests/backend-release-api.test.ts
++++ b/services/webhook-alerts/tests/backend-release-api.test.ts
+@@ -1,3 +1,4 @@
++import standalone from './fixtures/github/backend-cd-contract.json';
+ import {expect,test} from 'bun:test';
+ import {backendApiFixture,A,B,C} from './helpers/backend';
+ test('backend push CI production needs no frontend assets or release-artifacts', async () => {
+@@ -47,3 +48,13 @@ test('backend terminal status requires the production job and readable Jobs API'
+  state.jobName='deploy / deploy';state.extra=url=>url.pathname.endsWith('/jobs')?new Response('',{status:403}):undefined;
+  await expect(api.operation(2)).rejects.toThrow('http_403');
+ });
++
++test('standalone backend CD verifies the deployment SHA independently of dispatch HEAD', async () => {
++  const {api,state} = backendApiFixture();
++  state.workflow='cd';state.event='workflow_dispatch';state.head=C;state.jobName='deploy';
++  Object.assign(state.current, standalone.deployment);
++  const op=await api.operation(2);
++  expect(op.sha).toBe(standalone.deployment.sha);expect(op.run.workflow).toBe('CD');expect(op.run.headSha).toBe(standalone.run.head_sha);
++  expect((await api.job(200)).run.workflow).toBe('CD');
++  state.event='push';await expect(api.operation(2)).rejects.toThrow('untrusted_run');
++});
+diff --git a/services/webhook-alerts/tests/backend-releases.test.ts b/services/webhook-alerts/tests/backend-releases.test.ts
+index 7e61070..4a003f6 100644
+--- a/services/webhook-alerts/tests/backend-releases.test.ts
++++ b/services/webhook-alerts/tests/backend-releases.test.ts
+@@ -99,3 +99,12 @@ for(const conclusion of ['failure','cancelled'] as const) test(`completed ${conc
+  const [card]=await projectRelease(d,f.api,config);expect(card?.release?.kind).toBe('job-error');expect(card?.html).toContain('Health Check ⚪');
+  expect(await checkReleaseNotice(card!.release!,f.api,config)).toBe('send');
+ });
++
++test('standalone CD deploy job failure produces an honest backend fallback', async () => {
++  const f=fixture();f.job.name='deploy';f.job.run.workflow='CD';f.job.run.event='workflow_dispatch';
++  f.job.operation=null;f.job.run.steps=[{name:'Prepare target',outcome:'failure'}];
++  const d=job();const payload=JSON.parse(new TextDecoder().decode(d.raw));payload.workflow_job.name='deploy';
++  d.raw=new TextEncoder().encode(JSON.stringify(payload));
++  const [card]=await projectRelease(d,f.api,config);
++  expect(card?.html).toContain('Выкатка бэка: ошибка');expect(card?.html).toContain('неизвестно');
++});
+diff --git a/services/webhook-alerts/tests/fixtures/github/backend-cd-contract.json b/services/webhook-alerts/tests/fixtures/github/backend-cd-contract.json
+new file mode 100644
+index 0000000..41852f3
+--- /dev/null
++++ b/services/webhook-alerts/tests/fixtures/github/backend-cd-contract.json
+@@ -0,0 +1,91 @@
++{
++  "deployment": {
++    "id": 2,
++    "ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
++    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
++    "environment": "production",
++    "task": "deploy",
++    "creator": {
++      "login": "github-actions[bot]"
++    },
++    "created_at": "2026-11-08T10:02:00Z",
++    "payload": {
++      "action": "deploy",
++      "image_ref": "ghcr.io/cringe-driven-development-team/backend@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
++      "run": "https://github.com/Cringe-Driven-Development-Team/backend/actions/runs/20",
++      "notification": {
++        "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++        "report_url": "https://github.com/Cringe-Driven-Development-Team/backend/actions/runs/20#summary",
++        "run_attempt": 1
++      },
++      "release_tag": "release-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
++      "infra_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
++    }
++  },
++  "previous": {
++    "id": 1,
++    "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++    "environment": "production",
++    "task": "deploy",
++    "creator": {
++      "login": "github-actions[bot]"
++    },
++    "created_at": "2026-11-08T10:01:00Z",
++    "payload": {
++      "action": "deploy",
++      "image_ref": "ghcr.io/cringe-driven-development-team/backend@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
++      "run": "https://github.com/Cringe-Driven-Development-Team/backend/actions/runs/10",
++      "notification": {
++        "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++        "report_url": "https://github.com/Cringe-Driven-Development-Team/backend/actions/runs/10#summary",
++        "run_attempt": 1
++      }
++    }
++  },
++  "run": {
++    "id": 20,
++    "run_attempt": 1,
++    "workflow_id": 1,
++    "path": ".github/workflows/cd.yml",
++    "event": "workflow_dispatch",
++    "head_branch": "main",
++    "head_sha": "cccccccccccccccccccccccccccccccccccccccc",
++    "repository": {
++      "full_name": "Cringe-Driven-Development-Team/backend"
++    },
++    "head_repository": {
++      "full_name": "Cringe-Driven-Development-Team/backend"
++    },
++    "actor": {
++      "login": "GrayMouse9"
++    }
++  },
++  "job": {
++    "id": 200,
++    "name": "deploy",
++    "run_id": 20,
++    "run_attempt": 1,
++    "head_sha": "cccccccccccccccccccccccccccccccccccccccc",
++    "status": "completed",
++    "conclusion": "failure"
++  },
++  "jobs": {
++    "jobs": [
++      {
++        "id": 200,
++        "name": "deploy",
++        "steps": [
++          {
++            "name": "Switch backend",
++            "conclusion": "success"
++          },
++          {
++            "name": "Health check",
++            "conclusion": "success"
++          }
++        ]
++      }
++    ]
++  }
++}

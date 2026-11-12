@@ -1,6 +1,12 @@
 name: CD
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Подготовленный неизменяемый выпуск release-<полный SHA>; для старых версий используйте Rollback'
+        required: true
+        type: string
   workflow_call:
     inputs:
       action:
@@ -9,10 +15,6 @@ on:
         type: string
       target_sha:
         description: Full target SHA; optional for automatic rollback selection
-        default: ''
-        type: string
-      backend_image_ref:
-        description: Published digest for deploy; rollback reads its digest from Deployments
         default: ''
         type: string
 
@@ -36,9 +38,9 @@ jobs:
       group: backend-production
       cancel-in-progress: false
     env:
-      RELEASE_ACTION: ${{ inputs.action }}
+      RELEASE_ACTION: ${{ inputs.action || 'deploy' }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
       RELEASE_TARGET_SHA: ${{ inputs.target_sha }}
-      RELEASE_IMAGE_REF: ${{ inputs.backend_image_ref }}
       PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
       ANSIBLE_HOST_KEY_CHECKING: "True"
       ANSIBLE_SSH_ARGS: -C -o ControlMaster=auto -o ControlPersist=60s -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
@@ -53,7 +55,7 @@ jobs:
           [[ "$GITHUB_REPOSITORY" == 'Cringe-Driven-Development-Team/backend' ]]
           [[ "$GITHUB_REF" == 'refs/heads/main' && "$PRODUCTION_ENABLED" == true ]]
           case "$RELEASE_ACTION:$GITHUB_EVENT_NAME" in
-            deploy:push) [[ "$SOURCE_WORKFLOW" == 'Cringe-Driven-Development-Team/backend/.github/workflows/ci.yml@refs/heads/main' ]] ;;
+            deploy:workflow_dispatch) [[ "$SOURCE_WORKFLOW" == 'Cringe-Driven-Development-Team/backend/.github/workflows/cd.yml@refs/heads/main' ]] ;;
             rollback:workflow_dispatch) [[ "$SOURCE_WORKFLOW" == 'Cringe-Driven-Development-Team/backend/.github/workflows/rollback.yml@refs/heads/main' ]] ;;
             *) exit 1 ;;
           esac
@@ -77,6 +79,8 @@ jobs:
           ref: main
           path: infra
           persist-credentials: false
+      - name: Record deployment infrastructure revision
+        run: echo "RELEASE_INFRA_SHA=$(git -C infra rev-parse HEAD)" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'

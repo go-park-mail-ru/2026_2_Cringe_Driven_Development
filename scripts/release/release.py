@@ -15,6 +15,8 @@ import urllib.request
 REPOSITORY = 'Cringe-Driven-Development-Team/backend'
 PACKAGE = 'ghcr.io/cringe-driven-development-team/backend'
 RUN_ROOT = f'https://github.com/{REPOSITORY}/actions/runs/'
+if __name__ == '__main__':
+    sys.modules['release'] = sys.modules[__name__]
 CHECKS = ('switch', 'image', 'internal', 'external', 'routes')
 
 
@@ -69,6 +71,7 @@ def initial_state(action, run_id, attempt):
             'target_sha': None, 'image_ref': None, 'base_sha': None, 'deployment_id': None,
             'checks': {x: 'not_run' for x in CHECKS}, 'ansible_rc': None, 'error_stage': None,
             'requested_sha': os.environ.get('RELEASE_TARGET_SHA', ''),
+            'requested_tag': os.environ.get('RELEASE_TAG', ''),
             'actor': os.environ.get('GITHUB_TRIGGERING_ACTOR') or os.environ.get('GITHUB_ACTOR', 'unknown')}
 
 
@@ -102,13 +105,13 @@ class GitHub:
         self.opener = opener or urllib.request.build_opener(NoRedirect())
         self.prefix = f'/repos/{REPOSITORY}'
 
-    def request(self, path, body=None):
+    def request(self, path, body=None, method=None):
         url = urllib.parse.urljoin('https://api.github.com', path)
         u = urllib.parse.urlsplit(url)
         if u.scheme != 'https' or u.netloc != 'api.github.com' or u.username or u.password:
             raise ReleaseError('Untrusted GitHub URL')
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(url, data=data, headers={
+        req = urllib.request.Request(url, data=data, method=method, headers={
             'Authorization': f'Bearer {self.token}', 'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'})
         try:
@@ -171,19 +174,20 @@ class GitHub:
             return row
         run_id = int(match[1])
         run = self.get(f'/actions/runs/{run_id}/attempts/{attempt}')
-        workflow = 'ci.yml' if action == 'deploy' else 'rollback.yml'
+        historical_ci = action == 'deploy' and run.get('path') == '.github/workflows/ci.yml'
+        workflow = ('ci.yml' if historical_ci else 'cd.yml') if action == 'deploy' else 'rollback.yml'
         workflow_id = self.get(f'/actions/workflows/{workflow}')['id']
         if (run.get('id') != run_id or run.get('run_attempt') != attempt
                 or run.get('path') != f'.github/workflows/{workflow}'
                 or run.get('workflow_id') != workflow_id
                 or run.get('head_branch') != 'main'
-                or run.get('event') != ('push' if action == 'deploy' else 'workflow_dispatch')
+                or run.get('event') != ('push' if historical_ci else 'workflow_dispatch')
+                or (historical_ci and run.get('head_sha') != target)
                 or run.get('repository', {}).get('full_name') != REPOSITORY
-                or run.get('head_repository', {}).get('full_name') != REPOSITORY
-                or (action == 'deploy' and run.get('head_sha') != target)):
+                or run.get('head_repository', {}).get('full_name') != REPOSITORY):
             return row
         jobs = self.pages(f'/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100', 'jobs')
-        expected_job = 'deploy / deploy' if action == 'deploy' else 'rollback / deploy'
+        expected_job = ('deploy / deploy' if historical_ci else 'deploy') if action == 'deploy' else 'rollback / deploy'
         candidates = [j for j in jobs if j.get('name') == expected_job]
         if len(candidates) != 1:
             return row
@@ -237,6 +241,7 @@ class GitHub:
         body = {'ref': state['target_sha'], 'task': state['action'], 'environment': 'production',
                 'auto_merge': False, 'required_contexts': [], 'production_environment': True,
                 'payload': {'action': state['action'], 'image_ref': state['image_ref'], 'run': run,
+                            'release_tag': state.get('release_tag'), 'infra_sha': state.get('infra_sha'),
                             'notification': {'run_attempt': state['run_attempt'], 'base_sha': state['base_sha'], 'report_url': run + '#summary'}}}
         try:
             d, _ = self.request(self.prefix + '/deployments', body)
@@ -270,7 +275,10 @@ def md(value):
 def summary(state, api=None):
     run = RUN_ROOT + str(state['run_id'])
     lines = ['# Backend production: ' + state['action'], '',
+             f'- Запрошенный Release: {md(state.get("requested_tag") or "не указан")}',
              f'- Запрошенный SHA: {md(state.get("requested_sha") or "автоматический выбор")}',
+             f'- Release: `{state.get("release_tag") or "не определён"}`',
+             f'- Infra SHA: `{state.get("infra_sha") or os.environ.get("RELEASE_INFRA_SHA") or "не определён"}`',
              f'- Target SHA: `{state["target_sha"] or "не определён"}`',
              f'- Image ref: `{state["image_ref"] or "не определён"}`',
              f'- Последний подтверждённый релиз GitHub: `{state["base_sha"] or "нет истории"}` (не текущее состояние VPS)',
@@ -329,8 +337,11 @@ def summary(state, api=None):
 def source_guard(action):
     if (os.environ.get('GITHUB_REPOSITORY') != REPOSITORY or os.environ.get('GITHUB_REF') != 'refs/heads/main'
             or os.environ.get('PRODUCTION_ENABLED') != 'true'
-            or os.environ.get('GITHUB_EVENT_NAME') != ('push' if action == 'deploy' else 'workflow_dispatch')):
+            or os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch'):
         raise ReleaseError('Production requires the trusted repository, main and PRODUCTION_ENABLED=true')
+    workflow = 'cd.yml' if action == 'deploy' else 'rollback.yml'
+    if os.environ.get('GITHUB_WORKFLOW_REF') != REPOSITORY + '/.github/workflows/' + workflow + '@refs/heads/main':
+        raise ReleaseError('Untrusted production workflow')
 
 
 def main(argv=None):
@@ -360,10 +371,20 @@ def main(argv=None):
                     raise ReleaseError('Rollback digest must come from Deployments')
                 target, image = select_target(history, os.environ.get('RELEASE_TARGET_SHA', ''))
             else:
-                target = validate_sha(os.environ['RELEASE_TARGET_SHA'])
-                if target != os.environ.get('GITHUB_SHA'):
-                    raise ReleaseError('Deploy target differs from source commit')
-                image = validate_image(os.environ['RELEASE_IMAGE_REF'])
+                from artifacts import tag_sha
+                target = tag_sha(os.environ.get('RELEASE_TAG', ''))
+                image = None
+            from artifacts import resolve, forward_guard
+            tag = 'release-' + target
+            manifest = resolve(api, tag)
+            if image and image != manifest['image_ref']:
+                raise ReleaseError('Deployment digest differs from immutable Release')
+            image = manifest['image_ref']
+            if state['action'] == 'deploy':
+                if history and (not history[0]['trusted'] or history[0]['state'] not in ('success', 'failure', 'error')):
+                    raise ReleaseError('Latest production state unknown; reconcile before CD')
+                forward_guard(state['base_sha'], target, lambda base, goal: api.get(f'/compare/{base}...{goal}').get('status'))
+            state['release_tag'] = tag
             state.update(target_sha=target, image_ref=image)
             save(path, state)
             check_image(image)
@@ -372,6 +393,7 @@ def main(argv=None):
         elif args.command == 'begin':
             source_guard(state['action'])
             validate_sha(state['target_sha']); validate_image(state['image_ref'])
+            state['infra_sha'] = validate_sha(os.environ['RELEASE_INFRA_SHA'])
             state['deployment_id'] = api.ensure_deployment(state)
             save(path, state)
             api.status(state, 'in_progress')
@@ -381,6 +403,8 @@ def main(argv=None):
                 raise ReleaseError('Deployment in_progress not confirmed')
             source_guard(state['action'])
             state['checks']['switch'] = 'unknown'; save(path, state)
+            state['infra_sha'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.environ['ANSIBLE_DIR'], text=True).strip()
+            save(path, state)
             env = dict(os.environ)
             env['ANSIBLE_CALLBACK_PLUGINS'] = str(Path(__file__).parent / 'callback_plugins')
             env['ANSIBLE_CALLBACKS_ENABLED'] = 'backend_result'
@@ -414,7 +438,7 @@ def main(argv=None):
         if args.command not in ('report', 'finalize'):
             state['error_stage'] = state.get('error_stage') or args.command
         save(path, state)
-        print(f'::error::Backend release {args.command} failed; inspect the confirmed stages and logs', file=sys.stderr)
+        print(f'::error::Backend release {args.command}: ' + (str(error) if isinstance(error, ReleaseError) else 'operation failed; inspect stage logs'), file=sys.stderr)
         return 1
     save(path, state)
     return 0
