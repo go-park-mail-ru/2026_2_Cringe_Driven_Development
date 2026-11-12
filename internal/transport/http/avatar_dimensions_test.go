@@ -177,7 +177,7 @@ func assertAvatarDimensionUpload(t *testing.T, f avatarDimensionFixture, rec *ht
 
 func TestAvatarDimensionsUpload(t *testing.T) {
 	for _, format := range []string{"png", "jpeg"} {
-		for _, size := range []image.Point{{1, 1}, {199, 300}, {300, 199}, {4097, 200}, {200, 4097}} {
+		for _, size := range []image.Point{{64, 64}, {64, 199}, {199, 64}, {199, 300}, {300, 199}, {64, 4096}, {4096, 64}} {
 			t.Run(format+size.String(), func(t *testing.T) {
 				f := newAvatarDimensionFixture(t)
 				rec := f.upload(t, avatarDimensionImage(t, size, format), "image/"+format)
@@ -189,7 +189,7 @@ func TestAvatarDimensionsUpload(t *testing.T) {
 
 func TestAvatarDimensionsRejectInvalidUploads(t *testing.T) {
 	pngData := avatarDimensionImage(t, image.Pt(200, 200), "png")
-	smallPNG := avatarDimensionImage(t, image.Pt(1, 1), "png")
+	smallPNG := avatarDimensionImage(t, image.Pt(64, 64), "png")
 	for _, tc := range []struct {
 		name, mime string
 		data       []byte
@@ -217,15 +217,32 @@ func TestAvatarDimensionsRejectInvalidUploads(t *testing.T) {
 	}
 }
 
+func TestAvatarDimensionsRejectOutOfRange(t *testing.T) {
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{1, 1}, {63, 200}, {200, 63}, {4097, 200}, {200, 4097}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				f := newAvatarDimensionFixture(t)
+				rec := f.upload(t, avatarDimensionImage(t, size, format), "image/"+format)
+				if rec.Code != 400 || !strings.Contains(rec.Body.String(), `"code":"validation_error"`) {
+					t.Fatalf("%d %s", rec.Code, rec.Body)
+				}
+				if f.repo.user.AvatarKey != "avatars/old.png" || f.storage.key != "" || f.storage.deleted != "" {
+					t.Fatal("out-of-range image changed avatar or storage")
+				}
+			})
+		}
+	}
+}
+
 func TestAvatarDimensionsInputSizeBoundary(t *testing.T) {
 	for _, size := range []int{5242880, 5242881} {
 		t.Run(map[int]string{5242880: "at limit", 5242881: "above limit"}[size], func(t *testing.T) {
 			data := make([]byte, size)
-			copy(data, avatarDimensionImage(t, image.Pt(1, 1), "png"))
+			copy(data, avatarDimensionImage(t, image.Pt(64, 64), "png"))
 			f := newAvatarDimensionFixture(t)
 			rec := f.upload(t, data, "image/png")
 			if size == 5242880 {
-				assertAvatarDimensionUpload(t, f, rec, image.Pt(1, 1), "png")
+				assertAvatarDimensionUpload(t, f, rec, image.Pt(64, 64), "png")
 			} else if rec.Code != 413 || f.storage.key != "" || f.repo.user.AvatarKey != "avatars/old.png" {
 				t.Fatalf("oversized upload: %d %s", rec.Code, rec.Body)
 			}

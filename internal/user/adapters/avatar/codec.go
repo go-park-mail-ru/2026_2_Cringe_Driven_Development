@@ -42,7 +42,7 @@ func (f *File) Close() error {
 // Codec использует кодеки стандартной библиотеки, не удерживая закодированную загрузку.
 type Codec struct{}
 
-// Sanitize проверяет изображение и удаляет метаданные перекодированием.
+// Sanitize проверяет размеры до полного декодирования и удаляет метаданные перекодированием.
 // Вызывающий владеет возвращённым временным файлом и обязан его закрыть.
 func (Codec) Sanitize(ctx context.Context, source io.ReadSeeker, contentType string) (_ *File, err error) {
 	if err = ctx.Err(); err != nil {
@@ -76,11 +76,11 @@ func (Codec) Sanitize(ctx context.Context, source io.ReadSeeker, contentType str
 	if _, err = source.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("rewind avatar: %w", err)
 	}
-	_, _, err = image.DecodeConfig(contextReader{ctx, source})
+	cfg, _, err := image.DecodeConfig(contextReader{ctx, source})
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	if err != nil {
+	if err != nil || cfg.Width < 64 || cfg.Height < 64 || cfg.Width > 4096 || cfg.Height > 4096 {
 		return nil, ErrInvalidImage
 	}
 	if _, err = source.Seek(0, io.SeekStart); err != nil {

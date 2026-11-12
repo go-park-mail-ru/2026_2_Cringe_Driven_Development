@@ -34,7 +34,7 @@ func encoded(t *testing.T, width, height int, format string) []byte {
 }
 
 func TestSanitizePNGFlattensAlphaAndRemovesMetadata(t *testing.T) {
-	for _, size := range []image.Point{{1, 1}, {200, 200}} {
+	for _, size := range []image.Point{{64, 64}, {200, 200}} {
 		t.Run(size.String(), func(t *testing.T) {
 			input := encoded(t, size.X, size.Y, "png")
 			// Валидный вспомогательный текстовый чанк не должен пережить перекодирование.
@@ -115,7 +115,7 @@ func TestSanitizeRejectsInvalidInputs(t *testing.T) {
 
 func TestSanitizeDimensionBoundaries(t *testing.T) {
 	for _, format := range []string{"png", "jpeg"} {
-		for _, size := range []image.Point{{1, 1}, {199, 300}, {300, 199}, {4097, 200}, {200, 4097}, {199, 200}, {200, 199}, {200, 200}, {4096, 200}, {200, 4096}} {
+		for _, size := range []image.Point{{64, 64}, {64, 199}, {199, 64}, {199, 300}, {300, 199}, {64, 4096}, {4096, 64}, {200, 200}, {4096, 200}, {200, 4096}} {
 			t.Run(format+size.String(), func(t *testing.T) {
 				f, err := (Codec{}).Sanitize(t.Context(), bytes.NewReader(encoded(t, size.X, size.Y, format)), "image/"+format)
 				if err != nil {
@@ -145,6 +145,60 @@ func TestSanitizeDimensionBoundaries(t *testing.T) {
 				}
 				if _, err = os.Stat(name); !errors.Is(err, os.ErrNotExist) {
 					t.Fatalf("temporary file retained: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestSanitizeRejectsDimensions(t *testing.T) {
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{1, 1}, {63, 200}, {200, 63}, {4097, 200}, {200, 4097}, {63, 64}, {64, 63}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				f, err := (Codec{}).Sanitize(t.Context(), bytes.NewReader(encoded(t, size.X, size.Y, format)), "image/"+format)
+				if f != nil {
+					_ = f.Close()
+					t.Fatal("out-of-range image produced file")
+				}
+				if !errors.Is(err, ErrInvalidImage) {
+					t.Fatalf("dimensions %v: %v", size, err)
+				}
+			})
+		}
+	}
+}
+
+// decodeGuardReader rejects the rewind that would start full image decoding.
+// DecodeConfig and MIME detection may read headers, without allocating pixel buffers.
+type decodeGuardReader struct {
+	*bytes.Reader
+	rewinds    int
+	fullDecode bool
+}
+
+func (r *decodeGuardReader) Seek(offset int64, whence int) (int64, error) {
+	if offset == 0 && whence == io.SeekStart {
+		r.rewinds++
+		if r.rewinds == 3 {
+			r.fullDecode = true
+			return 0, errors.New("unexpected full decode of invalid dimensions")
+		}
+	}
+	return r.Reader.Seek(offset, whence)
+}
+
+func TestSanitizeChecksDimensionsBeforeDecode(t *testing.T) {
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{63, 200}, {200, 63}, {4097, 200}, {200, 4097}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				source := &decodeGuardReader{Reader: bytes.NewReader(encoded(t, size.X, size.Y, format))}
+				f, err := (Codec{}).Sanitize(t.Context(), source, "image/"+format)
+				if f != nil {
+					_ = f.Close()
+					t.Fatal("invalid dimensions produced file")
+				}
+				if !errors.Is(err, ErrInvalidImage) || source.fullDecode {
+					t.Fatalf("rejection must precede full decode: fullDecode=%v err=%v", source.fullDecode, err)
 				}
 			})
 		}
@@ -184,7 +238,7 @@ func TestSanitizeRejectsInvalidImageData(t *testing.T) {
 }
 
 func TestSanitizeJPEGRemovesComment(t *testing.T) {
-	for _, size := range []image.Point{{1, 1}, {200, 200}} {
+	for _, size := range []image.Point{{64, 64}, {200, 200}} {
 		t.Run(size.String(), func(t *testing.T) {
 			data := encoded(t, size.X, size.Y, "jpeg")
 			marker := []byte{0xff, 0xfe, 0, 8, 's', 'e', 'c', 'r', 'e', 't'}
