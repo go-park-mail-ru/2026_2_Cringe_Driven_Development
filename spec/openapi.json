@@ -274,7 +274,7 @@
       "put": {
         "summary": "Сменить пароль",
         "deprecated": false,
-        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.",
+        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: формат — общая схема Password: 8–72 печатных ASCII-символа без пробелов. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.",
         "operationId": "changeCurrentUserPassword",
         "tags": [
           "users"
@@ -4833,9 +4833,7 @@
             "pattern": "^[a-zA-Z0-9_]+$"
           },
           "password": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 72
+            "$ref": "#/components/schemas/Password"
           }
         },
         "required": [
@@ -5067,20 +5065,12 @@
         "type": "object",
         "properties": {
           "current_password": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 72,
-            "format": "password",
-            "writeOnly": true,
-            "description": "От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется."
+            "$ref": "#/components/schemas/Password",
+            "description": "Текущий пароль пользователя."
           },
           "new_password": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 72,
-            "format": "password",
-            "writeOnly": true,
-            "description": "От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется."
+            "$ref": "#/components/schemas/Password",
+            "description": "Новый пароль; должен отличаться от текущего."
           }
         },
         "required": [
@@ -5799,9 +5789,7 @@
             "pattern": "^[a-zA-Z0-9_]+$"
           },
           "password": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 72
+            "$ref": "#/components/schemas/Password"
           },
           "user_code": {
             "type": "string",
@@ -5874,9 +5862,8 @@
         "type": "object",
         "properties": {
           "password": {
-            "type": "string",
-            "description": "Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password.",
-            "writeOnly": true
+            "$ref": "#/components/schemas/Password",
+            "description": "Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password."
           }
         },
         "required": [
@@ -5955,6 +5942,16 @@
           "id",
           "kind",
           "source"
+        ]
+      },
+      "Password": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 72,
+        "pattern": "^[!-~]+$",
+        "description": "Пароль: 8–72 печатных ASCII-символа (коды 0x21–0x7E) без пробелов; спецсимволы допустимы. Каждый символ занимает один байт, поэтому длина укладывается в лимит bcrypt 72 байта. Пароль не обрезается и не нормализуется.",
+        "examples": [
+          "user-password"
         ]
       }
     },

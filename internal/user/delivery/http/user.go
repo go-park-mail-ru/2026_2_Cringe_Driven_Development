@@ -32,7 +32,7 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 	switch {
 	case errors.Is(err, usecase.ErrLoginTaken):
 		return api.RegisterUser409JSONResponse{Code: api.ErrorCodeLoginTaken, Message: "login is already taken"}, nil
-	case errors.Is(err, usecase.ErrPasswordTooLong):
+	case errors.Is(err, usecase.ErrValidation):
 		return api.RegisterUser400JSONResponse{Code: api.ErrorCodeValidationError, Message: err.Error()}, nil
 	case err != nil:
 		return nil, err
