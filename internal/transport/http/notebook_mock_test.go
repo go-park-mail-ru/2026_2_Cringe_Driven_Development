@@ -203,3 +203,18 @@ func (mr *MockNotebookUsecaseMockRecorder) RemoveCell(ctx, id, ownerID, hash, ce
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCell", reflect.TypeOf((*MockNotebookUsecase)(nil).RemoveCell), ctx, id, ownerID, hash, cellID)
 }
+
+// Rename mocks base method.
+func (m *MockNotebookUsecase) Rename(ctx context.Context, id, ownerID int64, name string) (domain.Notebook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Rename", ctx, id, ownerID, name)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Rename indicates an expected call of Rename.
+func (mr *MockNotebookUsecaseMockRecorder) Rename(ctx, id, ownerID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rename", reflect.TypeOf((*MockNotebookUsecase)(nil).Rename), ctx, id, ownerID, name)
+}

@@ -1796,6 +1796,152 @@
             "bearerAuth": []
           }
         ]
+      },
+      "patch": {
+        "summary": "Переименовать блокнот",
+        "deprecated": false,
+        "description": "Переименовывает блокнот текущего владельца. Пробелы по краям имени обрезаются; пустое после обрезки имя отклоняется. Ограничение 1–128 Unicode-символов проверяется до обрезки, как при создании. Одинаковые имена разрешены. Повтор того же нормализованного имени успешен без изменения updated_at. If-Match не требуется и не проверяется; редакция, содержимое и runtime не меняются. Активное окружение и выполнение ячейки разрешены. Чужой и отсутствующий блокнот дают одинаковый 404.",
+        "operationId": "renameNotebook",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Блокнот с сохранённым нормализованным именем. Содержимое не изменено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notebook"
+                },
+                "example": {
+                  "id": 42,
+                  "name": "Новое название",
+                  "cells": [],
+                  "created_at": "2026-11-12T10:00:00Z",
+                  "updated_at": "2026-11-12T16:30:00Z"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "Некорректный ID или название блокнота."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "Требуется авторизация."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "Блокнот не найден."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "Внутренняя ошибка сервера."
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotebookRequest"
+              },
+              "example": {
+                "name": "Новое название"
+              }
+            }
+          }
+        }
       }
     },
     "/notebooks/{id}/cells": {

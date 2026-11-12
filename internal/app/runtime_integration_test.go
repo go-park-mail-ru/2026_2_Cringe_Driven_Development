@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -88,12 +89,17 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	sessionAgent := module.Agent
+	var renameAgent *renameSessionAgent
 	if os.Getenv("RUNTIME_TEST_REAL_AGENT") == "1" {
 		sessionAgent = newRealSessionAgent(t, func(ctx context.Context, id uuid.UUID) (string, error) {
 			var language string
 			queryErr := pool.QueryRow(ctx, "SELECT language FROM runtime_sessions WHERE id=$1", id).Scan(&language)
 			return language, queryErr
 		})
+	} else {
+		renameAgent = &renameSessionAgent{SessionAgent: sessionAgent, release: make(chan struct{})}
+		sessionAgent = renameAgent
+		t.Cleanup(renameAgent.finish)
 	}
 	service := UC.NewService(store, nil, sessionAgent)
 	worker := UC.NewWorker(store, env.New(module.Environments), sessionAgent, nil)
@@ -231,11 +237,83 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	sum := sha256.Sum256([]byte("print(42)"))
 	executeBody := fmt.Sprintf(`{"execution_id":"run","cell_id":%q,"source_hash":%q}`, cell.Cell.ID, hex.EncodeToString(sum[:]))
 	call("POST", base+"/executions", executeBody, 202)
+	if renameAgent != nil {
+		wait(func() bool {
+			x, e := store.Execution(ctx, user.ID, session.ID, "run")
+			return e == nil && x.State == "RUNNING"
+		})
+	}
+	beforeRename, err := notebooks.Content(ctx, first.ID, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionBeforeRename, err := store.Owned(ctx, user.ID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var controlsBeforeRename int64
+	if renameAgent != nil {
+		controlsBeforeRename = renameAgent.controls.Load()
+	}
+	const renamedName = "renamed during execution"
+	call("PATCH", fmt.Sprintf("/notebooks/%d", first.ID), `{"name":"  renamed during execution  "}`, 200)
+	afterRename, err := notebooks.Content(ctx, first.ID, user.ID)
+	if err != nil || !reflect.DeepEqual(beforeRename, afterRename) {
+		t.Fatal("rename changed notebook content", err)
+	}
+	if call("GET", contentPath, "", 200).Header().Get("ETag") != beforeETag {
+		t.Fatal("rename changed ETag")
+	}
+	sessionAfterRename, err := store.Owned(ctx, user.ID, session.ID)
+	if err != nil || !reflect.DeepEqual(sessionBeforeRename, sessionAfterRename) {
+		t.Fatal("rename changed runtime session", err)
+	}
+	if renameAgent != nil && renameAgent.controls.Load() != controlsBeforeRename {
+		t.Fatal("rename sent a runtime control command")
+	}
+	assertRenamed := func() {
+		t.Helper()
+		var got struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		}
+		if e := json.Unmarshal(call("GET", fmt.Sprintf("/notebooks/%d", first.ID), "", 200).Body.Bytes(), &got); e != nil {
+			t.Fatal(e)
+		}
+		if got.ID != first.ID || got.Name != renamedName {
+			t.Fatalf("renamed notebook: %+v", got)
+		}
+		var list []struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		}
+		if e := json.Unmarshal(call("GET", "/notebooks", "", 200).Body.Bytes(), &list); e != nil {
+			t.Fatal(e)
+		}
+		found := false
+		for _, n := range list {
+			if n.ID == first.ID {
+				found = true
+				if n.Name != renamedName {
+					t.Fatal("list lost renamed name")
+				}
+			}
+		}
+		if !found {
+			t.Fatal("renamed notebook missing from list")
+		}
+	}
+	assertRenamed()
+	assertBadge(first.ID)
+	if renameAgent != nil {
+		renameAgent.finish()
+	}
 	wait(func() bool {
 		x, e := store.Execution(ctx, user.ID, session.ID, "run")
 		return e == nil && x.State == "SUCCEEDED" && x.Projection == "applied"
 	})
 	assertBadge(first.ID)
+	assertRenamed()
 	w = call("GET", base+"/executions/run", "", 200)
 	if !strings.Contains(w.Body.String(), `42\n`) {
 		t.Fatal(w.Body.String())
@@ -495,6 +573,19 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		x, e := store.Execution(ctx, user.ID, rSession.ID, "r-run")
 		return e == nil && x.State == "SUCCEEDED" && x.Projection == "applied"
 	})
+	// Проверяем независимую правку после выполнения, не меняя исходник print(42) в ранних сценариях.
+	renameContent, err := notebooks.Content(ctx, first.ID, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renameCell, err := notebooks.AddCell(ctx, first.ID, user.ID, renameContent.Hash, "markdown", "before", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = notebooks.EditCell(ctx, first.ID, user.ID, renameCell.Hash, renameCell.Cell.ID, "after"); err != nil {
+		t.Fatal(err)
+	}
+	assertRenamed()
 	call("POST", "/auth/logout-all", "", 204)
 	if w = request("GET", "/runtime-sessions/active", "", "test-bff-key", auth.AccessToken); w.Code != 401 {
 		t.Fatal("revoked token accepted", w.Code)

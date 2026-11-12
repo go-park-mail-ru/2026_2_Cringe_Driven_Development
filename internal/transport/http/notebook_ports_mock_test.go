@@ -115,3 +115,18 @@ func (mr *MockRepositoryMockRecorder) List(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRepository)(nil).List), arg0, arg1)
 }
+
+// Rename mocks base method.
+func (m *MockRepository) Rename(arg0 context.Context, arg1, arg2 int64, arg3 string) (domain.Notebook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Rename", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Rename indicates an expected call of Rename.
+func (mr *MockRepositoryMockRecorder) Rename(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rename", reflect.TypeOf((*MockRepository)(nil).Rename), arg0, arg1, arg2, arg3)
+}
