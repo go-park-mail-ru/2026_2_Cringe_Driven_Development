@@ -38,6 +38,13 @@ class Inspect(Command):
     execution_id: ExecutionID
 
 
+class StopExecutions(Command):
+    """Identify a retry of the same execution stop."""
+
+    operation_id: ExecutionID
+    execution_ids: list[ExecutionID] = Field(default_factory=list)
+
+
 class Assign(Command):
     """Describe the one-time assignment of the agent to a session.
 

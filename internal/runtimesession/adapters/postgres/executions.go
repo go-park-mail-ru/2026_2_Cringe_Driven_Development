@@ -116,6 +116,9 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 		return domain.Execution{}, e
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := s.checkAdmission(ctx, tx, owner, sid); err != nil {
+		return domain.Execution{}, err
+	}
 	var nb int64
 	e = tx.QueryRow(ctx, "SELECT n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&nb)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -138,7 +141,7 @@ func (s *Store) Admit(ctx context.Context, owner int64, sid uuid.UUID, r domain.
 	if e != nil {
 		return prior, e
 	}
-	if v.State != domain.Ready {
+	if v.State != domain.Ready || v.StopOperation != "" {
 		return prior, domain.ErrConflict
 	}
 	var queued int
