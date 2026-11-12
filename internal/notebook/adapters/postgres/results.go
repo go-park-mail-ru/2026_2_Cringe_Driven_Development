@@ -34,9 +34,9 @@ func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, 
 	return revision, nil
 }
 
-// SaveResultTx applies a result within the caller's PostgreSQL transaction.
-// It uses the same notebook lock, source-version check and size accounting as SaveResult.
-// Results do not change the revision used to edit sources and cell structure.
+// SaveResultTx применяет результат внутри PostgreSQL-транзакции вызывающего.
+// Использует ту же блокировку ноутбука, проверку версии исходника и учёт размера, что и SaveResult.
+// Результаты не меняют ревизию, по которой редактируются исходники и структура ячеек.
 func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ownerID int64, result usecase.CellResult) (string, error) {
 
 	if result.SourceVersion == "" {
@@ -78,7 +78,7 @@ func (r *NotebookRepository) SaveResultTx(ctx context.Context, tx pgx.Tx, id, ow
 	}
 	var same bool
 	err = tx.QueryRow(ctx, `SELECT COALESCE(outputs=$3::jsonb AND output_truncated=$5 AND has_runtime_metadata AND has_execution_count AND execution_count IS NOT DISTINCT FROM $4::bigint,false) FROM notebook_cell_data WHERE notebook_id=$1 AND cell_id=$2`, id, result.CellID, []byte(outputs), result.ExecutionCount, result.OutputTruncated).Scan(&same)
-	// SQL NULL outputs are distinct from an explicit empty result.
+	// SQL NULL в outputs отличается от явного пустого результата.
 	if err != nil {
 		return "", err
 	}

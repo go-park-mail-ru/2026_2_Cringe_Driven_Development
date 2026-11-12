@@ -7,7 +7,7 @@ import (
 
 func TestRedisSettings(t *testing.T) {
 	base := map[string]string{"JWT_SECRET": "jwt", "BFF_API_KEY": "bff", "REDIS_HOST": "localhost", "REDIS_PORT": "6380", "REDIS_PASSWORD": "local", "REDIS_DB": "2"}
-	c, err := LoadFrom(settings(base))
+	c, err := LoadFrom(withFakeRuntime(base))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestRedisSettings(t *testing.T) {
 				m[k] = v
 			}
 			m[tc.k] = tc.v
-			if _, err := LoadFrom(settings(m)); err == nil {
+			if _, err := LoadFrom(withFakeRuntime(m)); err == nil {
 				t.Fatal("invalid redis config accepted")
 			}
 		})

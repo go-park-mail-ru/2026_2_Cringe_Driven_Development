@@ -15,8 +15,8 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Lose a reply only after Redis has actually executed the command. This models
-// an ambiguous write outcome rather than assuming every network error rolls back.
+// Теряем ответ только после того, как Redis действительно выполнил команду. Это моделирует
+// неоднозначный исход записи, а не предполагает, что любая сетевая ошибка откатывает её.
 type lostReplyConn struct {
 	net.Conn
 	drop   bool
@@ -72,7 +72,7 @@ func TestLostRotationReplyIsUnknownOutcomeAndNeverRetried(t *testing.T) {
 }
 
 func TestOperationDeadlineBoundsUnresponsiveRedis(t *testing.T) {
-	// The peer accepts writes but never responds, unlike a refused connection.
+	// Пир принимает записи, но никогда не отвечает, в отличие от отклонённого соединения.
 	c := goredis.NewClient(&goredis.Options{Addr: "unused:6379", MaxRetries: -1, ContextTimeoutEnabled: true,
 		DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second, PoolTimeout: time.Second,
 		Dialer: func(context.Context, string, string) (net.Conn, error) {

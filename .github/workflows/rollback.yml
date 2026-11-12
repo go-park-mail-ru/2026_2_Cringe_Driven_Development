@@ -1,0 +1,26 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full SHA of a confirmed production release (empty selects automatically)
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: rollback
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+    uses: ./.github/workflows/cd.yml
+    with:
+      action: rollback
+      target_sha: ${{ inputs.sha }}
+    secrets: inherit

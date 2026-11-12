@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
@@ -13,9 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// TestRuntimeDisabledHistoryAndStopIntent проверяет доступность истории и сохранение stop при отключённом
-// создании окружений.
-func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
+// TestRuntimeHistoryAndStopIntent проверяет историю и завершение сессии с работающим runtime.
+func TestRuntimeHistoryAndStopIntent(t *testing.T) {
 	s, p, owner, nb := integrationStore(t)
 	ctx := context.Background()
 	v := newSession(owner, nb)
@@ -28,14 +26,11 @@ func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
 	if _, err = p.Exec(ctx, "INSERT INTO runtime_environments(session_id,operation_id,language,profile,state,desired_state,agent_version) VALUES($1,$2,'python','default','READY','READY','test')", v.ID, uuid.New()); err != nil {
 		t.Fatal(err)
 	}
-	module, err := runtime.Build(ctx, config.RuntimeConfig{}, p)
-	if err != nil || module.Worker != nil {
+	module, err := runtime.Build(ctx, config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 3, MaxConcurrentOps: 1}, p)
+	if err != nil || module.Worker == nil {
 		t.Fatal(module, err)
 	}
-	uc := UC.NewService(s, UC.Settings{}, nil)
-	if _, err = uc.Start(ctx, owner, nb, D.StartRequest{RequestID: "disabled-start", Language: "python"}); !errors.Is(err, D.ErrUnavailable) {
-		t.Fatal(err)
-	}
+	uc := UC.NewService(s, nil)
 	if history, e := uc.GetSession(ctx, owner, v.ID); e != nil || history.State != D.Ready {
 		t.Fatal(history, e)
 	}
@@ -47,7 +42,7 @@ func TestRuntimeDisabledHistoryAndStopIntent(t *testing.T) {
 		if _, err = p.Exec(ctx, "UPDATE runtime_sessions SET next_check=now() WHERE id=$1", v.ID); err != nil {
 			t.Fatal(err)
 		}
-		l, e := s.Claim(ctx, "disabled-worker")
+		l, e := s.Claim(ctx, "history-worker")
 		if e != nil {
 			t.Fatal(e)
 		}

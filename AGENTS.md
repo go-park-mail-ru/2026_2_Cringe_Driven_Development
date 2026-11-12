@@ -121,7 +121,7 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 - Откат — тот же playbook с прежним digest-ref через `backend_image_ref`, без автоматических миграций Down.
 
 Фактический [CI backend](.github/workflows/ci.yml) публикует
-`ghcr.io/cringe-driven-development-team/backend`: теги `sha-<short>` и `main`,
+`ghcr.io/cringe-driven-development-team/backend`: теги `sha-<полный SHA>` и `main`,
 без `latest`. Пакет должен быть публичным: CI проверяет видимость `public`, привязку
 к репозиторию и анонимную доступность опубликованного digest с пустым Docker config.
 Публикация использует `GITHUB_TOKEN` с `packages: write`; CD и Ansible скачивают
@@ -129,9 +129,9 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 Выкатывается полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
 Deploy требует PRODUCTION_ENABLED=true; sync — COURSE_SYNC_ENABLED=true,
 needs lint/test/docker, независимо от deploy. Повтор sync принимает только ci_run_id.
-Pull старого GHCR path требует old sha-tag и прежний read credential.
-Без registry используй проверенный сохранённый образ и manual override из
-infra/ansible/README.md: pull_policy never, только API, без миграций Down.
+Deploy/Rollback создают явные production Deployments; прямого Telegram sender нет.
+Откат — Actions → Rollback на main, цель из успешных Deployments; правила — docs/release.md.
+Runtime всегда включён: обязательные настройки проверяются при старте, локально provider=fake.
 ## Коммиты
 
 Формат: `<тип>: <описание>` или `<тип>(<область>): <описание>`.

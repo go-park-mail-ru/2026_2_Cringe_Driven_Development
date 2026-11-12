@@ -4,9 +4,9 @@ set -euo pipefail
 coverage_dir=$(mktemp -d)
 trap 'rm -rf "$coverage_dir"' EXIT
 
-# Run every package, then exclude generated code and utilities from coverage only.
+# Прогоняем все пакеты, затем исключаем сгенерированный код и утилиты только из покрытия.
 go test -race -count=1 -coverpkg=./... -coverprofile="$coverage_dir/raw.out" ./...
-# cmd/main only starts the application; internal/app remains in the report.
+# cmd/main только запускает приложение; internal/app остаётся в отчёте.
 awk 'NR == 1 || $1 !~ /\/(internal\/transport\/http\/api|cmd\/main|migrations)\//' \
   "$coverage_dir/raw.out" > coverage.out
 

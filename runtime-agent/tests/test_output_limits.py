@@ -49,7 +49,7 @@ async def test_reply_copies_share_budget(env):
     await until(lambda: session.active is None)
     events = agent.journal.events(sid, 0)
     result = agent.journal.execution(sid, "run-1")["result"]
-    # Count actual stored copies, including the result duplicated in the state event.
+    # Считаем реально сохранённые копии, включая результат, продублированный в событии состояния.
     copies = [e["content"] for e in events if e["kind"] == "kernel_message"]
     copies += [e["result"] for e in events if e.get("result")]
     copies += [result]

@@ -83,7 +83,7 @@ func TestHTTPImmediateRevocationAcrossInstances(t *testing.T) {
 	other, _, _ := issue(2)
 	routers := make([]http.Handler, 2, 3)
 	for i, s := range stores {
-		// CurrentUser is a deterministic fixture; logout/refresh use the real usecase.
+		// CurrentUser здесь фикстура, а logout/refresh используют настоящий usecase.
 		uc := usecase.NewUserUsecase(nil, s, tokens, nil, usersecurity.RefreshTokens{}, time.Hour)
 		srv := Server{UserHandler: userdelivery.NewHandler(&sessionHTTPUsecase{UserUsecase: uc}), NotebookHandler: notebookdelivery.NewHandler(bffNotebooks{})}
 		var err error
@@ -163,7 +163,7 @@ func TestHTTPImmediateRevocationAcrossInstances(t *testing.T) {
 	expect(request(1, "GET", "/users/me", other, "", "bff"), 200)
 	fresh, _, _ := issue(1)
 	expect(request(1, "GET", "/users/me", fresh, "", "bff"), 200)
-	// Authorization checked before revocation may finish; later checks must fail.
+	// Авторизация, проверенная до завершения отзыва, может пройти; последующие проверки должны падать.
 	inFlight, _, _ := issue(3)
 	entered, release := make(chan struct{}), make(chan struct{})
 	blocked, err := NewRouter(Server{UserHandler: userdelivery.NewHandler(&blockedCurrentUser{entered: entered, release: release})}, tokens, stores[1], "bff")

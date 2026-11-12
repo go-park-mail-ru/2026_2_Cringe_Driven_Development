@@ -19,10 +19,10 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
-// TOTP implements the Cellestial authenticator format and account-bound encryption.
+// TOTP реализует формат аутентификатора Cellestial и шифрование с привязкой к аккаунту.
 type TOTP struct{ aead cipher.AEAD }
 
-// NewTOTP requires a dedicated 256-bit encryption key.
+// NewTOTP требует выделенный 256-битный ключ шифрования.
 func NewTOTP(key []byte) (*TOTP, error) {
 	if len(key) != 32 {
 		return nil, errors.New("TOTP encryption key must contain 32 bytes")
@@ -38,7 +38,7 @@ func NewTOTP(key []byte) (*TOTP, error) {
 	return &TOTP{aead: aead}, nil
 }
 
-// NewSecret generates 160 random bits encoded as unpadded Base32.
+// NewSecret генерирует 160 случайных бит в Base32 без паддинга.
 func (*TOTP) NewSecret() (string, error) {
 	raw := make([]byte, 20)
 	if _, err := rand.Read(raw); err != nil {
@@ -47,7 +47,7 @@ func (*TOTP) NewSecret() (string, error) {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw), nil
 }
 
-// Setup renders the same secret for QR scanning and manual entry.
+// Setup отдаёт один и тот же секрет для сканирования QR и ручного ввода.
 func (*TOTP) Setup(secret, login string) (usecase.TwoFactorSetup, error) {
 	uri := url.URL{Scheme: "otpauth", Host: "totp", Path: "/Cellestial:" + login}
 	uri.RawQuery = url.Values{"secret": {secret}, "issuer": {"Cellestial"}, "algorithm": {"SHA1"}, "digits": {"6"}, "period": {"30"}}.Encode()
@@ -68,7 +68,7 @@ func (*TOTP) Setup(secret, login string) (usecase.TwoFactorSetup, error) {
 
 func totpAAD(id int64) []byte { return []byte("cellestial:totp:v1:" + strconv.FormatInt(id, 10)) }
 
-// Encrypt includes a format version and fresh nonce in each ciphertext.
+// Encrypt включает версию формата и свежий nonce в каждый шифротекст.
 func (s *TOTP) Encrypt(id int64, secret string) ([]byte, error) {
 	nonce := make([]byte, s.aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
@@ -78,7 +78,7 @@ func (s *TOTP) Encrypt(id int64, secret string) ([]byte, error) {
 	return s.aead.Seal(prefix, nonce, []byte(secret), totpAAD(id)), nil
 }
 
-// Decrypt rejects ciphertext belonging to another account or encryption key.
+// Decrypt отклоняет шифротекст другого аккаунта или другого ключа шифрования.
 func (s *TOTP) Decrypt(id int64, ciphertext []byte) (string, error) {
 	n := s.aead.NonceSize()
 	if len(ciphertext) < 1+n+s.aead.Overhead() || ciphertext[0] != 1 {
@@ -91,7 +91,7 @@ func (s *TOTP) Decrypt(id int64, ciphertext []byte) (string, error) {
 	return string(plain), nil
 }
 
-// Match returns the matching step so persistence can atomically prevent replay.
+// Match возвращает совпавший шаг, чтобы хранилище могло атомарно предотвратить повтор.
 func (*TOTP) Match(secret, code string, now time.Time) (int64, bool) {
 	if len(code) != 6 {
 		return 0, false

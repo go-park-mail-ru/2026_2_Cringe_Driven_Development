@@ -8,5 +8,5 @@ type Session struct {
 	AccessExpiresAt time.Time
 	AccessToken     string
 	RefreshToken    string
-	ExpiresAt       time.Time // Refresh-session expiry.
+	ExpiresAt       time.Time // Срок действия refresh-сессии.
 }

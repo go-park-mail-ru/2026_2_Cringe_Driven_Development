@@ -24,7 +24,7 @@ func TestAvatarConfiguration(t *testing.T) {
 			values := runtimeBase()
 			values["S3_AVATARS_BUCKET"] = tc.bucket
 			values["S3_AVATARS_PUBLIC_URL"] = tc.base
-			c, err := LoadFrom(settings(values))
+			c, err := LoadFrom(withFakeRuntime(values))
 			if (err == nil) != tc.valid {
 				t.Fatalf("valid=%v err=%v", tc.valid, err)
 			}

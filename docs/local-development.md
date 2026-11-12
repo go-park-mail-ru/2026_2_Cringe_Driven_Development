@@ -22,6 +22,8 @@ cp -n .env.example .env
 # Задайте JWT_SECRET и BFF_API_KEY: два разных случайных значения.
 # Например, каждое получите командой: openssl rand -hex 32
 # Задайте отдельный TOTP_ENCRYPTION_KEY: openssl rand -base64 32
+# Для запуска Go вне Compose задайте RUNTIME_PROVIDER=fake и отдельный
+# RUNTIME_SECRETS_KEY: openssl rand -base64 32 (Compose задаёт свой локальный ключ).
 make doctor
 make up           # PostgreSQL + Redis + SeaweedFS + API, health до 120 секунд
 make health       # {"status": "alive"}; по умолчанию http://localhost:8080/health

@@ -20,8 +20,8 @@ from .test_integration import completed
 async def test_infra_firewall(settings):
     if os.environ.get("RUN_NETWORK_TESTS") != "1":
         pytest.skip("Run explicitly on a disposable VPS with infra firewall")
-    # Every endpoint must be a live listener reachable from the host, otherwise
-    # a closed port or broken route would give a false positive for isolation.
+    # Каждый эндпоинт должен быть живым слушателем, доступным с хоста, иначе
+    # закрытый порт или сломанный маршрут дали бы ложноположительную изоляцию.
     endpoints = json.loads(os.environ["NETWORK_BLOCKED_ENDPOINTS"])
     assert set(endpoints) == {"host", "backend", "other_vps", "metadata", "public_infra"}
     for endpoint in endpoints.values():
@@ -58,7 +58,7 @@ assert Path('/proc/sys/net/ipv6/conf/all/disable_ipv6').read_text().strip() == '
         agent.accept(command("policy", code, 120))
         result = await completed_with_deadline(agent, "policy", 150)
         assert result["state"] == "SUCCEEDED", result
-        # A peer on the bridge must not reach Jupyter or a user listener either.
+        # Пир в bridge-сети тоже не должен достучаться до Jupyter или пользовательского слушателя.
         container = await asyncio.to_thread(
             agent.containers.client.containers.get, agent.containers.name()
         )
@@ -73,7 +73,7 @@ assert Path('/proc/sys/net/ipv6/conf/all/disable_ipv6').read_text().strip() == '
             )
         )
         assert (await completed(agent, sid, "listener"))["state"] == "SUCCEEDED"
-        # Jupyter is the sole management exception for host -> container.
+        # Jupyter единственное служебное исключение для host -> container.
         with socket.create_connection((address, 8888), timeout=3):
             pass
         peer_code = f"""import socket

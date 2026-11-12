@@ -263,9 +263,11 @@ runtime-agent/dist/
 runtime-agent/**/__pycache__/
 runtime-agent/**/*.egg-info/
 
-# Superpowers plugin documentation
+# Документация плагина Superpowers
 docs/superpowers/
 
 
 # Redocly CLI для spec/openapi.json
 spec/node_modules/
+# Локальные метаданные Apidog CLI
+.apidog/

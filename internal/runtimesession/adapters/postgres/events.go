@@ -169,8 +169,8 @@ func (s *Store) Project(ctx context.Context) error {
 	applied := false
 	if latest == x.Attempt {
 		applied, e = s.applyOutput(ctx, tx, x)
-		// Unsupported JSONB values and a notebook size overflow are permanent
-		// projection conflicts; the lossless execution archive remains available.
+		// Неподдерживаемые значения JSONB и переполнение размера ноутбука считаются постоянными
+		// конфликты проекции; архив выполнения без потерь остаётся доступен.
 		if errors.Is(e, notebookusecase.ErrInvalidDocument) || errors.Is(e, notebookusecase.ErrTooLarge) {
 			applied = false
 			e = nil

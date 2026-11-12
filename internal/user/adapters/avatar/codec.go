@@ -1,4 +1,4 @@
-// Package avatar validates and re-encodes uploaded profile images.
+// Package avatar проверяет и перекодирует загруженные изображения профиля.
 package avatar
 
 import (
@@ -22,7 +22,7 @@ var (
 
 const maxInputSize int64 = 5 * 1024 * 1024
 
-// File owns a seekable sanitized image and removes it when closed.
+// File владеет seekable-очищенным изображением и удаляет его при закрытии.
 type File struct {
 	*os.File
 	ContentType string
@@ -30,7 +30,7 @@ type File struct {
 	closed      bool
 }
 
-// Close releases the file descriptor and removes the temporary image.
+// Close освобождает файловый дескриптор и удаляет временное изображение.
 func (f *File) Close() error {
 	if f.closed {
 		return nil
@@ -39,11 +39,11 @@ func (f *File) Close() error {
 	return errors.Join(f.File.Close(), os.Remove(f.Name()))
 }
 
-// Codec uses the standard library codecs without retaining the encoded upload.
+// Codec использует кодеки стандартной библиотеки, не удерживая закодированную загрузку.
 type Codec struct{}
 
-// Sanitize validates dimensions before decoding and strips metadata by re-encoding.
-// The caller owns the returned temporary file and must close it.
+// Sanitize проверяет размеры до декодирования и удаляет метаданные перекодированием.
+// Вызывающий владеет возвращённым временным файлом и обязан его закрыть.
 func (Codec) Sanitize(ctx context.Context, source io.ReadSeeker, contentType string) (_ *File, err error) {
 	if err = ctx.Err(); err != nil {
 		return nil, err

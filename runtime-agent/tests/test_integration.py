@@ -148,7 +148,7 @@ async def test_real_execution_inspection_interrupt_restart(real_agent):
     error_code = "raise ValueError('expected')"
     agent.accept(command("error", error_code))
     assert (await completed(agent, sid, "error"))["state"] == "FAILED"
-    # Large real Python exceptions must not bypass the persistent budget via reply.
+    # Большие настоящие исключения Python не должны обходить постоянный бюджет через reply.
     previous = session.settings
     session.settings = replace(previous, max_output_bytes=1024)
     large_error = "raise ValueError('x' * 200000)"
@@ -184,7 +184,7 @@ async def test_real_execution_inspection_interrupt_restart(real_agent):
     assert generation != session.generation
     agent.accept(command("cleared", "x"))
     assert (await completed(agent, sid, "cleared"))["state"] == "FAILED"
-    # Kill the process directly to exercise kernel death before an execute_reply.
+    # Убиваем процесс напрямую, чтобы проверить смерть ядра до execute_reply.
     agent.accept(command("crash", "import os; os._exit(1)"))
     assert (await completed(agent, sid, "crash"))["state"] == "UNKNOWN"
     async with asyncio.timeout(10):
@@ -233,6 +233,10 @@ async def test_docker_limits_no_mounts_and_permission_tampering(docker_settings)
         assert config["Memory"] == config["MemorySwap"] == 1024**3
         assert config["NanoCpus"] == 1_000_000_000
         assert config["PidsLimit"] == 128
+        assert config["Tmpfs"]["/packages"] == "rw,exec,nosuid,nodev,size=512m,mode=1777"
+        env = container.attrs["Config"]["Env"]
+        assert "PYTHONUSERBASE=/packages" in env
+        assert "PIP_NO_CACHE_DIR=1" in env
         assert not config.get("Binds")
         assert not config.get("PortBindings")
         assert container.attrs["Config"]["User"] == "65532:65532"
@@ -243,11 +247,14 @@ assert 'RUNTIME_TOKEN' not in os.environ
 assert not Path('/var/run/docker.sock').exists()
 assert not Path('/control').exists()
 assert not Path('/var/lib/cellestial-agent').exists()
+import site, sys
+assert site.getusersitepackages().startswith('/packages/')
+assert site.getusersitepackages() in sys.path
 for base in ('/workspace', '/tmp'):
     directory = Path(base) / 'hostile'
     directory.mkdir()
     os.chmod(directory, 0)
-# The root-owned tmpfs mount itself is not owned by the kernel user.
+# Сама точка монтирования tmpfs принадлежит root, а не пользователю ядра.
 try:
     os.chmod('/workspace', 0)
 except PermissionError:
@@ -300,7 +307,7 @@ async def test_docker_recovery_removes_only_owned_containers(docker_settings):
         async with asyncio.timeout(5):
             while not runtime.active:
                 await asyncio.sleep(0.01)
-        # Simulate process loss without graceful container removal or completed journal state.
+        # Симулируем потерю процесса без удаления контейнера и без завершения журнала.
         tasks = [agent.monitor, runtime.worker, runtime.reader]
         for task in tasks:
             task.cancel()

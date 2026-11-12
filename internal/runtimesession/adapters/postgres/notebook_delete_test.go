@@ -45,7 +45,7 @@ func TestNotebookDeletionAndSessionStartSerialize(t *testing.T) {
 	}
 }
 
-// A rejected command never enters the projection queue, even if its display flag is pending.
+// Отклонённая команда никогда не попадает в очередь проекции, даже если её флаг отображения ожидает.
 func TestNotebookDeletionAfterRejectedExecution(t *testing.T) {
 	s, pool, owner, id := integrationStore(t)
 	ctx := context.Background()

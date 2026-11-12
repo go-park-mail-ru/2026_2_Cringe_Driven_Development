@@ -30,7 +30,7 @@ type DB interface {
 type Store struct {
 	// db Подключение к PostgreSQL.
 	db DB
-	// notebooks shares the transaction used to publish cell results.
+	// notebooks использует ту же транзакцию, что и публикация результатов ячеек.
 	notebooks *notebookpostgres.NotebookRepository
 }
 
@@ -298,7 +298,7 @@ func (s *Store) Active(ctx context.Context, owner int64) (*domain.Session, error
 	return &v, nil
 }
 
-// ActiveNotebook supplies notebook summaries from the same authoritative session state.
+// ActiveNotebook отдаёт сводки ноутбуков из того же авторитетного состояния сессий.
 func (s *Store) ActiveNotebook(ctx context.Context, owner int64) (int64, error) {
 	session, err := s.Active(ctx, owner)
 	if err != nil {

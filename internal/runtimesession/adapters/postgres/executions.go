@@ -257,7 +257,7 @@ func (s *Store) SaveExecution(ctx context.Context, l domain.Lease, x domain.Exec
 	return tx.Commit(ctx)
 }
 
-// readCell runs under the caller's notebook lock and never reads outputs or attachments.
+// readCell работает под блокировкой ноутбука вызывающего и никогда не читает outputs и attachments.
 func readCell(ctx context.Context, tx pgx.Tx, notebookID int64, cellID string) (code, version string, position int, err error) {
 	var kind string
 	err = tx.QueryRow(ctx, `SELECT source,source_version,position,kind FROM notebook_cells WHERE notebook_id=$1 AND cell_id=$2`, notebookID, cellID).Scan(&code, &version, &position, &kind)

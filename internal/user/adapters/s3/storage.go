@@ -1,4 +1,4 @@
-// Package s3 streams sanitized avatar files to S3-compatible storage.
+// Package s3 потоково отправляет очищенные файлы аватаров в S3-совместимое хранилище.
 package s3
 
 import (
@@ -14,18 +14,18 @@ import (
 
 const operationTimeout = 5 * time.Second
 
-// Storage keeps avatar objects in one bucket.
+// Storage хранит объекты аватаров в одном бакете.
 type Storage struct {
 	client *awss3.Client
 	bucket string
 }
 
-// NewStorage binds the existing AWS client to the avatars bucket.
+// NewStorage привязывает существующий AWS-клиент к бакету аватаров.
 func NewStorage(client *awss3.Client, bucket string) *Storage {
 	return &Storage{client: client, bucket: bucket}
 }
 
-// Put streams a seekable, known-size image without buffering it in memory.
+// Put потоково отправляет seekable-изображение известного размера без буферизации в памяти.
 func (s *Storage) Put(ctx context.Context, key string, body io.ReadSeeker, size int64, contentType string) error {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
@@ -44,7 +44,7 @@ func (s *Storage) Put(ctx context.Context, key string, body io.ReadSeeker, size 
 	return nil
 }
 
-// Delete removes one object; mutations are never automatically retried.
+// Delete удаляет один объект; мутации никогда не повторяются автоматически.
 func (s *Storage) Delete(ctx context.Context, key string) error {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)

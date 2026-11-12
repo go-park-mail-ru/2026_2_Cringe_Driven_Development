@@ -80,7 +80,19 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install Redis CLI for recovery runbook tests
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+        # redis-cli берём из уже скачанного образа service-контейнера: apt-зеркала Ubuntu на runner часто не резолвятся.
+        run: |
+          printf '%s\n' '#!/bin/sh' 'exec docker run --rm -i --network host -e REDISCLI_AUTH redis:8-alpine redis-cli "$@"' |
+            sudo tee /usr/local/bin/redis-cli > /dev/null
+          sudo chmod +x /usr/local/bin/redis-cli
+          redis-cli -h 127.0.0.1 ping
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install release callback test tools
+        run: python -m pip install ansible-core==2.19.7
+      - name: Release producer contract tests
+        run: python3 -m unittest discover -s scripts/release/tests -v
       - name: Check dependencies
         run: go mod tidy -diff
       - name: Build
@@ -202,7 +214,7 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           flavor: latest=false
           tags: |
-            type=sha,format=short
+            type=sha,format=long
             type=raw,value=pr-${{ steps.ref.outputs.name }}-{{sha}},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=main,enable=${{ github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           labels: |
@@ -247,7 +259,7 @@ jobs:
           jq '{visibility, repository: .repository.full_name}' <<< "$metadata"
           docker_config=$(mktemp -d)
           trap 'rm -rf "$docker_config"' EXIT
-          docker --config "$docker_config" manifest inspect "$BACKEND_IMAGE_REF" > /dev/null
+          docker --config "$docker_config" pull --platform linux/amd64 "$BACKEND_IMAGE_REF"
 
   deploy:
     name: deploy
@@ -255,8 +267,12 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     permissions:
       contents: read
+      actions: read
+      deployments: write
     uses: ./.github/workflows/cd.yml
     with:
+      action: deploy
+      target_sha: ${{ github.sha }}
       backend_image_ref: ${{ needs.docker.outputs.image_ref }}
     secrets: inherit
 

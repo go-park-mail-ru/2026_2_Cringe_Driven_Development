@@ -28,7 +28,7 @@ check-fast:
 	test -z "$$files" || { printf '%s\n' "$$files"; exit 1; }
 	go vet ./...
 
-check: check-fast
+check: release-check check-fast
 	go mod tidy -diff
 	go build ./...
 	$(MAKE) test
@@ -90,7 +90,7 @@ migrate-status:
 migrate-down:
 	$(GOOSE) -dir migrations postgres "$(DB_URL)" down
 
-# Runtime agent is an independent Python project; Go commands stay unchanged.
+# Runtime agent является отдельным Python-проектом, Go-команды не меняются.
 AGENT_PYTHON ?= python3.13
 AGENT_VENV ?= $(CURDIR)/runtime-agent/.venv
 AGENT_BIN := $(AGENT_VENV)/bin
@@ -121,7 +121,7 @@ agent-images:
 agent-integration:
 	cd runtime-agent && RUN_DOCKER_TESTS=1 $(AGENT_BIN)/python -m pytest -q -m docker
 
-# Requires infra-provisioned firewall and live probe endpoints; never runs in regular CI.
+# Требует файрвол из infra и живые probe-эндпоинты; в обычном CI не запускается.
 agent-network-check:
 	cd runtime-agent && RUN_NETWORK_TESTS=1 $(AGENT_BIN)/python -m pytest -q -m network
 
@@ -129,8 +129,12 @@ agent-network-check:
 generate-mocks:
 	bash scripts/generate-mocks.sh
 
-# Dedicated real Redis; explicit address makes failures fatal, never skipped.
+# Выделенный настоящий Redis; явный адрес делает ошибки фатальными, тесты не пропускаются.
 .PHONY: redis-test
 redis-test:
 	@test -n "$(REDIS_TEST_ADDR)" || (echo 'set REDIS_TEST_ADDR=host:port'; exit 1)
 	go test -race -count=1 ./internal/user/adapters/redis ./internal/transport/http
+
+.PHONY: release-check
+release-check:
+	python3 -m unittest discover -s scripts/release/tests -v

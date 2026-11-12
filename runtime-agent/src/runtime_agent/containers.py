@@ -168,10 +168,14 @@ class Containers:
                         tmpfs={
                             "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
                             "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
+                            # Docker tmpfs defaults to noexec; C extensions (numpy) need mmap exec.
+                            "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
                         },
                         environment={
                             "JUPYTER_TOKEN": token,
                             "HOME": "/tmp",
+                            "PYTHONUSERBASE": "/packages",
+                            "PIP_NO_CACHE_DIR": "1",
                             "JUPYTER_RUNTIME_DIR": "/tmp/jupyter",
                             "JUPYTER_CONFIG_DIR": "/tmp/config",
                         },
@@ -198,8 +202,8 @@ class Containers:
             except Exception:
                 if not isinstance(startup_error, asyncio.CancelledError):
                     raise
-                # Preserve cancellation; the owning runtime retries cleanup and
-                # records cleanup_failed before the journal is closed.
+                # Сохраняем отмену; владеющий runtime повторяет очистку и
+                # записывает cleanup_failed до закрытия журнала.
                 log.exception("Container cleanup failed after cancelled startup")
             raise startup_error
 

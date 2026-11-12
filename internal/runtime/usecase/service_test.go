@@ -11,14 +11,14 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func newSvc(t *testing.T, enabled bool) (*Service, *MockEnvironmentRepository) {
+func newSvc(t *testing.T) (*Service, *MockEnvironmentRepository) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockEnvironmentRepository(ctrl)
-	return NewService(repo, Settings{Enabled: enabled, MaxActive: 3, AgentVersion: "1.2.3", Profiles: map[string]bool{"default": true}}), repo
+	return NewService(repo, Settings{MaxActive: 3, AgentVersion: "1.2.3", Profiles: map[string]bool{"default": true}}), repo
 }
 
 func TestRequestCreateNew(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	id := uuid.New()
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).DoAndReturn(
 		func(_ context.Context, e domain.Environment, _ int) (domain.Environment, bool, error) {
@@ -59,7 +59,7 @@ func existing(state domain.State, lang string) domain.Environment {
 }
 
 func TestRequestCreateSameParamsReturnsExisting(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	ex := existing(domain.StateCreating, "python")
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).Return(ex, false, nil)
 	env, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: ex.SessionID, Language: "python", Profile: "default"})
@@ -72,7 +72,7 @@ func TestRequestCreateSameParamsReturnsExisting(t *testing.T) {
 }
 
 func TestRequestCreateDifferentParamsConflict(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	ex := existing(domain.StateCreating, "python")
 	ex.Profile = "gpu"
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).Return(ex, false, nil)
@@ -83,7 +83,7 @@ func TestRequestCreateDifferentParamsConflict(t *testing.T) {
 }
 
 func TestRequestCreateFinishedReturnedAsIs(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	ex := existing(domain.StateDeleted, "python")
 	repo.EXPECT().CreateWithJob(gomock.Any(), gomock.Any(), 3).Return(ex, false, nil)
 	env, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: ex.SessionID, Language: "python"})
@@ -97,7 +97,7 @@ func TestRequestCreateFinishedReturnedAsIs(t *testing.T) {
 
 // Поддерживается только python: другие языки, включая r, отклоняются до записи в БД.
 func TestRequestCreateInvalidLanguage(t *testing.T) {
-	svc, _ := newSvc(t, true)
+	svc, _ := newSvc(t)
 	for _, lang := range []string{"julia", "r"} {
 		_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: lang})
 		if !errors.Is(err, ErrInvalidLanguage) {
@@ -107,7 +107,7 @@ func TestRequestCreateInvalidLanguage(t *testing.T) {
 }
 
 func TestRequestCreateNilSession(t *testing.T) {
-	svc, _ := newSvc(t, true) // repo без ожиданий: вызов CreateWithJob провалит тест
+	svc, _ := newSvc(t) // repo без ожиданий: вызов CreateWithJob провалит тест
 	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.Nil, Language: "python"})
 	if gotErr := err; !errors.Is(gotErr, ErrInvalidSession) {
 		t.Fatalf("got %v, want %v", gotErr, ErrInvalidSession)
@@ -115,23 +115,15 @@ func TestRequestCreateNilSession(t *testing.T) {
 }
 
 func TestRequestCreateUnknownProfile(t *testing.T) {
-	svc, _ := newSvc(t, true)
+	svc, _ := newSvc(t)
 	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "python", Profile: "big"})
 	if gotErr := err; !errors.Is(gotErr, ErrUnknownProfile) {
 		t.Fatalf("got %v, want %v", gotErr, ErrUnknownProfile)
 	}
 }
 
-func TestRequestCreateDisabled(t *testing.T) {
-	svc, _ := newSvc(t, false)
-	_, err := svc.RequestCreate(context.Background(), CreateEnvironment{SessionID: uuid.New(), Language: "python"})
-	if gotErr := err; !errors.Is(gotErr, ErrDisabled) {
-		t.Fatalf("got %v, want %v", gotErr, ErrDisabled)
-	}
-}
-
 func TestRequestDeleteIdempotent(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	id := uuid.New()
 	repo.EXPECT().MarkForDelete(gomock.Any(), id, "why").Return(nil).Times(2)
 	if gotErr := svc.RequestDelete(context.Background(), id, "why"); gotErr != nil {
@@ -143,7 +135,7 @@ func TestRequestDeleteIdempotent(t *testing.T) {
 }
 
 func TestRequestDeleteNotFound(t *testing.T) {
-	svc, repo := newSvc(t, true)
+	svc, repo := newSvc(t)
 	id := uuid.New()
 	repo.EXPECT().MarkForDelete(gomock.Any(), id, "x").Return(ErrNotFound)
 	if gotErr := svc.RequestDelete(context.Background(), id, "x"); !errors.Is(gotErr, ErrNotFound) {
