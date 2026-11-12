@@ -6,7 +6,7 @@
 
 Для поиска контекста начни с `openwiki_search`, затем `openwiki_read` с ID wiki из результата; если ответа достаточно и нет противоречий, остановись. Не загружай wiki при старте; для простой правки известного файла поиск не обязателен.
 Корень checkout: `git rev-parse --show-toplevel`; проверь `origin`: `Cringe-Driven-Development-Team/backend`. При обычном чтении опубликованная wiki считается актуальной; её актуальность обеспечивает процесс обновления и публикации. Не проверяй свежесть, не сравнивай SHA и не делай fetch или grep по исходникам ради перепроверки ответа.
-Конкретный исходник нужен при пробеле, противоречии или для правки; явные ошибки инструментов не игнорируй. Без wiki читай README, docs и исходники. Изменения HTTP-контракта сверяй с Apidog.
+Конкретный исходник нужен при пробеле, противоречии или для правки; явные ошибки инструментов не игнорируй. Без wiki читай README, docs и исходники. HTTP-контракт — `spec/openapi.json`.
 Для межрепозиторных вопросов используй общий workspace соседних `docs`, `frontend`, `backend`, `infra`: настройка — в README docs. При нескольких пространствах проверь `openwiki workspace current`, выбери через `openwiki workspace use`. В `openwiki_read` передавай ID wiki из результата; не считай чужую страницу локальной.
 Карта владения — docs, клиент/BFF — frontend, выкладка — infra; внутренности `@cdd-team/*` — frontend-packages по карте docs.
 Без MCP читай quickstart и нужную Markdown-страницу с тем же правилом остановки, локально или на GitHub: https://github.com/Cringe-Driven-Development-Team/backend/tree/main/openwiki. Соседний docs из worktree: `git -C "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../docs" rev-parse --show-toplevel`.
@@ -44,7 +44,7 @@
   Агент ждёт с готовым kernel; сессию назначает Go API (`POST /assign`). SQLite и токен — только на хосте.
   Jupyter — закрытый TCP без host mounts; сеть и firewall реализует infra (роль `runtime_host`) по docs/runtime-agent-network.md.
 
-Нужны Go, C-компилятор (`-race`), Make, curl, Docker с Compose. `.env` — см. [.env.example](.env.example). Команды из корня:
+Нужны Go, C-компилятор (`-race`), Make, curl, Node.js ≥ 22.12 с npm, Docker с Compose. `.env` — см. [.env.example](.env.example). Команды из корня:
 
 ```bash
 go mod download       # скачать зависимости
@@ -55,7 +55,7 @@ make lint             # статический анализ
 make docker-build     # собрать colab-backend:local
 make doctor           # инструменты, настройки и GitHub-доступы; ничего не меняет
 make check-fast       # gofmt и go vet; затем тесты изменённого пакета
-make check            # tidy, сборка всех пакетов, race-тесты, lint перед PR
+make check            # tidy, сборка всех пакетов, race-тесты, lint, contract-check перед PR
 make up               # собрать и запустить API, PostgreSQL, Redis, SeaweedFS; ждать health
 make health           # GET /health; make logs — последние логи; make down — остановка
 make run              # то же окружение с логами в терминале
@@ -64,7 +64,7 @@ make agent-images agent-integration # Docker-образ kernel Python и инт�
 make agent-network-check # отдельная VPS с firewall infra; не обычный CI. smoke: — docs/runtime-provisioning.md
 ```
 
-`make test` и CI используют `scripts/test.sh`: тестируются все пакеты с `-race -count=1 -coverpkg=./...` (включая вызовы из тестов других пакетов). Из `coverage.out` исключаются `internal/transport/http/api`, `cmd/apidog`, `migrations` и `cmd/main`. Логика приложения в `internal/app` учитывается. Последняя строка — итоговое покрытие; CI пишет ту же строку в summary. Цель — ≥50%, автоматического порога нет. Отчёт: `go tool cover -func=coverage.out`.
+`make test` и CI используют `scripts/test.sh`: тестируются все пакеты с `-race -count=1 -coverpkg=./...` (включая вызовы из тестов других пакетов). Из `coverage.out` исключаются `internal/transport/http/api`, `migrations` и `cmd/main`. Логика приложения в `internal/app` учитывается. Последняя строка — итоговое покрытие; CI пишет ту же строку в summary. Цель — ≥50%, автоматического порога нет. Отчёт: `go tool cover -func=coverage.out`.
 
 Запускай клиент агента из корня backend с `go.mod`, включая отдельный worktree.
 Настройка Codex/Claude Code, gopls и сценарий новой сессии — в
@@ -90,8 +90,8 @@ Pyright с Python из `runtime-agent/.venv` и тесты агента. Без 
 реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.
 Сессии и лимиты входа/2FA — Redis primary; пользователи и зашифрованные TOTP-секреты — PostgreSQL; [runbook](docs/redis-sessions.md).
 Блокноты: PostgreSQL по ячейкам, токен редакции и размеры — docs/notebook-editing.md; однократный сброс БД вместо переноса — docs/database-reset.md.
-`internal/tooling/apidog` — экспорт контракта; `migrations` — встроенные goose SQL.
-`internal/transport/http/api/api.gen.go` не редактируй вручную. Контракт и `make generate` описаны в [docs/apidog.md](docs/apidog.md).
+`migrations` — встроенные goose SQL. `api.gen.go` не редактируй: правь только `spec/openapi.json` ([docs/openapi.md](docs/openapi.md)), затем `make generate` (Redocly + oapi-codegen); контракт и код — в одном PR, skills `redocly-cli`/`redocly-lint-rules`.
+Схемы — components/`$ref`, `additionalProperties` явно, подмножество генератора frontend-packages#63, валидные примеры и default; неподдержанное ограничение — сначала в генератор, молча не ослабляй. oasdiff — по желанию.
 
 Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → ограничение тела блокнотов (512 КиБ) и аватаров (6 МиБ) → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
 

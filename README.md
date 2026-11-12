@@ -8,7 +8,6 @@ Backend проекта «Colab» (Cellestial) команды «Cringe Driven Dev
 [![Доска задач](https://img.shields.io/badge/Доска_задач-1F6FEB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
 [![Макеты в Figma](https://img.shields.io/badge/Макеты-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/design/7iaVDGiwzQk2vZIB5ogVlq/Colab)
 [![Документация](https://img.shields.io/badge/Документация-5C73E7?style=for-the-badge&logo=vitepress&logoColor=white)](https://docs.cellestial.ru/documentation/)
-[![Контракт API в Apidog](.github/assets/apidog-badge.svg)](https://vb78fyael1.apidog.io/)
 [![Фронтенд](https://img.shields.io/badge/Фронтенд-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/Cringe-Driven-Development-Team/frontend)
 
 ## Навигация
@@ -18,7 +17,7 @@ Backend проекта «Colab» (Cellestial) команды «Cringe Driven Dev
   - [Проверки перед PR](docs/local-development.md#проверки-перед-pr)
 - 📚 Документация
   - [Локальная разработка](docs/local-development.md)
-  - [Контракт API](docs/apidog.md)
+  - [Контракт API (OpenAPI)](docs/openapi.md)
   - [Окружения и исполнение Python](docs/runtime-sessions.md)
   - [CI и выкатка](docs/release.md)
   - [Архитектура проекта](https://docs.cellestial.ru/documentation/architecture/)

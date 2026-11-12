@@ -1,4 +1,4 @@
-.PHONY: doctor check-fast check up health logs down lint lint-fix test build run docker-build generate migrate-new migrate-status migrate-down
+.PHONY: doctor check-fast check up health logs down lint lint-fix test build run docker-build generate contract-tools contract-lint contract-check migrate-new migrate-status migrate-down
 
 BIN_DIR := ./bin
 LINT_BIN := $(BIN_DIR)/golangci-lint
@@ -33,6 +33,7 @@ check: release-check check-fast
 	go build ./...
 	$(MAKE) test
 	$(MAKE) lint
+	$(MAKE) contract-check
 
 up:
 	docker compose up --build --wait --wait-timeout 120
@@ -54,11 +55,24 @@ docker-build:
 		--build-arg RUNTIME_PYTHON_IMAGE=cellestial-kernel-python:local \
 		--build-arg RUNTIME_AGENT_VERSION=local .
 
-SPEC_FILE := internal/transport/http/api/openapi.yaml
+# Контракт: spec/openapi.json — единственный исходник; Redocly закреплён в spec/package-lock.json.
+REDOCLY := spec/node_modules/.bin/redocly
 
-generate:
-	go run ./cmd/apidog -o $(SPEC_FILE)
-	cd internal/transport/http/api && go tool oapi-codegen -config cfg.yaml openapi.yaml
+$(REDOCLY): spec/package.json spec/package-lock.json
+	npm ci --prefix spec --no-audit --no-fund
+	touch $@
+
+contract-tools: $(REDOCLY)
+
+contract-lint: $(REDOCLY)
+	$(REDOCLY) lint spec/openapi.json --config spec/redocly.yaml
+
+generate: contract-lint
+	cd internal/transport/http/api && go tool oapi-codegen -config cfg.yaml ../../../../spec/openapi.json
+
+# Generated-код должен совпадать с контрактом в том же коммите.
+contract-check: generate
+	git diff --exit-code -- internal/transport/http/api
 
 -include .env
 

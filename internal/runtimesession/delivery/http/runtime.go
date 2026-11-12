@@ -46,7 +46,7 @@ type Usecase interface {
 	Stop(context.Context, int64, uuid.UUID) error
 }
 
-// Handler переводит пользовательские HTTP-запросы в сценарии runtime и собирает ответы по контракту Apidog.
+// Handler переводит пользовательские HTTP-запросы в сценарии runtime и собирает ответы по контракту spec/openapi.json.
 type Handler struct{ uc Usecase }
 
 // NewHandler подключает сценарии runtime-сессий к сгенерированному HTTP-интерфейсу.

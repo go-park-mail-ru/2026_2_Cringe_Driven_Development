@@ -7,7 +7,7 @@ trap 'rm -rf "$coverage_dir"' EXIT
 # Прогоняем все пакеты, затем исключаем сгенерированный код и утилиты только из покрытия.
 go test -race -count=1 -coverpkg=./... -coverprofile="$coverage_dir/raw.out" ./...
 # cmd/main только запускает приложение; internal/app остаётся в отчёте.
-awk 'NR == 1 || $1 !~ /\/(internal\/transport\/http\/api|cmd\/main|cmd\/apidog|migrations)\//' \
+awk 'NR == 1 || $1 !~ /\/(internal\/transport\/http\/api|cmd\/main|migrations)\//' \
   "$coverage_dir/raw.out" > coverage.out
 
 go tool cover -func=coverage.out > "$coverage_dir/summary.txt"

@@ -1,0 +1,22 @@
+extends:
+  - recommended-strict
+rules:
+  # Учебный проект без лицензии в контракте.
+  info-license: off
+  # Conflict из исходного снимка сохранён для генерации frontend.
+  no-unused-components: warn
+  # Пути относительны /api/v1; базовый URL задают BFF и Go, а не контракт.
+  no-empty-servers: off
+  no-invalid-media-type-examples:
+    severity: error
+    allowAdditionalProperties: false
+  no-invalid-parameter-examples:
+    severity: error
+    allowAdditionalProperties: false
+  no-invalid-schema-examples:
+    severity: error
+    allowAdditionalProperties: false
+plugins:
+  - ./plugins/defaults.js
+preprocessors:
+  cdd/default-as-example: on

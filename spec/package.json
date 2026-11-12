@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Pinned Redocly CLI for spec/openapi.json",
+  "devDependencies": {
+    "@redocly/cli": "2.77.0"
+  }
+}
