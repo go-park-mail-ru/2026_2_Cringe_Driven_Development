@@ -31,7 +31,7 @@ func TestUpdateCurrentUserValidation(t *testing.T) {
 }
 
 func TestChangePasswordValidation(t *testing.T) {
-	for _, p := range []string{"short", strings.Repeat("a", 73), strings.Repeat("я", 37), "password123"} {
+	for _, p := range []string{"short", strings.Repeat("a", 73), strings.Repeat("я", 8), "pass word123", "password\n123", "password123"} {
 		t.Run(p, func(t *testing.T) {
 			f := newUserFixture(t)
 			err := f.uc.ChangeCurrentUserPassword(context.Background(), 7, "password123", p)

@@ -30,7 +30,8 @@ func TestUserUsecaseRegister(t *testing.T) {
 	}{
 		{"успех", "alice", `a<&>"'12345`, nil},
 		{"логин занят в другом регистре", "BOB", "password123", ErrLoginTaken},
-		{"пароль длиннее 72 байт", "cyr", strings.Repeat("я", 72), ErrPasswordTooLong},
+		{"пароль не ASCII", "cyr", strings.Repeat("я", 8), ErrValidation},
+		{"пароль с пробелом", "alice", "pass word123", ErrValidation},
 		{"ошибка хранилища", "alice", "password123", failure},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -38,7 +39,7 @@ func TestUserUsecaseRegister(t *testing.T) {
 			type requestKey struct{}
 			ctx := context.WithValue(context.Background(), requestKey{}, tc.name)
 			want := domain.User{ID: 7, Login: tc.login}
-			if !errors.Is(tc.want, ErrPasswordTooLong) {
+			if !errors.Is(tc.want, ErrValidation) {
 				hash := f.passwords.EXPECT().Hash(tc.password).Return("password-hash", nil)
 				created := f.users.EXPECT().CreateUser(ctx, tc.login, "password-hash").Return(want, tc.want).After(hash)
 				if tc.want == nil {
