@@ -34,49 +34,55 @@ func encoded(t *testing.T, width, height int, format string) []byte {
 }
 
 func TestSanitizePNGFlattensAlphaAndRemovesMetadata(t *testing.T) {
-	input := encoded(t, 200, 200, "png")
-	// Валидный вспомогательный текстовый чанк не должен пережить перекодирование.
-	chunk := []byte("tEXtprivate\x00secret")
-	var metadata bytes.Buffer
-	_ = binary.Write(&metadata, binary.BigEndian, uint32(len(chunk)-4))
-	metadata.Write(chunk)
-	_ = binary.Write(&metadata, binary.BigEndian, crc32.ChecksumIEEE(chunk))
-	input = append(append(append([]byte{}, input[:33]...), metadata.Bytes()...), input[33:]...)
-	f, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(input), "image/png")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := f.Name()
-	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st.Mode().Perm() != 0600 || f.Size != st.Size() || f.ContentType != "image/png" {
-		t.Fatalf("file metadata: mode=%v size=%d stat=%d type=%s", st.Mode(), f.Size, st.Size(), f.ContentType)
-	}
-	output, err := io.ReadAll(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(output, []byte("secret")) {
-		t.Fatal("metadata survived")
-	}
-	img, err := png.Decode(bytes.NewReader(output))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := color.NRGBAModel.Convert(img.At(1, 1)).(color.NRGBA); got != (color.NRGBA{255, 255, 255, 255}) {
-		t.Fatalf("transparent pixel = %v", got)
-	}
-	if got := color.NRGBAModel.Convert(img.At(0, 0)).(color.NRGBA); got != (color.NRGBA{255, 127, 127, 255}) {
-		t.Fatalf("translucent pixel = %v", got)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(name); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("temporary file retained: %v", err)
+	for _, size := range []image.Point{{64, 64}, {200, 200}} {
+		t.Run(size.String(), func(t *testing.T) {
+			input := encoded(t, size.X, size.Y, "png")
+			// Валидный вспомогательный текстовый чанк не должен пережить перекодирование.
+			chunk := []byte("tEXtprivate\x00secret")
+			var metadata bytes.Buffer
+			_ = binary.Write(&metadata, binary.BigEndian, uint32(len(chunk)-4))
+			metadata.Write(chunk)
+			_ = binary.Write(&metadata, binary.BigEndian, crc32.ChecksumIEEE(chunk))
+			input = append(append(append([]byte{}, input[:33]...), metadata.Bytes()...), input[33:]...)
+			f, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(input), "image/png")
+			if err != nil {
+				t.Fatal(err)
+			}
+			name := f.Name()
+			defer f.Close()
+			st, err := f.Stat()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if st.Mode().Perm() != 0600 || f.Size != st.Size() || f.ContentType != "image/png" {
+				t.Fatalf("file metadata: mode=%v size=%d stat=%d type=%s", st.Mode(), f.Size, st.Size(), f.ContentType)
+			}
+			output, err := io.ReadAll(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Contains(output, []byte("secret")) {
+				t.Fatal("metadata survived")
+			}
+			img, err := png.Decode(bytes.NewReader(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if size.X > 1 {
+				if got := color.NRGBAModel.Convert(img.At(1, 1)).(color.NRGBA); got != (color.NRGBA{255, 255, 255, 255}) {
+					t.Fatalf("transparent pixel = %v", got)
+				}
+			}
+			if got := color.NRGBAModel.Convert(img.At(0, 0)).(color.NRGBA); got != (color.NRGBA{255, 127, 127, 255}) {
+				t.Fatalf("translucent pixel = %v", got)
+			}
+			if err := f.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(name); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("temporary file retained: %v", err)
+			}
+		})
 	}
 }
 
@@ -108,63 +114,155 @@ func TestSanitizeRejectsInvalidInputs(t *testing.T) {
 }
 
 func TestSanitizeDimensionBoundaries(t *testing.T) {
-	for _, size := range []image.Point{{199, 200}, {200, 199}, {200, 200}, {4096, 200}, {200, 4096}, {4097, 200}, {200, 4097}} {
-		t.Run(size.String(), func(t *testing.T) {
-			f, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(encoded(t, size.X, size.Y, "png")), "image/png")
-			valid := size.X >= 200 && size.Y >= 200 && size.X <= 4096 && size.Y <= 4096
-			if !valid {
-				if !errors.Is(err, ErrInvalidImage) {
-					t.Fatalf("error=%v", err)
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{64, 64}, {64, 199}, {199, 64}, {199, 300}, {300, 199}, {64, 4096}, {4096, 64}, {200, 200}, {4096, 200}, {200, 4096}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				f, err := (Codec{}).Sanitize(t.Context(), bytes.NewReader(encoded(t, size.X, size.Y, format)), "image/"+format)
+				if err != nil {
+					t.Fatal(err)
 				}
-				return
+				defer f.Close()
+				name := f.Name()
+				stat, err := f.Stat()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if f.ContentType != "image/"+format || f.Size <= 0 || f.Size != stat.Size() {
+					t.Fatal("invalid sanitized file metadata")
+				}
+				cfg, gotFormat, err := image.DecodeConfig(f)
+				if err != nil || cfg.Width != size.X || cfg.Height != size.Y || gotFormat != format {
+					t.Fatalf("resized or wrong format: %+v %s %v", cfg, gotFormat, err)
+				}
+				if _, err = f.Seek(0, io.SeekStart); err != nil {
+					t.Fatal(err)
+				}
+				if _, _, err = image.Decode(f); err != nil {
+					t.Fatal(err)
+				}
+				if err = f.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = os.Stat(name); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("temporary file retained: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestSanitizeRejectsDimensions(t *testing.T) {
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{1, 1}, {63, 200}, {200, 63}, {4097, 200}, {200, 4097}, {63, 64}, {64, 63}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				f, err := (Codec{}).Sanitize(t.Context(), bytes.NewReader(encoded(t, size.X, size.Y, format)), "image/"+format)
+				if f != nil {
+					_ = f.Close()
+					t.Fatal("out-of-range image produced file")
+				}
+				if !errors.Is(err, ErrInvalidImage) {
+					t.Fatalf("dimensions %v: %v", size, err)
+				}
+			})
+		}
+	}
+}
+
+// decodeGuardReader rejects the rewind that would start full image decoding.
+// DecodeConfig and MIME detection may read headers, without allocating pixel buffers.
+type decodeGuardReader struct {
+	*bytes.Reader
+	rewinds    int
+	fullDecode bool
+}
+
+func (r *decodeGuardReader) Seek(offset int64, whence int) (int64, error) {
+	if offset == 0 && whence == io.SeekStart {
+		r.rewinds++
+		if r.rewinds == 3 {
+			r.fullDecode = true
+			return 0, errors.New("unexpected full decode of invalid dimensions")
+		}
+	}
+	return r.Reader.Seek(offset, whence)
+}
+
+func TestSanitizeChecksDimensionsBeforeDecode(t *testing.T) {
+	for _, format := range []string{"png", "jpeg"} {
+		for _, size := range []image.Point{{63, 200}, {200, 63}, {4097, 200}, {200, 4097}} {
+			t.Run(format+size.String(), func(t *testing.T) {
+				source := &decodeGuardReader{Reader: bytes.NewReader(encoded(t, size.X, size.Y, format))}
+				f, err := (Codec{}).Sanitize(t.Context(), source, "image/"+format)
+				if f != nil {
+					_ = f.Close()
+					t.Fatal("invalid dimensions produced file")
+				}
+				if !errors.Is(err, ErrInvalidImage) || source.fullDecode {
+					t.Fatalf("rejection must precede full decode: fullDecode=%v err=%v", source.fullDecode, err)
+				}
+			})
+		}
+	}
+}
+
+func TestSanitizeRejectsInvalidImageData(t *testing.T) {
+	pngData := encoded(t, 200, 200, "png")
+	jpegData := encoded(t, 200, 200, "jpeg")
+	badHeader := bytes.Clone(pngData)
+	badHeader[29] ^= 0xff // Invalid IHDR CRC, without huge allocation.
+	for _, tc := range []struct {
+		name, mime  string
+		data        []byte
+		validHeader bool
+	}{
+		{"bad PNG header", "image/png", badHeader, false},
+		{"truncated PNG", "image/png", pngData[:len(pngData)-20], true},
+		{"truncated JPEG", "image/jpeg", jpegData[:len(jpegData)-20], true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.validHeader {
+				if _, _, err := image.DecodeConfig(bytes.NewReader(tc.data)); err != nil {
+					t.Fatal("fixture must have a valid header", err)
+				}
 			}
-			if err != nil {
-				t.Fatal(err)
+			f, err := (Codec{}).Sanitize(t.Context(), bytes.NewReader(tc.data), tc.mime)
+			if f != nil {
+				_ = f.Close()
+				t.Fatal("invalid image produced file")
 			}
-			defer f.Close()
-			cfg, err := png.DecodeConfig(f)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if cfg.Width != size.X || cfg.Height != size.Y {
-				t.Fatalf("resized: %v", cfg)
+			if !errors.Is(err, ErrInvalidImage) {
+				t.Fatalf("error=%v", err)
 			}
 		})
 	}
 }
 
-func TestSanitizeRejectsHugeConfigBeforeDecode(t *testing.T) {
-	data := encoded(t, 200, 200, "png")
-	binary.BigEndian.PutUint32(data[16:20], 0x7fffffff)
-	binary.BigEndian.PutUint32(data[29:33], crc32.ChecksumIEEE(data[12:29]))
-	_, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(data), "image/png")
-	if !errors.Is(err, ErrInvalidImage) {
-		t.Fatalf("error=%v", err)
-	}
-}
-
 func TestSanitizeJPEGRemovesComment(t *testing.T) {
-	data := encoded(t, 200, 200, "jpeg")
-	marker := []byte{0xff, 0xfe, 0, 8, 's', 'e', 'c', 'r', 'e', 't'}
-	data = append(append(append([]byte{}, data[:2]...), marker...), data[2:]...)
-	f, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(data), "image/jpeg")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	output, err := io.ReadAll(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(output, []byte("secret")) {
-		t.Fatal("JPEG comment survived")
-	}
-	cfg, err := jpeg.DecodeConfig(bytes.NewReader(output))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Width != 200 || cfg.Height != 200 || f.ContentType != "image/jpeg" {
-		t.Fatalf("JPEG metadata: %v %s", cfg, f.ContentType)
+	for _, size := range []image.Point{{64, 64}, {200, 200}} {
+		t.Run(size.String(), func(t *testing.T) {
+			data := encoded(t, size.X, size.Y, "jpeg")
+			marker := []byte{0xff, 0xfe, 0, 8, 's', 'e', 'c', 'r', 'e', 't'}
+			data = append(append(append([]byte{}, data[:2]...), marker...), data[2:]...)
+			f, err := (Codec{}).Sanitize(context.Background(), bytes.NewReader(data), "image/jpeg")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			output, err := io.ReadAll(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Contains(output, []byte("secret")) {
+				t.Fatal("JPEG comment survived")
+			}
+			cfg, err := jpeg.DecodeConfig(bytes.NewReader(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Width != size.X || cfg.Height != size.Y || f.ContentType != "image/jpeg" {
+				t.Fatalf("JPEG metadata: %v %s", cfg, f.ContentType)
+			}
+		})
 	}
 }
 

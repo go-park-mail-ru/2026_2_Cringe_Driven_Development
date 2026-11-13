@@ -45,3 +45,16 @@ def test_event_page_limits_bytes_without_losing_large_first_event(tmp_path):
         assert tail[0]["kind"] == "tail"
     finally:
         journal.close()
+
+
+def test_stop_fences_survive_journal_reopen(tmp_path):
+    journal = Journal(tmp_path)
+    journal.create("session", "python", "t" * 32)
+    journal.fence_commands("session", ["late"])
+    journal.close()
+    reopened = Journal(tmp_path)
+    try:
+        assert reopened.fenced("session", "late")
+        assert not reopened.fenced("session", "new")
+    finally:
+        reopened.close()

@@ -175,3 +175,18 @@ func (g *Gateway) Restart(ctx context.Context, id uuid.UUID) (string, error) {
 	}
 	return c.Restart(ctx, ep)
 }
+
+// StopExecutions останавливает команды без завершения окружения.
+func (g *Gateway) StopExecutions(ctx context.Context, id uuid.UUID, operation string, executionIDs []string) error {
+	ep, err := g.endpoint(ctx, id)
+	if err != nil {
+		return err
+	}
+	c, ok := g.client.(interface {
+		StopExecutions(context.Context, U.AgentEndpoint, string, []string) error
+	})
+	if !ok {
+		return D.ErrUnavailable
+	}
+	return c.StopExecutions(ctx, ep, operation, executionIDs)
+}

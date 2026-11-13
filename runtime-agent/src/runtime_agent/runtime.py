@@ -43,6 +43,7 @@ class Active:
     reply: dict | None = None
     idle: bool = False
     interrupted: bool = False
+    finalized: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 class Session:
@@ -96,6 +97,8 @@ class Session:
         self.reader = None
         self.ready = False
         self.draining = False
+        self.stopping_executions = False
+        self.stopped_operations: set[str] = set()
         self.closed = False
         self.unattributed_bytes = 0
         self.unattributed_truncated = False
@@ -152,10 +155,22 @@ class Session:
             AgentError: The ID conflicts (409), the queue is full (429), or the session is
                 unavailable (503).
         """
+        if self.stopping_executions:
+            raise AgentError(409, "Execution stop is in progress")
         if self.journal.existing(self.id, command):
             return self.journal.execution(self.id, command["execution_id"])
         if not self.ready or self.draining or self.agent.stopping:
             raise AgentError(503, "Session is not accepting commands")
+        if self.journal.fenced(self.id, command["execution_id"]):
+            self.journal.accept(self.id, command)
+            self.journal.transition(
+                self.id,
+                command["execution_id"],
+                "CANCELLED",
+                {"reason": "executions_stopped"},
+            )
+            self.agent.notify()
+            return self.journal.execution(self.id, command["execution_id"])
         if self.queued() >= 100:
             raise AgentError(429, "Execution queue is full")
         self.journal.accept(self.id, command)
@@ -259,7 +274,9 @@ class Session:
                 # Dispatch и control делят блокировку: запоздалый interrupt никогда не должен
                 # попасть в следующую ячейку после естественного завершения предыдущей.
                 async with self.lock:
-                    if not self.ready or self.draining:
+                    if self.journal.execution(self.id, execution_id)["state"] == "CANCELLED":
+                        continue
+                    if not self.ready or self.draining or self.stopping_executions:
                         self.journal.transition(
                             self.id, execution_id, "CANCELLED", {"reason": "session_unavailable"}
                         )
@@ -322,6 +339,8 @@ class Session:
                 )
                 failure = "kernel_result_unavailable"
             finally:
+                if self.active is not None:
+                    self.active.finalized.set()
                 self.active = None
                 self.pending = None
                 self.queue.task_done()
@@ -356,6 +375,49 @@ class Session:
                 await self.interrupt_locked()
         except Exception:
             await self.finish("FAILED", "interrupt_unconfirmed")
+
+    async def stop_executions(self, operation_id, execution_ids=()):
+        """Cancel queued commands and confirm interruption without restarting kernel."""
+        if self.stopping_executions:
+            raise AgentError(409, "Execution stop is in progress")
+        if operation_id in self.stopped_operations:
+            return
+        if not self.ready or self.closed or self.draining:
+            raise AgentError(409, "Session is not ready")
+        self.stopping_executions = True
+        try:
+            async with self.lock:
+                self.touch()
+                self.journal.fence_commands(self.id, execution_ids)
+                self.cancel_queued()
+                if self.pending is not None and self.active is None:
+                    self.journal.transition(
+                        self.id,
+                        self.pending["execution_id"],
+                        "CANCELLED",
+                        {"reason": "executions_stopped"},
+                    )
+                    self.pending = None
+                active = self.active
+                if active is not None and active.reply is not None:
+                    await asyncio.wait_for(active.done.wait(), self.settings.interrupt_seconds)
+                else:
+                    await self.interrupt_locked()
+            if active is not None:
+                await asyncio.wait_for(active.finalized.wait(), self.settings.interrupt_seconds)
+            if not self.ready or self.closed:
+                raise RuntimeError("Session became unavailable")
+            self.stopped_operations.add(operation_id)
+        except asyncio.CancelledError:
+            self.ready = False
+            await self.finish("FAILED", "interrupt_unconfirmed")
+            raise
+        except Exception as exc:
+            await self.finish("FAILED", "interrupt_unconfirmed")
+            raise AgentError(503, "Execution stop was not confirmed") from exc
+        finally:
+            self.stopping_executions = False
+            self.agent.notify()
 
     async def drain(self):
         """Reject new commands, cancel queued work, and interrupt the active command."""
@@ -601,7 +663,11 @@ class Agent:
             raise AgentError(400, "Only python sessions are supported")
         async with self.assigning:
             if self.session is not None:
-                if self.session.id == session_id and hmac.compare_digest(self.token, token):
+                if (
+                    self.session.id == session_id
+                    and self.token is not None
+                    and hmac.compare_digest(self.token, token)
+                ):
                     return self.snapshot()
                 raise AgentError(409, "Runtime is assigned to another session")
             if self.warming is not None:

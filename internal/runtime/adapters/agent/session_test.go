@@ -134,3 +134,30 @@ func TestKernelRestartReturnsGenerationAndDoesNotRetryFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestStopExecutionsRequiresConfirmedResponse(t *testing.T) {
+	for _, body := range []string{`{"stopped":true}`, `{"stopped":false}`, `{"interrupt_requested":true}`, `not json`} {
+		t.Run(body, func(t *testing.T) {
+			ca := newCA(t, "ca")
+			srv, seen := startServer(t, ca, ca, true, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "POST" || r.URL.Path != "/executions/stop" {
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+				}
+				_, _ = w.Write([]byte(body))
+			})
+			err := newClient(t, ca).StopExecutions(context.Background(), usecase.AgentEndpoint{BaseURL: srv.URL, Token: tok}, "operation", []string{"run"})
+			if (err == nil) != (body == `{"stopped":true}`) {
+				t.Fatal(err)
+			}
+			seen.mu.Lock()
+			defer seen.mu.Unlock()
+			var request struct {
+				OperationID  string   `json:"operation_id"`
+				ExecutionIDs []string `json:"execution_ids"`
+			}
+			if e := json.Unmarshal([]byte(seen.body), &request); e != nil || request.OperationID != "operation" || len(request.ExecutionIDs) != 1 || request.ExecutionIDs[0] != "run" {
+				t.Fatal(request, e)
+			}
+		})
+	}
+}

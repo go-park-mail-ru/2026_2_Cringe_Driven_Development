@@ -3,12 +3,14 @@ package usecase
 import (
 	"context"
 	"regexp"
-	"unicode/utf8"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/domain"
 )
 
 var profileLogin = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
+
+// passwordRule повторяет схему Password контракта: ASCII-символ — один байт, поэтому 72 укладываются в лимит bcrypt.
+var passwordRule = regexp.MustCompile(`^[!-~]{8,72}$`)
 
 func (uc *UserUsecase) UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error) {
 	if !profileLogin.MatchString(login) {
@@ -18,7 +20,7 @@ func (uc *UserUsecase) UpdateCurrentUser(ctx context.Context, id int64, login st
 }
 
 func (uc *UserUsecase) ChangeCurrentUserPassword(ctx context.Context, id int64, currentPassword, newPassword string) error {
-	if currentPassword == newPassword || !validProfilePassword(newPassword) || !validProfilePassword(currentPassword) {
+	if currentPassword == newPassword || !passwordRule.MatchString(newPassword) || !passwordRule.MatchString(currentPassword) {
 		return ErrValidation
 	}
 	_, oldHash, err := uc.users.CredentialsByID(ctx, id)
@@ -40,8 +42,4 @@ func (uc *UserUsecase) ChangeCurrentUserPassword(ctx context.Context, id int64, 
 		return err
 	}
 	return uc.RevokeAll(ctx, id)
-}
-
-func validProfilePassword(password string) bool {
-	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= 8 && utf8.RuneCountInString(password) <= 72 && len(password) <= 72
 }

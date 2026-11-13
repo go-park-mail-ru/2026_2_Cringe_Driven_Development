@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -271,16 +272,48 @@ func (m *store) Retry(_ context.Context, jb usecase.Job, owner string, at time.T
 }
 
 func setup() (smoke.Deps, *fake.Cloud, *fake.Host) {
+	return setupWithKillPoint("")
+}
+
+// killPointRepository удерживает первого воркера после сохранения ресурса, пока
+// smoke watcher не отменит его context. Mutex store уже освобождён: watcher может
+// прочитать сохранённое поле, а следующий владелец продолжит с того же места.
+type killPointRepository struct {
+	usecase.EnvironmentRepository
+	point string
+}
+
+func (r killPointRepository) Save(ctx context.Context, env domain.Environment, owner string) (domain.Environment, error) {
+	saved, err := r.EnvironmentRepository.Save(ctx, env, owner)
+	if err != nil {
+		return saved, err
+	}
+	hit := r.point == smoke.KillAfterVolume && saved.Resources.VolumeID != "" ||
+		r.point == smoke.KillAfterServer && saved.Resources.ServerID != ""
+	if hit && strings.HasSuffix(owner, "-a") {
+		<-ctx.Done()
+		return saved, ctx.Err()
+	}
+	return saved, nil
+}
+
+func setupWithKillPoint(killPoint string) (smoke.Deps, *fake.Cloud, *fake.Host) {
 	st := newStore()
-	cloud, host, ag := fake.New(20 * time.Millisecond)
+	var repo usecase.EnvironmentRepository = st
+	delay := 20 * time.Millisecond
+	if killPoint != "" {
+		repo = killPointRepository{EnvironmentRepository: st, point: killPoint}
+		delay = 0 // Проверка остановки не должна зависеть от скорости облака.
+	}
+	cloud, host, ag := fake.New(delay)
 	sec := &stubSecrets{}
-	svc := usecase.NewService(st, usecase.Settings{
+	svc := usecase.NewService(repo, usecase.Settings{
 		MaxActive: 10, AgentVersion: "dev", Profiles: map[string]bool{"default": true},
 	})
 	return smoke.Deps{
-		Service: svc, Repo: st, Secrets: sec, Agent: ag, Cloud: cloud,
+		Service: svc, Repo: repo, Secrets: sec, Agent: ag, Cloud: cloud,
 		NewWorker: func(owner string, lease time.Duration) *usecase.Worker {
-			return usecase.NewWorker(st, nil, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
+			return usecase.NewWorker(repo, nil, st, cloud, host, ag, sec, realClock{}, usecase.WorkerSettings{
 				Owner: owner, Concurrency: 1, Lease: lease, PollInterval: 10 * time.Millisecond, EnvName: "smoke-test",
 			})
 		},
@@ -304,7 +337,7 @@ func TestSmokeFakeHappyPath(t *testing.T) {
 }
 
 func TestSmokeKillWorkerAfterVolume(t *testing.T) {
-	deps, cloud, _ := setup()
+	deps, cloud, _ := setupWithKillPoint(smoke.KillAfterVolume)
 	rep, err := smoke.Run(context.Background(), deps, smoke.Options{
 		Language: "python", KillWorkerAfter: smoke.KillAfterVolume, Timeout: 30 * time.Second, Lease: 100 * time.Millisecond,
 	})
@@ -362,11 +395,7 @@ func TestSmokeTimeoutMidCreateCleansUp(t *testing.T) {
 }
 
 func TestSmokeKillWorkerAfterServer(t *testing.T) {
-	deps, cloud, host := setup()
-	// Configure держит первого воркера после сохранения ServerID, пока его не отменит smoke;
-	// затем блок снимается, и второй воркер завершает создание.
-	host.Block = make(chan struct{})
-	time.AfterFunc(500*time.Millisecond, func() { close(host.Block) })
+	deps, cloud, _ := setupWithKillPoint(smoke.KillAfterServer)
 	rep, err := smoke.Run(context.Background(), deps, smoke.Options{
 		Language: "python", KillWorkerAfter: smoke.KillAfterServer, Timeout: 30 * time.Second, Lease: 100 * time.Millisecond,
 	})

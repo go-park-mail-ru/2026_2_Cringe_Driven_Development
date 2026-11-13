@@ -37,6 +37,8 @@ type Usecase interface {
 	// Create кладёт в новый блокнот один пустой блок кода.
 	Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error)
 	Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error)
+	// Rename меняет имя без изменения редакции или состояния runtime.
+	Rename(ctx context.Context, id, ownerID int64, name string) (domain.Notebook, error)
 	// DeleteNotebook удаляет ноутбук только после завершения его работы в runtime.
 	DeleteNotebook(ctx context.Context, id, ownerID int64) error
 	// CreateCell вставляет пустой блок на место index, а без index — в конец.

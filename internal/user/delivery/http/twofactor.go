@@ -54,10 +54,10 @@ func (h *Handler) DisableTwoFactorAuth(ctx context.Context, req api.DisableTwoFa
 	if !ok {
 		return twoFactorFailure{status: 401, body: api.Error{Code: api.ErrorCodeUnauthorized, Message: "authentication required"}}, nil
 	}
-	if req.Body == nil || req.Body.Password == nil {
+	if req.Body == nil {
 		return *mapTwoFactorError(usecase.ErrValidation), nil
 	}
-	err := h.uc.DisableTwoFactor(ctx, id, *req.Body.Password)
+	err := h.uc.DisableTwoFactor(ctx, id, req.Body.Password)
 	if err != nil {
 		failure := mapTwoFactorError(err)
 		if failure != nil {

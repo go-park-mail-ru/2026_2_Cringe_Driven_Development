@@ -145,3 +145,17 @@ func (a *Agent) Restart(ctx context.Context, ep U.AgentEndpoint) (string, error)
 	s.events = append(s.events, raw)
 	return s.generation, nil
 }
+
+// StopExecutions подтверждает остановку синхронного fake-агента.
+func (a *Agent) StopExecutions(ctx context.Context, ep U.AgentEndpoint, _ string, _ []string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	s, status, err := a.call(ctx, "StopExecutions", ep)
+	if err != nil {
+		return err
+	}
+	if s == nil || status != 200 || s.state != "READY" {
+		return D.ErrUnavailable
+	}
+	return nil
+}

@@ -55,10 +55,10 @@ func (h *Handler) ChangeCurrentUserPassword(ctx context.Context, req api.ChangeC
 	if !ok {
 		return api.ChangeCurrentUserPassword401JSONResponse{Code: api.UserProfileErrorCodeUnauthorized, Message: "authentication required"}, nil
 	}
-	if req.Body == nil || req.Body.CurrentPassword == nil || req.Body.NewPassword == nil {
+	if req.Body == nil {
 		return api.ChangeCurrentUserPassword400JSONResponse{Code: api.UserProfileErrorCodeValidationError, Message: "invalid request body"}, nil
 	}
-	err := h.uc.ChangeCurrentUserPassword(ctx, id, *req.Body.CurrentPassword, *req.Body.NewPassword)
+	err := h.uc.ChangeCurrentUserPassword(ctx, id, req.Body.CurrentPassword, req.Body.NewPassword)
 	switch {
 	case errors.Is(err, usecase.ErrInvalidCurrentPassword):
 		return api.ChangeCurrentUserPassword400JSONResponse{Code: api.UserProfileErrorCodeInvalidCurrentPassword, Message: "current password is incorrect"}, nil

@@ -15,6 +15,7 @@ import (
 
 // Usecase определяет сценарии, которые HTTP-хендлер вызывает после проверки авторизации.
 type Usecase interface {
+	StopExecutions(context.Context, int64, uuid.UUID) error
 	// Queue читает только незавершённые исполнения ячеек: выполняемое первым, затем ожидающие; инспекции не
 	// включаются.
 	Queue(context.Context, int64, uuid.UUID) (D.Queue, error)

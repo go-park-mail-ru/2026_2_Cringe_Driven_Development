@@ -50,6 +50,9 @@ func (s *Store) AdmitBatch(ctx context.Context, owner int64, sid uuid.UUID, r D.
 		return out, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err = s.checkAdmission(ctx, tx, owner, sid); err != nil {
+		return out, err
+	}
 	var nb int64
 	err = tx.QueryRow(ctx, "SELECT n.id FROM notebooks n JOIN runtime_sessions s ON s.notebook_id=n.id WHERE s.id=$1 AND s.owner_id=$2 AND n.owner_id=$2 FOR UPDATE OF n", sid, owner).Scan(&nb)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -85,7 +88,7 @@ func (s *Store) AdmitBatch(ctx context.Context, owner int64, sid uuid.UUID, r D.
 	if err != nil {
 		return out, err
 	}
-	if v.State != D.Ready {
+	if v.State != D.Ready || v.StopOperation != "" {
 		return out, D.ErrConflict
 	}
 	var count int

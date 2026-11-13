@@ -23,6 +23,7 @@ output-options:
     - listNotebooks
     - createNotebook
     - getNotebook
+    - renameNotebook
     - deleteNotebook
     - createCell
     - deleteCell
@@ -45,3 +46,4 @@ output-options:
     - getRuntimeInspection
     - interruptRuntimeKernel
     - restartRuntimeKernel
+    - stopRuntimeExecutions
