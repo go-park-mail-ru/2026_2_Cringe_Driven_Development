@@ -16,13 +16,13 @@ func TestListUsesOneRuntimeLookup(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		repo := NewMockRepository(ctrl)
 		sessions := NewMockActiveSessions(ctrl)
-		repo.EXPECT().List(ctx, int64(7)).Return([]domain.NotebookSummary{{ID: 1, PreviewCode: "one"}, {ID: 2, PreviewCode: "two"}}, nil)
+		repo.EXPECT().ListPage(ctx, int64(7), ListQuery{Limit: 24}).Return(ListRows{Items: []domain.NotebookSummary{{ID: 1, PreviewCode: "one"}, {ID: 2, PreviewCode: "two"}}}, nil)
 		sessions.EXPECT().ActiveNotebook(ctx, int64(7)).Return(active, nil).Times(1)
-		got, err := NewNotebookUsecase(repo, sessions).List(ctx, 7)
+		got, err := NewNotebookUsecase(repo, sessions, nil).List(ctx, 7, ListInput{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got[0].HasActiveSession != (active == 1) || got[1].HasActiveSession != (active == 2) || got[0].PreviewCode != "one" {
+		if got.Items[0].HasActiveSession != (active == 1) || got.Items[1].HasActiveSession != (active == 2) || got.Items[0].PreviewCode != "one" {
 			t.Fatalf("list: %+v", got)
 		}
 	}
@@ -31,17 +31,17 @@ func TestRuntimeFailureIsNotHidden(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
 	sessions := NewMockActiveSessions(ctrl)
-	repo.EXPECT().List(gomock.Any(), int64(1)).Return([]domain.NotebookSummary{}, nil)
+	repo.EXPECT().ListPage(gomock.Any(), int64(1), ListQuery{Limit: 24}).Return(ListRows{}, nil)
 	failure := errors.New("unavailable")
 	sessions.EXPECT().ActiveNotebook(gomock.Any(), int64(1)).Return(int64(0), failure)
-	if _, err := NewNotebookUsecase(repo, sessions).List(context.Background(), 1); !errors.Is(err, failure) {
+	if _, err := NewNotebookUsecase(repo, sessions, nil).List(context.Background(), 1, ListInput{}); !errors.Is(err, failure) {
 		t.Fatal(err)
 	}
 }
 func TestEditingTransmitsOnlyOperation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
-	uc := NewNotebookUsecase(repo, NoActiveSessions{})
+	uc := NewNotebookUsecase(repo, NoActiveSessions{}, nil)
 	repo.EXPECT().Apply(gomock.Any(), int64(3), int64(7), "revision", Operation{Kind: Edit, CellID: "cell", Source: "new"}).Return(Change{Hash: "next", Cell: domain.Cell{ID: "cell", Source: "new"}}, nil)
 	got, err := uc.EditCell(context.Background(), 3, 7, "revision", "cell", "new")
 	if err != nil || got.Hash != "next" {
@@ -56,7 +56,7 @@ func TestEditingTransmitsOnlyOperation(t *testing.T) {
 func TestCreateAtomicInitialCell(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
-	uc := NewNotebookUsecase(repo, NoActiveSessions{})
+	uc := NewNotebookUsecase(repo, NoActiveSessions{}, nil)
 	repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, n domain.Notebook) (domain.Notebook, error) {
 		if n.Name != "name" || n.OwnerID != 7 || len(n.Cells) != 1 || n.Cells[0].Kind != domain.CellKindCode || n.Cells[0].ID == "" || string(n.Cells[0].Outputs) != "[]" || !n.Cells[0].HasExecutionCount {
 			t.Fatalf("create: %+v", n)

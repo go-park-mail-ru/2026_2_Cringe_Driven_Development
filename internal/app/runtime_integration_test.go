@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	nbpg "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
 	nbhttp "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	nbuc "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -82,7 +83,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	issuer := security.NewAccessToken([]byte("api13-integration-local-key"), time.Hour)
 	users := useruc.NewUserUsecase(userpg.NewUserRepository(pool), sessions, issuer, security.PasswordHasher{}, security.RefreshTokens{}, time.Hour)
 	store := storepg.New(pool)
-	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store)
+	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store, notebookcursor.New([]byte("list-test-key")))
 	module, err := runtime.Build(ctx, config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
 	if err != nil {
 		t.Fatal(err)

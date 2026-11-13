@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -117,7 +118,7 @@ func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 		}
 	})
 	sessionStore := sessionpostgres.New(pool)
-	notebookUsecase := notebookusecase.NewNotebookUsecase(notebookRepo, sessionStore)
+	notebookUsecase := notebookusecase.NewNotebookUsecase(notebookRepo, sessionStore, notebookcursor.New([]byte(cfg.JWTSecret)))
 	sessionService := sessionusecase.NewService(sessionStore, nil, runtimeModule.Agent)
 	sessionWorker := sessionusecase.NewWorker(sessionStore, sessionenv.New(runtimeModule.Environments), runtimeModule.Agent, nil)
 	userHandler := userdelivery.NewHandler(userUsecase, userdelivery.WithProfile(avatars, cfg.AvatarsPublicURL))

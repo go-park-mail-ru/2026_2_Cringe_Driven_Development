@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -62,7 +63,7 @@ func testRepository(t *testing.T) (*NotebookRepository, *pgxpool.Pool) {
 func TestNotebookTransactionsAndResults(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, e := uc.Create(ctx, 1, " notebook ")
 	if e != nil {
 		t.Fatal(e)
@@ -159,7 +160,7 @@ func TestNotebookTransactionsAndResults(t *testing.T) {
 func TestPreviewAndExactSizeAcrossOperations(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "preview")
 	if err != nil {
 		t.Fatal(err)
@@ -174,11 +175,11 @@ func TestPreviewAndExactSizeAcrossOperations(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		list, e := uc.List(ctx, 1)
+		list, e := uc.List(ctx, 1, usecase.ListInput{})
 		if e != nil {
 			t.Fatal(e)
 		}
-		if got.PreviewCode != want || list[0].PreviewCode != want || int64(len(raw)) != got.SizeBytes {
+		if got.PreviewCode != want || list.Items[0].PreviewCode != want || int64(len(raw)) != got.SizeBytes {
 			t.Fatalf("preview=%q want=%q bytes=%d accounted=%d", got.PreviewCode, want, len(raw), got.SizeBytes)
 		}
 		return got
@@ -228,7 +229,7 @@ func ptr(v int) *int { return &v }
 func TestResultFollowsCellAndRejectsDeletedSource(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, e := uc.Create(ctx, 1, "results")
 	if e != nil {
 		t.Fatal(e)
@@ -320,7 +321,7 @@ func (row snapshotRow) Scan(dest ...any) error {
 func TestContentSnapshotDuringCommittedSave(t *testing.T) {
 	repo, pool := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "snapshot")
 	if err != nil {
 		t.Fatal(err)
@@ -345,7 +346,7 @@ func TestContentSnapshotDuringCommittedSave(t *testing.T) {
 func TestPublishFailureRollsBackCellsAndMetadata(t *testing.T) {
 	repo, pool := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "rollback")
 	if err != nil {
 		t.Fatal(err)
@@ -379,7 +380,7 @@ func TestSessionBadgeSurvivesResultsAndEndsWithSession(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
 	active := &activeNotebook{}
-	uc := usecase.NewNotebookUsecase(repo, active)
+	uc := usecase.NewNotebookUsecase(repo, active, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "active")
 	if err != nil {
 		t.Fatal(err)
@@ -391,14 +392,14 @@ func TestSessionBadgeSurvivesResultsAndEndsWithSession(t *testing.T) {
 	check := func(want bool) {
 		t.Helper()
 		before := active.calls
-		list, e := uc.List(ctx, 1)
+		list, e := uc.List(ctx, 1, usecase.ListInput{})
 		if e != nil {
 			t.Fatal(e)
 		}
 		if active.calls != before+1 {
 			t.Fatal("not one runtime lookup")
 		}
-		for _, item := range list {
+		for _, item := range list.Items {
 			expected := item.ID == n.ID && want
 			if item.HasActiveSession != expected {
 				t.Fatalf("badge: %+v", item)
@@ -421,11 +422,11 @@ func TestSessionBadgeSurvivesResultsAndEndsWithSession(t *testing.T) {
 	active.notebookID = 0
 	check(false)
 	active.notebookID = other.ID
-	list, err := uc.List(ctx, 1)
+	list, err := uc.List(ctx, 1, usecase.ListInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, item := range list {
+	for _, item := range list.Items {
 		if item.HasActiveSession != (item.ID == other.ID) {
 			t.Fatal("badge belongs to wrong notebook")
 		}
@@ -437,7 +438,7 @@ func TestRuntimeResultRacesWithCellOperations(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			repo, _ := testRepository(t)
 			ctx := context.Background()
-			uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+			uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 			n, err := uc.Create(ctx, 1, "race")
 			if err != nil {
 				t.Fatal(err)

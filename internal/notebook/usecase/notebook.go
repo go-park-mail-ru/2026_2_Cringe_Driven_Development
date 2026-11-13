@@ -12,24 +12,11 @@ type NotebookUsecase struct {
 	repo     Repository
 	sessions ActiveSessions
 	newID    func() string
+	cursor   ListCursor
 }
 
-func NewNotebookUsecase(repo Repository, sessions ActiveSessions) *NotebookUsecase {
-	return &NotebookUsecase{repo: repo, sessions: sessions, newID: uuid.NewString}
-}
-func (uc *NotebookUsecase) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
-	list, err := uc.repo.List(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	active, err := uc.sessions.ActiveNotebook(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	for i := range list {
-		list[i].HasActiveSession = active != 0 && list[i].ID == active
-	}
-	return list, nil
+func NewNotebookUsecase(repo Repository, sessions ActiveSessions, cursor ListCursor) *NotebookUsecase {
+	return &NotebookUsecase{repo: repo, sessions: sessions, cursor: cursor, newID: uuid.NewString}
 }
 func (uc *NotebookUsecase) Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error) {
 	name = strings.TrimSpace(name)

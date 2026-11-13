@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 	"go.uber.org/mock/gomock"
 )
@@ -24,7 +25,7 @@ func TestNotebookTextJSONRoundTrip(t *testing.T) {
 				Cells: []domain.Cell{{ID: "cell", Kind: domain.CellKindMarkdown, Source: text}}}
 			uc := NewMockUsecase(gomock.NewController(t))
 			uc.EXPECT().Create(gomock.Cond(func(ctx context.Context) bool { return ctx.Value(notebookRequestKey{}) == t.Name() }), int64(1), text).Return(notebook, nil)
-			uc.EXPECT().List(gomock.Cond(func(ctx context.Context) bool { return ctx.Value(notebookRequestKey{}) == t.Name() }), int64(1)).Return([]domain.NotebookSummary{{ID: 1, Name: text, UpdatedAt: now}}, nil)
+			uc.EXPECT().List(gomock.Cond(func(ctx context.Context) bool { return ctx.Value(notebookRequestKey{}) == t.Name() }), int64(1), gomock.Any()).Return(usecase.ListPage{Items: []domain.NotebookSummary{{ID: 1, Name: text, UpdatedAt: now}}}, nil)
 			uc.EXPECT().Get(gomock.Cond(func(ctx context.Context) bool { return ctx.Value(notebookRequestKey{}) == t.Name() }), int64(1), int64(1)).Return(notebook, nil)
 			body, err := json.Marshal(api.CreateNotebookRequest{Name: text})
 			if err != nil {
@@ -43,11 +44,11 @@ func TestNotebookTextJSONRoundTrip(t *testing.T) {
 					t.Fatalf("%s %s: status=%d headers=%v body=%s", operation.method, operation.path, rec.Code, rec.Header(), rec.Body)
 				}
 				if operation.method == http.MethodGet && operation.path == "/notebooks" {
-					var list []api.NotebookSummary
+					var list api.NotebookListPage
 					if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 						t.Fatal(err)
 					}
-					if len(list) != 1 || list[0].Name != text {
+					if len(list.Items) != 1 || list.Items[0].Name != text {
 						t.Fatalf("list changed text: %+v", list)
 					}
 					continue

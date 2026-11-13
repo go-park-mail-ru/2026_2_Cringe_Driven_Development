@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -31,7 +32,7 @@ func TestS2SRejectionDoesNotTouchNotebookStorage(t *testing.T) {
 				users, access := f.users, f.access
 				ctrl := gomock.NewController(t)
 				repo := NewMockRepository(ctrl)
-				uc := notebookusecase.NewNotebookUsecase(repo, notebookusecase.NoActiveSessions{})
+				uc := notebookusecase.NewNotebookUsecase(repo, notebookusecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 				handler, err := NewRouter(Server{
 					UserHandler:     userdelivery.NewHandler(users),
 					NotebookHandler: notebookdelivery.NewHandler(uc),

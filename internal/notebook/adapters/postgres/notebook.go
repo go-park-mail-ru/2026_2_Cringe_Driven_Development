@@ -127,22 +127,6 @@ func insertCell(ctx context.Context, tx pgx.Tx, id int64, pos int, c *domain.Cel
 	_, err = tx.Exec(ctx, `INSERT INTO notebook_cell_data(notebook_id,cell_id,outputs,execution_count,has_execution_count,attachments,outputs_bytes,execution_bytes,attachments_bytes,output_truncated,has_runtime_metadata,runtime_metadata_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, id, c.ID, optionalJSON(c.Outputs), c.ExecutionCount, c.HasExecutionCount, optionalJSON(c.Attachments), o, e, a, c.OutputTruncated, c.HasRuntimeMetadata || c.OutputTruncated, ipynb.RuntimeMetadataSize(*c))
 	return err
 }
-func (r *NotebookRepository) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
-	rows, err := r.db.Query(ctx, `SELECT id,name,cells_count,preview_code,updated_at FROM notebooks WHERE owner_id=$1 ORDER BY updated_at DESC,id DESC`, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	list := []domain.NotebookSummary{}
-	for rows.Next() {
-		var n domain.NotebookSummary
-		if err = rows.Scan(&n.ID, &n.Name, &n.CellsCount, &n.PreviewCode, &n.UpdatedAt); err != nil {
-			return nil, err
-		}
-		list = append(list, n)
-	}
-	return list, rows.Err()
-}
 func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

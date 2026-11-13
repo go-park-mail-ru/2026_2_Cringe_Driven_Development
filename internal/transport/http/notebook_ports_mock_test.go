@@ -101,17 +101,17 @@ func (mr *MockRepositoryMockRecorder) Get(arg0, arg1, arg2 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRepository)(nil).Get), arg0, arg1, arg2)
 }
 
-// List mocks base method.
-func (m *MockRepository) List(arg0 context.Context, arg1 int64) ([]domain.NotebookSummary, error) {
+// ListPage mocks base method.
+func (m *MockRepository) ListPage(arg0 context.Context, arg1 int64, arg2 usecase.ListQuery) (usecase.ListRows, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0, arg1)
-	ret0, _ := ret[0].([]domain.NotebookSummary)
+	ret := m.ctrl.Call(m, "ListPage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(usecase.ListRows)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// List indicates an expected call of List.
-func (mr *MockRepositoryMockRecorder) List(arg0, arg1 any) *gomock.Call {
+// ListPage indicates an expected call of ListPage.
+func (mr *MockRepositoryMockRecorder) ListPage(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRepository)(nil).List), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPage", reflect.TypeOf((*MockRepository)(nil).ListPage), arg0, arg1, arg2)
 }

@@ -21,15 +21,22 @@ func NewHandler(uc usecase.Usecase) *Handler {
 	return &Handler{uc: uc}
 }
 
-// ListNotebooks отвечает 200 со списком, без блокнотов — [].
-func (h *Handler) ListNotebooks(ctx context.Context, _ api.ListNotebooksRequestObject) (api.ListNotebooksResponseObject, error) {
-	list, err := h.uc.List(ctx, userID(ctx))
+// ListNotebooks returns a page of the current owner's notebook summaries.
+func (h *Handler) ListNotebooks(ctx context.Context, req api.ListNotebooksRequestObject) (api.ListNotebooksResponseObject, error) {
+	input := usecase.ListInput{Limit: req.Params.Limit, Cursor: req.Params.Cursor}
+	if req.Params.Search != nil {
+		input.Search = *req.Params.Search
+	}
+	page, err := h.uc.List(ctx, userID(ctx), input)
+	if errors.Is(err, usecase.ErrInvalidList) {
+		return api.ListNotebooks400JSONResponse{Code: api.ErrorCodeValidationError, Message: usecase.ErrInvalidList.Error()}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	resp := make(api.ListNotebooks200JSONResponse, 0, len(list))
-	for _, n := range list {
-		resp = append(resp, api.NotebookSummary{
+	resp := api.ListNotebooks200JSONResponse{Items: make([]api.NotebookSummary, 0, len(page.Items)), NextCursor: page.NextCursor, MatchedCount: page.MatchedCount, TotalCount: page.TotalCount}
+	for _, n := range page.Items {
+		resp.Items = append(resp.Items, api.NotebookSummary{
 			Id:               n.ID,
 			PreviewCode:      n.PreviewCode,
 			HasActiveSession: n.HasActiveSession,
