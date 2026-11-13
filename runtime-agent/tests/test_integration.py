@@ -233,6 +233,8 @@ async def test_docker_limits_no_mounts_and_permission_tampering(docker_settings)
         assert config["Memory"] == config["MemorySwap"] == 1024**3
         assert config["NanoCpus"] == 1_000_000_000
         assert config["PidsLimit"] == 128
+        assert config["Tmpfs"]["/tmp"] == "rw,nosuid,nodev,size=256m,mode=1777"
+        assert config["Tmpfs"]["/workspace"] == "rw,nosuid,nodev,size=256m,mode=1777"
         assert config["Tmpfs"]["/packages"] == "rw,exec,nosuid,nodev,size=512m,mode=1777"
         env = container.attrs["Config"]["Env"]
         assert "PYTHONUSERBASE=/packages" in env

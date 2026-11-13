@@ -167,7 +167,7 @@ class Containers:
                         labels={LABEL: self.instance_id},
                         tmpfs={
                             "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
-                            "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
+                            "/tmp": "rw,nosuid,nodev,size=256m,mode=1777",
                             # Docker tmpfs defaults to noexec; C extensions (numpy) need mmap exec.
                             "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
                         },
