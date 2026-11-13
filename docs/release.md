@@ -127,17 +127,16 @@ CD: workflow `cd.yml`, event `workflow_dispatch`, job `deploy`; Rollback сох�
 `rollback.yml`, `workflow_dispatch`, job `rollback / deploy`. Имена шагов
 `Switch backend` и `Health check` сохраняются. Target SHA независим от dispatch HEAD.
 
-Текущий consumer .github#59 требует сопутствующего обновления распознавания CD.
-Подготовленный patch: [release-webhook.patch](release-webhook.patch), проверен на
-`.github/main` SHA `5eb65898cfd4b980f20c0cb3d3d8f61f122b1ea1`. Применять
-в checkout `.github` через `git apply /path/to/backend/docs/release-webhook.patch`;
-он добавляет CD в разрешённые источники и job fallback, сохраняя проверки ветки,
-репозитория, workflow ID, попытки и доказательств выполнения. Patch содержит тесты
-и общий fixture отдельного CD с HEAD, отличным от target. До применения consumer
-новые CD-уведомления не считаются интеграционно принятыми. Telegram sender не меняется.
+Распознавание самостоятельного CD принадлежит
+[consumer webhook](https://github.com/Cringe-Driven-Development-Team/.github/tree/main/services/webhook-alerts)
+(.github#59). Consumer должен разрешать источник `cd.yml` и job `deploy`, сохраняя
+проверки ветки, репозитория, workflow ID, попытки и доказательств выполнения.
+Общий fixture `backend-cd-contract.json` проверяет CD с HEAD, отличным от target.
+Для интеграционной приёмки нужен выкаченный consumer с этой поддержкой.
+Telegram sender не меняется.
 
 Локально: `make release-check`, `actionlint .github/workflows/{ci,cd,rollback}.yml`,
-`make check`, `make docker-build`. Consumer patch проверяется `bun test` в
+`make check`, `make docker-build`. Consumer проверяется `bun test` в
 `services/webhook-alerts` без сетевой отправки уведомлений. На интеграционной приёмке
 приложить ссылки на настоящий CI run, Release и отдельный CD run; проверить повтор
 текущего Release с изменением infra при том же digest и всю цепочку Deployment → webhook.
