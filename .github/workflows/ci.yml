@@ -91,6 +91,8 @@ jobs:
           python-version: '3.13'
       - name: Install release callback test tools
         run: python -m pip install ansible-core==2.19.7
+      - name: Workflow lint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
       - name: Release producer contract tests
         run: python3 -m unittest discover -s scripts/release/tests -v
       - name: Check dependencies
@@ -180,15 +182,25 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test, contract, kernel-images]
     outputs:
-      image_ref: ${{ steps.deployment.outputs.image_ref }}
+      image_ref: ${{ steps.deployment.outputs.image_ref || steps.preflight.outputs.image_ref }}
+      release_tag: ${{ steps.preflight.outputs.release_tag }}
     permissions:
-      contents: read
+      contents: write
       packages: write
+    concurrency:
+      group: backend-release-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
+      - name: Reuse published release or draft checkpoint
+        id: preflight
+        if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/artifacts.py preflight
       - uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
-        if: github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+        if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -220,12 +232,14 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
       - name: Build and publish
+        if: steps.preflight.outputs.build != 'false'
         id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: build/main.Dockerfile
-          push: ${{ github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+          platforms: linux/amd64
+          push: ${{ github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           build-args: |
             RUNTIME_PYTHON_IMAGE=${{ needs.kernel-images.outputs.python_ref }}
             RUNTIME_AGENT_VERSION=${{ github.sha }}
@@ -236,7 +250,7 @@ jobs:
 
       - name: Export deployment image reference
         id: deployment
-        if: github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+        if: (github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main') && steps.preflight.outputs.build != 'false'
         env:
           IMAGE_NAME: ${{ steps.image.outputs.name }}
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
@@ -246,11 +260,11 @@ jobs:
           echo "image_ref=$IMAGE_NAME@$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Verify public package and anonymous digest access
-        if: github.repository == 'Cringe-Driven-Development-Team/backend' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+        if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
-          BACKEND_IMAGE_REF: ${{ steps.deployment.outputs.image_ref }}
+          BACKEND_IMAGE_REF: ${{ steps.deployment.outputs.image_ref || steps.preflight.outputs.image_ref }}
         run: |
           set -euo pipefail
           metadata=$(gh api orgs/Cringe-Driven-Development-Team/packages/container/backend)
@@ -261,20 +275,33 @@ jobs:
           trap 'rm -rf "$docker_config"' EXIT
           docker --config "$docker_config" pull --platform linux/amd64 "$BACKEND_IMAGE_REF"
 
-  deploy:
-    name: deploy
+      - name: Publish verified immutable Release
+        if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKEND_IMAGE_REF: ${{ steps.deployment.outputs.image_ref || steps.preflight.outputs.image_ref }}
+        run: python3 scripts/release/artifacts.py publish
+
+  dispatch-cd:
+    name: dispatch-cd
     needs: docker
     if: github.repository == 'Cringe-Driven-Development-Team/backend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      deployments: write
-    uses: ./.github/workflows/cd.yml
-    with:
-      action: deploy
-      target_sha: ${{ github.sha }}
-      backend_image_ref: ${{ needs.docker.outputs.image_ref }}
-    secrets: inherit
+      actions: write
+    steps:
+      - name: Dispatch prepared Release to CD
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.docker.outputs.release_tag }}
+        run: |
+          if ! gh workflow run cd.yml --repo "$GITHUB_REPOSITORY" --ref main -f "release_tag=$RELEASE_TAG"; then
+            echo "::error::Release is prepared, but CD dispatch failed. Run CD manually with $RELEASE_TAG."
+            printf '## CD dispatch failed\n\nRelease %s remains prepared. Run CD manually with this tag. Deployment success is unknown.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          printf '## CD dispatched\n\nRelease: %s. Follow the separate CD run and production Deployment for its result.\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   course-sync:
     needs: [lint, test, docker]

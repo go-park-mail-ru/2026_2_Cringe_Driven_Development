@@ -1,13 +1,11 @@
 import json
-import importlib.util
+import sys
 import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('release', ROOT / 'release.py')
-r = importlib.util.module_from_spec(spec)
-if spec.loader:
-    spec.loader.exec_module(r)
+sys.path.insert(0, str(ROOT))
+import release as r
 
 A, B, C = 'a' * 40, 'b' * 40, 'c' * 40
 D, E = r.PACKAGE + '@sha256:' + 'd' * 64, r.PACKAGE + '@sha256:' + 'e' * 64
@@ -159,3 +157,14 @@ class ExistingOperationIdentity(unittest.TestCase):
         s=r.initial_state('deploy',10,1);s.update(target_sha=A,image_ref=D)
         record={'id':3,'sha':A,'ref':A,'environment':'production','creator':{'login':'other'},'payload':{'run':r.RUN_ROOT+'10','action':'deploy','image_ref':D,'notification':{'run_attempt':1}}}
         with self.assertRaises(r.ReleaseError):FakeGitHub([record]).ensure_deployment(s)
+
+class StandaloneHistory(unittest.TestCase):
+    def test_cd_fixture_confirms_target_independently_of_dispatch_head(self):
+        fixture=json.loads((ROOT/'tests/fixtures/backend-cd-contract.json').read_text())
+        api=FakeGitHub()
+        api.get=lambda path: {'id':1} if '/workflows/' in path else fixture['run']
+        api.pages=lambda path,field=None: fixture['jobs']['jobs'] if '/jobs' in path else [{'state':'success','creator':{'login':'github-actions[bot]'},'log_url':r.RUN_ROOT+'20/attempts/1','environment_url':'https://cellestial.ru'}]
+        result=api.record(fixture['deployment'])
+        self.assertTrue(result['trusted']);self.assertEqual(result['sha'],B)
+        fixture['run']['event']='push'
+        self.assertFalse(api.record(fixture['deployment'])['trusted'])

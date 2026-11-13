@@ -1,152 +1,146 @@
-# Выпуск и ручной откат backend
+# Выпуск, выкатка и откат backend
 
-CI и выкатка принадлежат командному backend. Учебный репозиторий — копия main,
-без рабочих PR и Actions. Production Compose/Vault/SSH находятся в infra,
-карточки и доставка Telegram — в `.github/services/webhook-alerts` (.github#59).
+Опубликованный immutable GitHub Release означает «выпуск подготовлен».
+Успешный production Deployment означает «выпуск выкачен и прошёл проверки».
+CI и CD имеют отдельные Actions runs; успешный CI не подтверждает состояние VPS.
+Production Compose/Vault/SSH принадлежат infra, доставка уведомлений —
+`.github/services/webhook-alerts` (.github#59). Прямой отправки Telegram из backend нет.
 
-## Публикация
+## Подготовка репозитория
 
-CI проверяет lint/test/docker и публикует backend через `GITHUB_TOKEN` с
-`packages: write`. Теги: `sha-<полный 40-hex SHA>` и `main`, без `latest`.
-SHA-тег может измениться при повторной сборке: выкатка получает digest из
-`docker/build-push-action`, а не разрешает тег повторно.
+В Settings → General → Releases включить **Enable release immutability** до первого
+выпуска. Администратор может выполнить:
 
-Package `ghcr.io/cringe-driven-development-team/backend` должен быть Public.
-После каждого publish CI проверяет public visibility, привязку к repository и
-анонимный pull точного digest для linux/amd64 с чистым временным Docker config.
-Public разрешает скачивание, но публикация новых образов требует write.
+```sh
+gh api -X PUT repos/Cringe-Driven-Development-Team/backend/immutable-releases
+gh api repos/Cringe-Driven-Development-Team/backend/immutable-releases
+```
 
-Перевод package в Public — отдельное действие владельца в package settings
-после подготовки backend/infra PR и непосредственно перед применением infra#69.
-Вернуть публичный package в Private нельзя (см. GitHub Packages visibility docs).
-Если infra#69 уже применён, подтвердить фактическую public visibility и точный
-анонимный pull перед общей приёмкой; наличие кода проверки не доказывает её успех.
-Deploy/Rollback GHCR token не получают, login/logout на VPS не выполняется.
+Для этих endpoints нужны Administration write/read; `GITHUB_TOKEN` CI их не имеет.
+CI проверяет `immutable: true` у опубликованного выпуска; при отсутствии этого
+признака не запускает CD. Уже опубликованный mutable Release автоматически не
+заменяется. Нельзя считать локальные тесты подтверждением настройки репозитория.
 
-## Production: один путь для выкатки и отката
+GHCR package `ghcr.io/cringe-driven-development-team/backend` должен быть Public
+и привязан к backend. CI проверяет настройки package и анонимный pull точного
+`linux/amd64` digest с пустым Docker config. Публикация требует `packages: write`,
+Release — `contents: write`; CD/Ansible GHCR credentials не получают.
 
-Push/main CI вызывает reusable `cd.yml`; `Rollback` — отдельный
-`workflow_dispatch` на main, вызывающий тот же CD. Нужны
-`PRODUCTION_ENABLED=true` и approval/rules environment `production`.
-Environment secrets сохранены, автоматический Deployment выключен через
-`deployment: false`: producer создаёт одну явную запись на операцию/attempt.
-Job получает `deployments: write`, `contents: read`, `actions: read`.
+## Автоматическая подготовка выпуска
 
-Deploy и rollback сериализуются группой `backend-production`, без отмены
-выполняющегося запуска. Выбор истории/базы делается внутри этой группы.
-Перед SSH проверяются источник, полный SHA, backend package/digest и доступность
-образа анонимно. Неизвестная/неоднозначная цель отклоняется до VPS.
+Только push в `main` после обязательных проверок публикует production Release
+`release-<полный 40-hex SHA>`. PR и ручной CI не публикуют backend production-выпуск.
+Образ имеет теги `sha-<SHA>` и `main`, без `latest`; источник выкатки — digest из manifest.
+Архив получается через pull опубликованного digest → docker save → gzip, без второй сборки.
+Перед публикацией архив загружается через docker load с проверкой image ID.
 
-Используется `infra/ansible/deploy-backend.yml` из infra/main с
-`backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
-Нужны `DEPLOY_SSH_KEY`, `SSH_KNOWN_HOSTS`, `ANSIBLE_VAULT_PASSWORD` environment;
-сохраняются SSH jump через gateway, StrictHostKeyChecking и очистка временных файлов.
-Go остаётся на приватной VPS2; runner к её HTTP напрямую не обращается.
+Release сначала создаётся draft. После загрузки и повторной проверки файлов
+публикуется immutable Release с generated changelog, PR/compare ссылками, SHA,
+ссылкой на исходный CI run и командой скачивания по digest. Файлы:
 
-`Switch backend` выполняет существующий playbook один раз. Allowlisted Ansible
-callback фиксирует подтверждённый выбранный образ/healthy контейнер, внутреннюю
-проверку и внешние probes; не анализирует человекочитаемый stdout и не сохраняет
-секреты. `Health check` отдельным шагом требует полного набора свидетельств;
-exit 0 команды сам по себе не является успехом. Если callback не сработал,
-проверка остаётся неизвестной и Deployment не становится success.
+- `backend-image.tar.gz`: Docker-образ для самостоятельной загрузки;
+- `release.json`: `format_version: 1`, `source_sha`, `image_ref`, `ci_url`,
+  `build.platform`, `build.image_id`, `archive.name`, `archive.size`, `archive.sha256`;
+- `SHA256SUMS`: SHA256 архива и точных байтов `release.json`.
 
-Обязательные проверки infra#69:
+Автоматические GitHub source archives не являются сборочными артефактами.
+Скачивание файлов: Release → Assets либо `gh release download <tag> -R
+Cringe-Driven-Development-Team/backend`. Затем:
 
-- VPS2: image ID работающего api совпадает с `.Id` образа по выбранному digest,
-  контейнер running/healthy. Локальный image ID не сравнивается напрямую с GHCR digest.
-- Gateway → private IP VPS2:8080: GET /health → 200 и JSON status=alive.
-- Runner → HTTPS BFF: отрицательный POST /api/trpc/auth.login со свежим случайным
-  32-hex login, фиктивным паролем, Origin/X-CSRF/Content-Type; без cookie/аккаунта.
-- Публичные `/api/v1/users/me`, `/api/unknown`, `/health`: 404 без HTML приложения.
+```sh
+sha256sum -c SHA256SUMS
+docker load -i backend-image.tar.gz
+```
 
-**Уточнение действующего контракта:** актуальный infra/main ожидает для login
-`400`, `error.data.code=BAD_REQUEST`, `error.data.appCode=invalid_credentials`.
-Старый текст backend#42/infra#69 указывает 401/UNAUTHORIZED. Producer не дублирует
-HTTP-логику и использует фактический общий probe Ansible. Расхождение необходимо
-согласовать при общей приёмке; менять статусы GitHub issues этот код не пытается.
-Внутренний и внешний login probe имеют максимум 6 запросов, timeout 5 s, delay 5 s.
-Дополнительные проверки guest HTML/users.me не заменяют отрицательный login.
-Эти проверки не доказывают успешную сессию пользователя, Redis или runtime-VPS.
+При повторе CI опубликованный выпуск полностью проверяется и используется без
+пересборки backend или изменения файлов. Публикации одного SHA сериализованы.
+Если загрузка оборвалась, draft с `release.json` фиксирует digest: повтор берёт
+именно его, восстанавливает архив и проверяет соответствие checkpoint перед
+добавлением отсутствующих файлов. Несогласованные файлы не перезаписываются.
+Если checkpoint ещё не загружен и опубликованного выпуска нет, повтор может собрать
+образ заново; завершённый Release никогда не пересобирается.
 
-## Выбор версии для Rollback
+## Самостоятельный CD и повторное применение infra
 
-Откройте backend → Deployments → production. Успешная запись содержит полный
-SHA и `payload.image_ref`; проверьте нужный package и неизменяемый digest.
-Это последний подтверждённый результат тогда, а не доказательство работы VPS сейчас.
-Предварительное SSH-чтение Docker не требуется.
+После публикации CI вызывает `workflow_dispatch` workflow `CD` на `main`, передавая
+конкретный `release_tag`. Вызывающая job имеет только `contents: read`, `actions: write`.
+На `release: published` автоматизация не полагается: публикация через `GITHUB_TOKEN`
+не запускает следующий workflow. Ошибка dispatch — отдельная ошибка CI job;
+Release остаётся готовым, его можно выкатить вручную без пересборки.
 
-Actions → **Rollback** → **Run workflow** → ветка **main**:
+Ручной путь: Actions → **CD** → **Run workflow** → branch `main` → обязательный
+`release_tag`, например `release-0123456789012345678901234567890123456789`.
+У CD собственный run, история и Summary. Разрешены текущий подтверждённый выпуск
+и новый выпуск, происходящий от текущего. Старую версию выбирают через Rollback.
+Внутри общей production concurrency-секции CD заново читает Deployments: запоздавший
+запуск предка не откатывает более новую успешную выкатку. Расходящаяся история
+и неизвестное последнее состояние отклоняются, требуют сверки истории и состояния.
 
-- SHA пустой: после последней success выбирается предыдущая success с другим
-  digest; после failure/error — последняя подтверждённая success для восстановления.
-- Последняя запись незавершённая/неизвестная, история недоступна или нет подходящего
-  успеха: автоматический выбор запрещён.
-- Можно указать полный SHA конкретного прежнего успешного Deployment. Все его
-  успешные записи должны содержать один digest; разные digest — отказ.
-  Явный SHA позволяет восстановиться при неизвестной последней попытке.
+До доступа к SSH проверяются публикация/immutability, точный tag и его commit,
+manifest, контрольные суммы скачанных файлов, разрешённый backend package/digest
+и анонимный pull. Draft, отсутствующий выпуск, несогласованные SHA/digest/checksum
+отклоняются с причиной в логе. Dispatch HEAD не определяет образ.
 
-Не передавайте digest из старого сообщения Telegram или изменяемого тега.
-После переключения выполняются те же проверки, что для deploy.
-**Миграции goose применяются при старте API; rollback не выполняет Down и не
-восстанавливает данные.** Совместимость старого бинарника с применённой схемой
-нужно оценить заранее; откат схемы/данных не входит в #42. Автоматического отката нет.
+Каждый CD получает актуальную `infra/main`, пишет её SHA в Summary и передаёт
+`backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`
+в `infra/ansible/deploy-backend.yml`. Штатная выкатка скачивает образ из GHCR;
+архив на VPS не загружается. Повторный CD текущего Release снова запускает playbook,
+применяя свежие переменные, включая `runtime_extra_env`. Infra шаблонизирует их
+в `.env` и Compose, а Compose пересоздаёт API при изменении окружения.
+Совпадение digest не является условием пропуска playbook.
 
-## Deployment, события и Summary
+### Как найти текущий подтверждённый Release
 
-Контракт общий с .github#59:
+Открыть backend → Environments → production → последний **успешный Deployment**.
+Перейти по его log URL в CD/Rollback run и прочитать Summary: target SHA,
+`release-<SHA>`, image digest и infra SHA. Этот tag указать в CD для повторной выкатки.
+Последний по дате опубликованный Release и текущий HEAD не подтверждают выкатку.
+История GitHub также не утверждает текущее состояние VPS после потери доступа.
 
-- repository — Cringe-Driven-Development-Team/backend, environment — production;
-- ref и разрешённый sha — целевой полный SHA; task=deploy|rollback;
-- payload.action=task, image_ref — полный digest-ref; payload.run — текущий run;
-- notification.run_attempt — положительный integer; base_sha — последний
-  подтверждённый успешный production SHA перед операцией либо null;
-- notification.report_url — `<текущий run>#summary`;
-- status содержит environment_url=https://cellestial.ru, log_url текущего attempt;
-- один Deployment на операцию/attempt, in_progress до доступа на переключение,
-  затем success только после всех обязательных проверок, иначе failure/error.
+## Rollback и обязательные проверки
 
-Терминальный deployment_status — основной результат. Ошибка/отмена до Deployment
-или итогового status — workflow_job.completed fallback, общий semantic key
-repository + action + run_id + run_attempt. Backend не публикует release-artifacts,
-frontend assets не нужны. Consumer читает проверенный run/attempt и steps через API.
-Фактический deploy job — `deploy / deploy`; целевое имя rollback — `rollback / deploy`,
-его необходимо подтвердить Jobs API при первом разрешённом запуске, без пробного
-production rollback ради fixture.
+Actions → **Rollback** → **Run workflow** на `main`. Необязательное поле `sha` —
+полный SHA ранее успешно выкаченной версии. Без поля: после успешного последнего
+запуска выбирается предыдущий успешный другой digest; после failure/error — последний
+успешный. Неизвестное или незавершённое последнее состояние запрещает автоматический
+выбор; явная цель тоже требует успешного подтверждения и однозначного digest.
 
-Summary каждой исполняемой попытки содержит действие, target/ref, базовый релиз,
-инициатора, этап ошибки, отдельные switch/image/internal/external/routes результаты,
-ссылки на логи, коммиты/PR/задачи. При rollback перечисляются снимаемые изменения
-(target..base). Если история не полностью доступна, это явно отмечается; результат
-операции не скрывается. При потере runner полный Summary может не дописаться —
-fallback не должен придумывать отсутствующие свидетельства.
+Цель должна иметь опубликованный immutable Release с тем же digest. Старые записи
+CI #102 остаются свидетельствами истории, но не заменяют отсутствующий Release.
+Импорт старых выпусков не выполняется. Откат не пересобирает образ и не откатывает БД.
+CD, повторная выкатка и Rollback используют одну группу `backend-production`,
+не отменяют выполняющуюся операцию; выбор цели происходит внутри этой группы.
 
-Если switch не подтверждён — состояние неизвестно. Если подтверждён, а проверка
-не прошла — есть факт выбранной версии на этапе переключения, Health Check не
-успешен; текущее состояние при утрате доступа неизвестно. Историческая base_sha
-никогда не подставляется как фактическая версия. Поздний сбой после обязательных
-проверок не переписывает успешный результат; сбой записи status требует сверки
-по шагам/Summary и не создаёт новый Deployment автоматически.
+Сохраняются `PRODUCTION_ENABLED=true`, environment `production`, доверенные workflow
+на `main`, SSH host-key verification и удаление временных SSH/Vault файлов.
+Deployment получает `in_progress`, затем terminal status только на основании фактов:
+фактический digest и healthy контейнер, внутренний Go API с gateway, внешняя цепочка
+BFF → Go → PostgreSQL и закрытость публичных Go-маршрутов. Неподтверждённые этапы
+остаются unknown/not_run. После обязательных проверок поздняя ошибка отчётности не
+переписывает успех самих проверок; ошибка регистрации статуса видна отдельно.
 
-Результат операции диагностируется в Actions/Deployments. Доставка карточки —
-в webhook logs/outbox, независимо от Actions; Telegram-сбой не меняет результат
-выкатки. Прямых Telegram steps/credentials в CD нет. Кнопка «↩️ Откатить» только
-открывает Rollback workflow, не выполняет операцию и не сохраняет цель из сообщения.
+## Webhook-контракт и интеграционная проверка
 
-## Локальные проверки и общая приёмка
+Payload сохраняет `action`, `image_ref`, `run`, `notification.run_attempt`,
+`notification.base_sha`, `notification.report_url`; добавлены `release_tag`, `infra_sha`.
+CD: workflow `cd.yml`, event `workflow_dispatch`, job `deploy`; Rollback сохраняет
+`rollback.yml`, `workflow_dispatch`, job `rollback / deploy`. Имена шагов
+`Switch backend` и `Health check` сохраняются. Target SHA независим от dispatch HEAD.
 
-`make release-check` — Python standard-library tests с fake GitHub/processes;
-`make check`, `make docker-build` — обязательные backend проверки;
-`actionlint .github/workflows/{ci,cd,rollback}.yml` — workflow lint.
-Fixtures в `scripts/release/tests/fixtures/backend-release-contract.json` совпадают
-с consumer .github#59; сценарии rerun, отказов и health ошибок проверяются локально,
-без сообщений в чат и без пробного отката production.
+Распознавание самостоятельного CD принадлежит
+[consumer webhook](https://github.com/Cringe-Driven-Development-Team/.github/tree/main/services/webhook-alerts)
+(.github#59). Consumer должен разрешать источник `cd.yml` и job `deploy`, сохраняя
+проверки ветки, репозитория, workflow ID, попытки и доказательств выполнения.
+Общий fixture `backend-cd-contract.json` проверяет CD с HEAD, отличным от target.
+Для интеграционной приёмки нужен выкаченный consumer с этой поддержкой.
+Telegram sender не меняется.
 
-Код можно подготовить независимо от #59 и infra#64. После готовности обеих сторон
-проверить runtime конфигурацию без выключенного пути и на штатной выкатке цепочку
-«published digest → VPS2 → checks → Deployment → webhook → карточка».
-До полной приёмки backend PR пишет `Part of` на #42; закрывать родителя можно
-только после подзадач и интеграции. Публикация/доступы/production применяются
-отдельно владельцем, не локальными тестами.
+Локально: `make release-check`, `actionlint .github/workflows/{ci,cd,rollback}.yml`,
+`make check`, `make docker-build`. Consumer проверяется `bun test` в
+`services/webhook-alerts` без сетевой отправки уведомлений. На интеграционной приёмке
+приложить ссылки на настоящий CI run, Release и отдельный CD run; проверить повтор
+текущего Release с изменением infra при том же digest и всю цепочку Deployment → webhook.
+Пробный production Rollback ради локальной приёмки не требуется.
 
-Course-sync остаётся независимым от deploy, с `COURSE_SYNC_ENABLED=true`.
-Повторяется через ci_run_id согласно runbook организации, без повторной выкатки.
+Course-sync независим от CD, управляется `COURSE_SYNC_ENABLED=true` и повторяется
+по `ci_run_id` без повторной выкатки.
