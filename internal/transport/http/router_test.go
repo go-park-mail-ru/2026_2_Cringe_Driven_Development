@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	notebookdomain "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
+	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/domain"
 	"github.com/google/uuid"
@@ -42,7 +42,9 @@ func TestRouterRequestIDOnEveryResponse(t *testing.T) {
 					f.users.EXPECT().CurrentUser(gomock.Any(), int64(1)).Return(domain.User{ID: 1, Login: "bob"}, nil)
 				}
 				if tt.name == "recovered panic" {
-					f.notebooks.EXPECT().List(gomock.Any(), int64(1)).DoAndReturn(func(context.Context, int64) ([]notebookdomain.NotebookSummary, error) { panic("SECRET-panic") })
+					f.notebooks.EXPECT().List(gomock.Any(), int64(1), gomock.Any()).DoAndReturn(func(context.Context, int64, notebookusecase.ListInput) (notebookusecase.ListPage, error) {
+						panic("SECRET-panic")
+					})
 				}
 				req := routerRequest(tt.method, tt.path, tt.key, tt.access)
 				if requestID != "" {
@@ -99,7 +101,9 @@ func TestRouterLogsTemplateAndEarlyFailure(t *testing.T) {
 				f.users.EXPECT().CurrentUser(gomock.Any(), int64(1)).Return(domain.User{ID: 1, Login: "bob"}, nil)
 			}
 			if tc.name == "panic" {
-				f.notebooks.EXPECT().List(gomock.Any(), int64(1)).DoAndReturn(func(context.Context, int64) ([]notebookdomain.NotebookSummary, error) { panic("SECRET-panic") })
+				f.notebooks.EXPECT().List(gomock.Any(), int64(1), gomock.Any()).DoAndReturn(func(context.Context, int64, notebookusecase.ListInput) (notebookusecase.ListPage, error) {
+					panic("SECRET-panic")
+				})
 			}
 			key := ""
 			if tc.name == "s2s" {

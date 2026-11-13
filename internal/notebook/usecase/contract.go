@@ -33,7 +33,7 @@ var (
 // Usecase работает только с блокнотами владельца.
 type Usecase interface {
 	Editing
-	List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error)
+	List(ctx context.Context, ownerID int64, input ListInput) (ListPage, error)
 	// Create кладёт в новый блокнот один пустой блок кода.
 	Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error)
 	Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error)

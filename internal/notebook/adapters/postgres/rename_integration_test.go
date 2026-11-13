@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,8 +50,8 @@ func TestRenameNotebookPersistsOnlyName(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(saved, got) {
 		t.Fatalf("not persisted: %+v %v", saved, err)
 	}
-	list, err := repo.List(context.Background(), 1)
-	if err != nil || len(list) != 1 || list[0].Name != "Новое название" || !list[0].UpdatedAt.Equal(got.UpdatedAt) {
+	list, err := repo.ListPage(context.Background(), 1, usecase.ListQuery{Limit: 24})
+	if err != nil || len(list.Items) != 1 || list.Items[0].Name != "Новое название" || !list.Items[0].UpdatedAt.Equal(got.UpdatedAt) {
 		t.Fatalf("list: %+v %v", list, err)
 	}
 }
@@ -93,7 +94,7 @@ func TestRenameNotebookOwnerAndMissing(t *testing.T) {
 
 func TestRenameNotebookDuplicateNames(t *testing.T) {
 	repo, _ := testRepository(t)
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	for range 2 {
 		n, err := uc.Create(context.Background(), 1, "old")
 		if err != nil {
@@ -103,8 +104,8 @@ func TestRenameNotebookDuplicateNames(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	list, err := repo.List(context.Background(), 1)
-	if err != nil || len(list) != 2 || list[0].Name != "same" || list[1].Name != "same" {
+	list, err := repo.ListPage(context.Background(), 1, usecase.ListQuery{Limit: 24})
+	if err != nil || len(list.Items) != 2 || list.Items[0].Name != "same" || list.Items[1].Name != "same" {
 		t.Fatalf("duplicates: %+v %v", list, err)
 	}
 }

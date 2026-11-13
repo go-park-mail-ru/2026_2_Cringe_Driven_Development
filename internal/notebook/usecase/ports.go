@@ -36,7 +36,7 @@ type Change struct {
 }
 type Repository interface {
 	Create(context.Context, domain.Notebook) (domain.Notebook, error)
-	List(context.Context, int64) ([]domain.NotebookSummary, error)
+	ListPage(context.Context, int64, ListQuery) (ListRows, error)
 	Get(context.Context, int64, int64) (domain.Notebook, error)
 	Rename(context.Context, int64, int64, string) (domain.Notebook, error)
 	DeleteNotebook(context.Context, int64, int64) error

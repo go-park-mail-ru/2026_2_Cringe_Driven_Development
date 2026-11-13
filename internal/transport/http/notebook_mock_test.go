@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	domain "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
+	usecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -160,18 +161,18 @@ func (mr *MockNotebookUsecaseMockRecorder) Get(ctx, id, ownerID any) *gomock.Cal
 }
 
 // List mocks base method.
-func (m *MockNotebookUsecase) List(ctx context.Context, ownerID int64) ([]domain.NotebookSummary, error) {
+func (m *MockNotebookUsecase) List(ctx context.Context, ownerID int64, input usecase.ListInput) (usecase.ListPage, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", ctx, ownerID)
-	ret0, _ := ret[0].([]domain.NotebookSummary)
+	ret := m.ctrl.Call(m, "List", ctx, ownerID, input)
+	ret0, _ := ret[0].(usecase.ListPage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // List indicates an expected call of List.
-func (mr *MockNotebookUsecaseMockRecorder) List(ctx, ownerID any) *gomock.Call {
+func (mr *MockNotebookUsecaseMockRecorder) List(ctx, ownerID, input any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockNotebookUsecase)(nil).List), ctx, ownerID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockNotebookUsecase)(nil).List), ctx, ownerID, input)
 }
 
 // MoveCell mocks base method.

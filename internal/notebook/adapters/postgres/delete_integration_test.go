@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ import (
 
 func deletionNotebook(t *testing.T, repo *NotebookRepository) domain.Notebook {
 	t.Helper()
-	n, err := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}).Create(context.Background(), 1, "delete me")
+	n, err := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key"))).Create(context.Background(), 1, "delete me")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,8 +85,8 @@ func TestDeleteNotebookRemovesContentAndCompletedHistory(t *testing.T) {
 	if _, err = repo.SaveResult(ctx, n.ID, 1, usecase.CellResult{CellID: n.Cells[0].ID, SourceVersion: before.SourceVersion, Outputs: []byte(`[]`)}); !errors.Is(err, usecase.ErrNotebookNotFound) {
 		t.Fatalf("late result: %v", err)
 	}
-	list, err := repo.List(ctx, 1)
-	if err != nil || len(list) != 0 {
+	list, err := repo.ListPage(ctx, 1, usecase.ListQuery{Limit: 24})
+	if err != nil || len(list.Items) != 0 {
 		t.Fatalf("list: %+v %v", list, err)
 	}
 }

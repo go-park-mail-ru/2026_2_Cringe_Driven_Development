@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/config"
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	nbpg "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
 	nbhttp "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	nbuc "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
@@ -25,6 +26,7 @@ import (
 	D "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/domain"
 	UC "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/usecase"
 	transport "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 	userpg "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/postgres"
 	userredis "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/redis"
 	security "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/security"
@@ -83,7 +85,7 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	issuer := security.NewAccessToken([]byte("api13-integration-local-key"), time.Hour)
 	users := useruc.NewUserUsecase(userpg.NewUserRepository(pool), sessions, issuer, security.PasswordHasher{}, security.RefreshTokens{}, time.Hour)
 	store := storepg.New(pool)
-	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store)
+	notebooks := nbuc.NewNotebookUsecase(nbpg.NewNotebookRepository(pool), store, notebookcursor.New([]byte("list-test-key")))
 	module, err := runtime.Build(ctx, config.RuntimeConfig{Provider: "fake", SecretsKey: make([]byte, 32), MaxActive: 5, MaxConcurrentOps: 2, StartupTimeout: time.Minute, WorkDir: t.TempDir()}, pool)
 	if err != nil {
 		t.Fatal(err)
@@ -217,15 +219,12 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 	assertBadge := func(want int64) {
 		t.Helper()
 		response := call("GET", "/notebooks", "", 200)
-		var list []struct {
-			ID     int64 `json:"id"`
-			Active bool  `json:"has_active_session"`
-		}
+		var list api.NotebookListPage
 		if decodeErr := json.Unmarshal(response.Body.Bytes(), &list); decodeErr != nil {
 			t.Fatal(decodeErr)
 		}
-		for _, item := range list {
-			if item.Active != (want != 0 && item.ID == want) {
+		for _, item := range list.Items {
+			if item.HasActiveSession != (want != 0 && item.Id == want) {
 				t.Fatalf("wrong runtime badge: %+v", item)
 			}
 		}
@@ -283,16 +282,13 @@ func TestRuntimeFullHTTPFlowWithFakeEnvironment(t *testing.T) {
 		if got.ID != first.ID || got.Name != renamedName {
 			t.Fatalf("renamed notebook: %+v", got)
 		}
-		var list []struct {
-			ID   int64  `json:"id"`
-			Name string `json:"name"`
-		}
+		var list api.NotebookListPage
 		if e := json.Unmarshal(call("GET", "/notebooks", "", 200).Body.Bytes(), &list); e != nil {
 			t.Fatal(e)
 		}
 		found := false
-		for _, n := range list {
-			if n.ID == first.ID {
+		for _, n := range list.Items {
+			if n.Id == first.ID {
 				found = true
 				if n.Name != renamedName {
 					t.Fatal("list lost renamed name")

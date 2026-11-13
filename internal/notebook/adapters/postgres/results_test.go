@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/ipynb"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 )
@@ -15,7 +16,7 @@ import (
 func TestResultPreservesRevisionAndAccounting(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "result revision")
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +79,7 @@ func TestEditAndCreateAcceptHashReadBeforeResult(t *testing.T) {
 		t.Run(string(operation), func(t *testing.T) {
 			repo, _ := testRepository(t)
 			ctx := context.Background()
-			uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+			uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 			n, err := uc.Create(ctx, 1, "edit after execution")
 			if err != nil {
 				t.Fatal(err)
@@ -121,7 +122,7 @@ func TestEditAndCreateAcceptHashReadBeforeResult(t *testing.T) {
 func TestResultMetadataFailureRollsBackData(t *testing.T) {
 	repo, pool := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "result rollback")
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +158,7 @@ func TestExpandedRuntimeOutputRejectedBeforeSQL(t *testing.T) {
 func TestExpandedRuntimeOutputPreservesNotebook(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
-	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{})
+	uc := usecase.NewNotebookUsecase(repo, usecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 	n, err := uc.Create(ctx, 1, "result budget")
 	if err != nil {
 		t.Fatal(err)

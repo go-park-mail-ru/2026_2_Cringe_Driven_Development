@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	notebookcursor "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/cursor"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 	usersecurity "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/adapters/security"
@@ -32,7 +33,7 @@ func TestOversizedSourceReturns413WithoutStorage(t *testing.T) {
 	for _, source := range []string{strings.Repeat("x", 65537), strings.Repeat("я", 32769)} {
 		for _, method := range []string{http.MethodPost, http.MethodPatch} {
 			ctrl := gomock.NewController(t)
-			uc := notebookusecase.NewNotebookUsecase(NewMockRepository(ctrl), notebookusecase.NoActiveSessions{})
+			uc := notebookusecase.NewNotebookUsecase(NewMockRepository(ctrl), notebookusecase.NoActiveSessions{}, notebookcursor.New([]byte("list-test-key")))
 			tokens := usersecurity.NewAccessToken([]byte("source-test"), time.Hour)
 			access, err := tokens.Issue(testClaims(1))
 			if err != nil {

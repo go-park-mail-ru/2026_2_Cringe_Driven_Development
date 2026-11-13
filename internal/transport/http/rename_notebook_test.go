@@ -33,7 +33,7 @@ func newRenameHTTPFixture(t *testing.T) renameHTTPFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := NewRouter(Server{UserHandler: userdelivery.NewHandler(nil), NotebookHandler: notebookdelivery.NewHandler(notebookusecase.NewNotebookUsecase(repo, notebookusecase.NoActiveSessions{}))}, tokens, allowSessions{}, "test-key")
+	handler, err := NewRouter(Server{UserHandler: userdelivery.NewHandler(nil), NotebookHandler: notebookdelivery.NewHandler(notebookusecase.NewNotebookUsecase(repo, notebookusecase.NoActiveSessions{}, nil))}, tokens, allowSessions{}, "test-key")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -161,17 +161,17 @@ func TestListNotebooks(t *testing.T) {
 		list []domain.NotebookSummary
 		want string
 	}{
-		{name: "пустой список — [], а не null", list: nil, want: `[]`},
+		{name: "пустой список — [], а не null", list: nil, want: `{"items":[],"matched_count":0,"next_cursor":null,"total_count":0}`},
 		{
 			name: "один блокнот",
 			list: []domain.NotebookSummary{{ID: 3, Name: "a", CellsCount: 2, UpdatedAt: updated}},
-			want: `[{"cells_count":2,"has_active_session":false,"id":3,"name":"a","preview_code":"","updated_at":"2026-10-04T12:00:00Z"}]`,
+			want: `{"items":[{"cells_count":2,"has_active_session":false,"id":3,"name":"a","preview_code":"","updated_at":"2026-10-04T12:00:00Z"}],"matched_count":0,"next_cursor":null,"total_count":0}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uc := NewMockUsecase(gomock.NewController(t))
-			uc.EXPECT().List(gomock.Any(), int64(1)).Return(tt.list, nil)
+			uc.EXPECT().List(gomock.Any(), int64(1), gomock.Any()).Return(usecase.ListPage{Items: tt.list}, nil)
 			rec := do(t, uc, http.MethodGet, "/notebooks", "", true)
 
 			if rec.Code != http.StatusOK {
