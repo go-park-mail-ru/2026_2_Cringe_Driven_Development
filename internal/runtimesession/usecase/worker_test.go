@@ -97,6 +97,11 @@ func TestReconnectRecoversAfterCompleteFlow(t *testing.T) {
 	e.EXPECT().Get(gomock.Any(), l.Session.ID).Return(D.Environment{SessionID: l.Session.ID, State: "READY"}, nil)
 	a.EXPECT().Health(gomock.Any(), l.Session.ID).Return(D.Health{SessionID: l.Session.ID, Language: "python", State: "READY", Ready: true}, nil)
 	a.EXPECT().Events(gomock.Any(), l.Session.ID, int64(0), gomock.Any()).Return([]D.AgentEvent{}, nil)
+	s.EXPECT().DispatchGuard(gomock.Any(), l, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ D.Lease, dispatch func(context.Context) error) error {
+			return dispatch(ctx)
+		},
+	)
 	s.EXPECT().NextPending(gomock.Any(), l.Session.ID).Return(D.Execution{}, D.ErrNotFound)
 	s.EXPECT().Save(gomock.Any(), l, gomock.Any()).DoAndReturn(func(_ context.Context, _ D.Lease, v D.Session) error {
 		if v.State != D.Ready || v.Retry != 0 {

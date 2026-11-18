@@ -11,20 +11,24 @@ var (
 	ErrVersionChanged = errors.New("session version has changed")
 )
 
+// SessionVersion хранит версию отзыва пользовательских сессий.
 type SessionVersion uint64
 
+// SessionClaims связывает владельца, идентификатор сессии и действующую версию.
 type SessionClaims struct {
 	UserID    int64
 	SessionID string
 	Version   SessionVersion
 }
 
+// RefreshSession содержит данные сессии, найденной по хешу refresh-токена.
 type RefreshSession struct {
 	SessionClaims
 	TokenHash string
 	ExpiresAt time.Time
 }
 
+// NewSession передаёт данные и срок жизни новой записи сессии.
 type NewSession struct {
 	RefreshSession
 	AccessExpiresAt time.Time

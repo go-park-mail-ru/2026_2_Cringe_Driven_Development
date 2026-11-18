@@ -1,4 +1,4 @@
-"""Jupyter's default JSON/binary WebSocket protocol over private TCP."""
+"""Работайте с JSON и бинарными кадрами Jupyter по закрытому TCP."""
 
 import asyncio
 import base64
@@ -11,37 +11,21 @@ import aiohttp
 
 
 async def reject_redirect(session, context, params):
-    """Reject kernel-controlled HTTP and WebSocket handshake redirects.
-
-    Prevents an untrusted Jupyter server from making the host agent follow
-    redirects to addresses outside the container endpoint.
+    """Отклоните перенаправление до обращения к адресу вне контейнера.
 
     Args:
-        session (aiohttp.ClientSession): Client emitting the redirect trace.
-        context (types.SimpleNamespace): Request trace context; unused.
-        params (aiohttp.TraceRequestRedirectParams): Redirect response details;
-            unused because every redirect is rejected.
-
-    Raises:
-        ValueError: Always, before aiohttp follows the redirect.
+        session: HTTP-клиент, вызвавший обработчик.
+        context: Контекст трассировки aiohttp.
+        params: Данные отклоняемого перенаправления.
     """
     raise ValueError("Jupyter redirect is not allowed")
 
 
 def decode_message(data):
-    """Decode a frame from Jupyter's default WebSocket protocol.
+    """Декодируйте кадр Jupyter и представьте бинарные буферы в base64.
 
     Args:
-        data (str | bytes): JSON text or a binary frame containing a JSON
-            message followed by buffers and their offset table.
-
-    Returns:
-        dict: Decoded message. Binary buffers are exposed as base64 strings
-        in ``buffers_base64``.
-
-    Raises:
-        ValueError: The buffer count, offsets, or JSON payload are invalid.
-        UnicodeDecodeError: The JSON payload cannot be decoded as Unicode.
+        data: JSON-текст или бинарный кадр с таблицей смещений.
     """
     if isinstance(data, str):
         return json.loads(data)
@@ -64,28 +48,18 @@ def decode_message(data):
 
 
 class Jupyter:
-    """Manage one kernel through Jupyter Server's REST and WebSocket APIs.
+    """Управляйте одним kernel через REST и WebSocket.
 
-    All connections use a private TCP connection. Call ``start`` before sending
-    execution requests and ``close`` to release the transport, including after
-    a failed startup. Only one coroutine may receive messages at a time.
-
-    Attributes:
-        base_url (str): Private HTTP endpoint of the container's Jupyter server.
-        token (str): Container-specific token, separate from the agent API token.
-        kernel_name (str): Registered kernelspec name, ``python3`` or ``ir``.
-        kernel_id (str | None): Server-assigned ID after kernel creation.
-        client_id (str): UUID identifying this client's protocol session.
-        http (aiohttp.ClientSession | None): Authenticated HTTP client.
-        ws (aiohttp.ClientWebSocketResponse | None): Kernel channels connection.
+    Транспорт работает по закрытому TCP. Только одна корутина читает канал.
+    Вызывающий закрывает транспорт и при сбое запуска.
     """
 
     def __init__(self, base_url, token):
-        """Configure the transport without opening connections.
+        """Настройте транспорт без подключения.
 
         Args:
-            base_url (str): Private HTTP endpoint of Jupyter Server.
-            token (str): Authentication token for this session's server.
+            base_url: Закрытый HTTP-адрес Jupyter Server в контейнере.
+            token: Токен Jupyter Server, отдельный от токена API агента.
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
@@ -96,21 +70,12 @@ class Jupyter:
         self.client_id = str(uuid.uuid4())
 
     async def request(self, method, path, **kwargs):
-        """Send an authenticated request through the initialized HTTP client.
+        """Отправьте авторизованный HTTP-запрос.
 
         Args:
-            method (str): HTTP method.
-            path (str): API path beginning with a slash.
-            **kwargs: Additional arguments for ``aiohttp.ClientSession.request``.
-
-        Returns:
-            object | None: Decoded JSON body, or None for HTTP 204.
-
-        Raises:
-            aiohttp.ClientError: The connection, HTTP response, or content type
-                is invalid.
-            TimeoutError: The HTTP request exceeds its deadline.
-            ValueError: The response body is not valid JSON.
+            method: Метод HTTP.
+            path: Путь API, начинающийся с косой черты.
+            **kwargs: Дополнительные аргументы aiohttp.
         """
         assert self.http is not None
         async with self.http.request(method, self.base_url + path, **kwargs) as response:
@@ -118,19 +83,10 @@ class Jupyter:
             return await response.json() if response.status != 204 else None
 
     async def start(self, startup_seconds):
-        """Wait for the server, create a kernel, and confirm its readiness.
-
-        Connection failures while polling kernelspecs are retried within the
-        startup deadline. The caller must close the transport on failure.
+        """Создайте kernel и дождитесь его готовности.
 
         Args:
-            startup_seconds (float): Overall startup deadline in seconds.
-
-        Raises:
-            TimeoutError: The server or kernel does not become ready in time.
-            aiohttp.ClientError: Kernel creation or channel connection fails.
-            ConnectionError: The channel closes before readiness is confirmed.
-            ValueError: A readiness message cannot be decoded.
+            startup_seconds: Бюджет запуска в секундах.
         """
         trace = aiohttp.TraceConfig()
         trace.on_request_redirect.append(reject_redirect)
@@ -156,15 +112,7 @@ class Jupyter:
             await self.wait_ready()
 
     async def connect(self):
-        """Open the channels WebSocket for the current kernel ID.
-
-        Requires an initialized HTTP client and kernel ID. Enables heartbeat
-        checks and limits incoming frames to 32 MiB.
-
-        Raises:
-            aiohttp.ClientError: The connection or WebSocket handshake fails.
-            TimeoutError: The connection deadline expires.
-        """
+        """Откройте WebSocket для каналов созданного kernel."""
         assert self.http is not None
         self.ws = await self.http.ws_connect(
             f"{self.base_url}/api/kernels/{self.kernel_id}/channels?session_id={self.client_id}",
@@ -173,18 +121,12 @@ class Jupyter:
         )
 
     async def send(self, msg_type, content, msg_id=None):
-        """Send a Jupyter protocol message on the shell channel.
+        """Отправьте сообщение по каналу Jupyter и верните его ID.
 
         Args:
-            msg_type (str): Protocol message type, such as ``execute_request``.
-            content (dict): JSON-serializable message content.
-            msg_id (str | None): Correlation ID; a UUID is generated if omitted.
-
-        Returns:
-            str: Message ID used to correlate subsequent replies and output.
-
-        Raises:
-            aiohttp.ClientError: The WebSocket cannot send the message.
+            msg_type: Тип сообщения протокола Jupyter.
+            content: Поля содержимого сообщения.
+            msg_id: Идентификатор для сопоставления ответа или None для нового UUID.
         """
         msg_id = msg_id or str(uuid.uuid4())
         assert self.ws is not None
@@ -207,15 +149,7 @@ class Jupyter:
         return msg_id
 
     async def receive(self):
-        """Receive and decode the next text or binary kernel message.
-
-        Returns:
-            dict: Message with binary buffers encoded as base64, when present.
-
-        Raises:
-            ConnectionError: The WebSocket closes or returns a non-data frame.
-            ValueError: The frame contains invalid JSON or binary framing.
-        """
+        """Прочитайте и декодируйте следующее сообщение kernel."""
         assert self.ws is not None
         message = await self.ws.receive()
         if message.type in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
@@ -223,16 +157,7 @@ class Jupyter:
         raise ConnectionError("Jupyter channel closed")
 
     async def wait_ready(self):
-        """Wait for a kernel-info reply and its matching IOPub idle status.
-
-        Messages with other parent IDs are consumed and ignored. The caller
-        must enforce a deadline and ensure no other reader uses the WebSocket.
-
-        Raises:
-            ConnectionError: The channel closes while waiting for readiness.
-            aiohttp.ClientError: Sending the kernel-info request fails.
-            ValueError: A received frame cannot be decoded.
-        """
+        """Дождитесь подтверждения готовности по протоколу Jupyter."""
         msg_id = await self.send("kernel_info_request", {})
         reply = idle = False
         while not (reply and idle):
@@ -244,27 +169,14 @@ class Jupyter:
             idle |= kind == "status" and msg["content"].get("execution_state") == "idle"
 
     async def interrupt(self):
-        """Request an interrupt without waiting for execution completion.
-
-        Raises:
-            aiohttp.ClientError: Jupyter Server rejects or cannot receive the request.
-            TimeoutError: The HTTP request deadline expires.
-        """
+        """Запросите прерывание kernel через REST API."""
         await self.request("POST", f"/api/kernels/{self.kernel_id}/interrupt")
 
     async def restart(self, startup_seconds):
-        """Restart the kernel, reconnect its channels, and confirm readiness.
-
-        The caller must stop the existing channel reader before restarting.
+        """Перезапустите kernel и заново откройте его каналы.
 
         Args:
-            startup_seconds (float): Overall restart deadline in seconds.
-
-        Raises:
-            TimeoutError: Restart or readiness confirmation exceeds the deadline.
-            aiohttp.ClientError: The restart request or reconnection fails.
-            ConnectionError: The channel closes before readiness is confirmed.
-            ValueError: A readiness message cannot be decoded.
+            startup_seconds: Бюджет ожидания готовности в секундах.
         """
         assert self.ws is not None
         async with asyncio.timeout(startup_seconds):
@@ -274,7 +186,7 @@ class Jupyter:
             await self.wait_ready()
 
     async def close(self):
-        """Close opened WebSocket and HTTP resources without stopping the kernel."""
+        """Закройте WebSocket и HTTP-клиент после работы или сбоя запуска."""
         if self.ws is not None:
             await self.ws.close()
         if self.http is not None:

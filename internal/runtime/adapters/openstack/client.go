@@ -100,4 +100,5 @@ func classify(op string, err error) error {
 	return fmt.Errorf("openstack %s: %w: %w", op, usecase.ErrCloudTransient, err)
 }
 
+// isNotFound распознаёт отсутствие ресурса по HTTP-ошибке OpenStack.
 func isNotFound(err error) bool { return gophercloud.ResponseCodeIs(err, http.StatusNotFound) }

@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -38,17 +37,31 @@ const (
 	artifactsBase  = "/app"
 )
 
+// systemClock использует часы хоста для production-воркера.
 type systemClock struct{}
 
+// Now возвращает текущее системное время для runtime.
 func (systemClock) Now() time.Time { return time.Now() }
 
-// parts — собранные адаптеры и общие настройки; из них строятся воркеры Build и smoke.
+// runtimeAgentClient объединяет операции подготовки агента и пользовательской сессии.
+type runtimeAgentClient interface {
+	usecase.AgentClient
+	sessionagent.Client
+}
+
+var (
+	_ runtimeAgentClient          = (*agent.Client)(nil)
+	_ runtimeAgentClient          = (*fake.Agent)(nil)
+	_ sessionusecase.SessionAgent = (*sessionagent.Gateway)(nil)
+)
+
+// parts хранит собранные адаптеры и общие настройки для Build и smoke.
 type parts struct {
 	cfg   config.RuntimeConfig
 	repo  *postgres.Repository
 	cloud usecase.CloudProvider
 	host  usecase.HostConfigurator
-	ag    usecase.AgentClient
+	ag    runtimeAgentClient
 	exec  smoke.Executor
 	sec   usecase.Secrets
 }
@@ -67,6 +80,7 @@ func (p parts) worker(owner string, lease time.Duration) *usecase.Worker {
 	})
 }
 
+// newService собирает прикладной сервис управления окружениями.
 func newService(repo *postgres.Repository, cfg config.RuntimeConfig) *usecase.Service {
 	return usecase.NewService(repo, usecase.Settings{
 		MaxActive: cfg.MaxActive, AgentVersion: cfg.AgentVersion, Profiles: map[string]bool{"default": true},
@@ -100,6 +114,7 @@ func assemble(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool)
 	return p, nil
 }
 
+// ownerName создаёт идентификатор владельца фоновых задач.
 func ownerName() string {
 	name, _ := os.Hostname()
 	var suffix [4]byte
@@ -123,11 +138,7 @@ func Build(ctx context.Context, cfg config.RuntimeConfig, pool *pgxpool.Pool) (M
 	if err != nil {
 		return Module{}, err
 	}
-	client, ok := p.ag.(sessionagent.Client)
-	if !ok {
-		return Module{}, errors.New("runtime: session agent client unavailable")
-	}
-	return Module{Environments: newService(p.repo, cfg), Worker: p.worker(ownerName(), workerLease), Agent: sessionagent.New(p.repo, p.sec, client)}, nil
+	return Module{Environments: newService(p.repo, cfg), Worker: p.worker(ownerName(), workerLease), Agent: sessionagent.New(p.repo, p.sec, p.ag)}, nil
 }
 
 // BuildSmokeDeps собирает зависимости runtime-smoke; cleanup удаляет
@@ -163,6 +174,7 @@ type openStackAdapters struct {
 	secrets *pki.Secrets
 }
 
+// buildOpenStack связывает провайдера, конфигуратор, mTLS-клиент и секреты.
 func buildOpenStack(ctx context.Context, cfg config.RuntimeConfig, clock usecase.Clock) (openStackAdapters, error) {
 	read := func(path string) ([]byte, error) {
 		b, err := os.ReadFile(path)
@@ -210,7 +222,7 @@ func buildOpenStack(ctx context.Context, cfg config.RuntimeConfig, clock usecase
 	return openStackAdapters{cloud: cloud, host: host, agent: ag, secrets: sec}, nil
 }
 
-// artifacts находит артефакты агента и плейбук (ruling R8).
+// artifacts проверяет пути пакета агента и плейбука, нужных для подготовки VPS.
 func artifacts(caCertFile string) (ansible.Artifacts, string, error) {
 	base := os.Getenv(artifactsEnv)
 	if base == "" {

@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
 	"github.com/google/uuid"
 )
@@ -84,6 +85,9 @@ func (c *Client) do(ctx context.Context, ep usecase.AgentEndpoint, method, path 
 	if err != nil {
 		return 0, nil, fmt.Errorf("agent %s %s: bad request", method, path)
 	}
+	if requestID := observability.RequestID(ctx); requestID != "" {
+		req.Header.Set("X-Request-ID", requestID)
+	}
 	if ep.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+ep.Token)
 	}
@@ -109,6 +113,7 @@ func (c *Client) do(ctx context.Context, ep usecase.AgentEndpoint, method, path 
 	return resp.StatusCode, data, nil
 }
 
+// statusErr классифицирует ошибочный HTTP-статус агента.
 func statusErr(method, path string, status int) error {
 	return fmt.Errorf("agent %s %s: HTTP %d", method, path, status)
 }
@@ -129,6 +134,7 @@ func (c *Client) Assign(ctx context.Context, ep usecase.AgentEndpoint, sessionID
 	return snapshot("POST /assign", status, data, err)
 }
 
+// snapshot декодирует ответ внутренней проверки готовности.
 func snapshot(what string, status int, data []byte, err error) (usecase.AgentHealth, int, error) {
 	if err != nil {
 		return usecase.AgentHealth{}, 0, err
@@ -163,6 +169,7 @@ func snapshot(what string, status int, data []byte, err error) (usecase.AgentHea
 	}, status, nil
 }
 
+// post отправляет команду агенту и проверяет ожидаемый статус.
 func (c *Client) post(ctx context.Context, ep usecase.AgentEndpoint, path string, want int) error {
 	status, _, err := c.do(ctx, ep, http.MethodPost, path, nil)
 	if err != nil {

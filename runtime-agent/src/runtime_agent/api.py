@@ -1,4 +1,4 @@
-"""Expose authenticated HTTP commands and WebSocket event streams."""
+"""Обслуживайте команды агента и передавайте события через WebSocket."""
 
 import asyncio
 import hmac
@@ -13,42 +13,34 @@ from .containers import Containers
 from .journal import Journal
 from .lifecycle import complete_before_cancel
 from .models import AgentError, Assign, Execute, Inspect, StopExecutions
+from .observability import AccessLog
 from .runtime import Agent
 
 
 class HTTPGuard:
-    """Authorize before reading a body, and bound memory before JSON validation.
+    """Проверьте доступ и размер тела до разбора JSON.
 
-    POST /assign is authorized by the mTLS proxy only: Go API sends the session
-    token in its body. Before the assignment GET /health is open as well, and
-    other requests get 503 because no session token exists yet.
-
-    Attributes:
-        app (Callable): Downstream ASGI application.
-        token (Callable[[], str | None]): Current session token, None before the
-            assignment.
+    Назначение защищает mTLS-прокси. До назначения GET /health сообщает
+    готовность, остальные команды получают 503.
     """
 
     def __init__(self, app, token):
-        """Configure the ASGI application and the session token source.
+        """Подключите ASGI-приложение и источник токена.
 
         Args:
-            app (Callable): Downstream ASGI application.
-            token (Callable[[], str | None]): Returns the current session token.
+            app: Следующее приложение ASGI.
+            token: Функция чтения токена или None до назначения.
         """
         self.app = app
         self.token = token
 
     async def __call__(self, scope, receive, send):
-        """Authorize HTTP requests and enforce a 2 MiB request body limit.
-
-        Non-HTTP scopes pass through unchanged; WebSocket authentication is handled by its
-        endpoint.
+        """Проверьте Bearer и ограничьте HTTP-тело двумя МиБ.
 
         Args:
-            scope (dict): ASGI connection scope.
-            receive (Callable): ASGI event receiver.
-            send (Callable): ASGI response sender.
+            scope: Структура запроса ASGI.
+            receive: Получатель событий запроса.
+            send: Отправитель ответа.
         """
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
@@ -79,11 +71,7 @@ class HTTPGuard:
         consumed = False
 
         async def buffered_receive():
-            """Deliver the buffered body once, then use the original receiver.
-
-            Returns:
-                dict: Next ASGI request or disconnect event.
-            """
+            """Отдайте накопленное тело один раз, затем читайте исходный канал."""
             nonlocal consumed
             if not consumed:
                 consumed = True
@@ -94,35 +82,20 @@ class HTTPGuard:
 
 
 def create_app(settings=None, containers_factory=Containers):
-    """Build the private agent API with lifecycle-managed infrastructure.
+    """Соберите API и привяжите ресурсы к жизненному циклу.
 
     Args:
-        settings (Settings | None): Configuration, or None to load environment
-            variables.
-        containers_factory (Callable): Factory accepting settings and an instance ID to
-            create a container backend.
-
-    Returns:
-        FastAPI: Application with HTTP routes, middleware, and a WebSocket event
-        endpoint.
-
-    Raises:
-        ValueError: Environment configuration is invalid.
+        settings: Настройки хоста или None для чтения окружения.
+        containers_factory: Фабрика Docker-адаптера по настройкам и ID агента.
     """
     settings = settings or Settings.from_env()
 
     @asynccontextmanager
     async def lifespan(app):
-        """Acquire persistent state and manage agent startup and shutdown.
-
-        Finish resource cleanup before closing the journal, even when startup
-        or shutdown is cancelled repeatedly.
+        """Откройте journal, запустите агент и дождитесь очистки при остановке.
 
         Args:
-            app (FastAPI): Application receiving its agent through app.state.
-
-        Yields:
-            None: Control while the started application serves requests.
+            app: Приложение, в котором публикуется готовый агент.
         """
         journal = Journal(settings.state_dir)
         agent = None
@@ -143,80 +116,60 @@ def create_app(settings=None, containers_factory=Containers):
     )
 
     def current_token():
-        """Return the session token, or None before the assignment or startup."""
+        """Верните текущий токен или None до назначения."""
         agent = getattr(app.state, "agent", None)
         return agent.token if agent is not None else None
 
     app.add_middleware(HTTPGuard, token=current_token)
+    app.add_middleware(AccessLog)
 
     @app.exception_handler(AgentError)
     async def agent_error(request, exc):
-        """Translate an application error into its public JSON response.
+        """Отправьте прикладную ошибку в формате API.
 
         Args:
-            request (Request): Request that raised the error; unused by this handler.
-            exc (AgentError): Application error containing status and detail.
-
-        Returns:
-            JSONResponse: Error detail with the supplied HTTP status.
+            request: Входной HTTP-запрос FastAPI.
+            exc: Ошибка с публичным сообщением и статусом.
         """
         return JSONResponse({"detail": exc.detail}, status_code=exc.status)
 
     @app.post("/assign")
     async def assign(body: Assign):
-        """Assign the agent to a session once; answer after the session kernel is ready.
+        """Назначьте готовый kernel запросившей сессии.
 
         Args:
-            body (Assign): Session ID, language and session token.
-
-        Returns:
-            JSONResponse: Session snapshot; HTTP 200 when ready, otherwise HTTP 503.
+            body: Проверенные UUID сессии, язык и токен.
         """
         snapshot = await app.state.agent.assign(str(body.session_id), body.language, body.token)
         return JSONResponse(snapshot, status_code=200 if snapshot["ready"] else 503)
 
     @app.get("/health")
     async def health():
-        """Report readiness and execution status for the assigned runtime.
-
-        Returns:
-            JSONResponse: Assignment snapshot including generation, active command
-            and queue size; HTTP 200 when ready, otherwise HTTP 503.
-        """
+        """Верните готовность, поколение kernel и состояние очереди."""
         snapshot = app.state.agent.snapshot()
         return JSONResponse(snapshot, status_code=200 if snapshot["ready"] else 503)
 
     @app.post("/runtime/activity")
     async def activity():
-        """Refresh the activity clock of a live session.
-
-        Returns:
-            dict: Updated session snapshot.
-        """
+        """Обновите время последнего действия в активной сессии."""
         app.state.agent.live().touch()
         return app.state.agent.snapshot()
 
     @app.post("/executions", status_code=202)
     async def execute(body: Execute):
-        """Accept a code execution request or retrieve its idempotent result.
+        """Примите команду или верните результат идемпотентного повтора.
 
         Args:
-            body (Execute): Validated code, execution ID, and timeout.
-
-        Returns:
-            dict: Execution ID, state, and decoded result, if available.
+            body: Код, стабильный ID команды и лимит времени.
         """
         return app.state.agent.accept({**body.model_dump(), "kind": "execute"})
 
     @app.get("/executions/{execution_id:path}")
     async def execution(execution_id: str):
-        """Read an execution state and its available result.
+        """Верните состояние и доступный результат команды.
 
         Args:
-            execution_id (str): Command identifier within the session.
-
-        Returns:
-            dict: Execution ID, state, and decoded result, if available.
+            execution_id: Идентификатор команды в текущей сессии.
         """
         sid = app.state.agent.assigned().id
         app.state.agent.journal.session(sid)
@@ -224,13 +177,10 @@ def create_app(settings=None, containers_factory=Containers):
 
     @app.post("/variables", status_code=202)
     async def variables(body: Inspect):
-        """Queue variable inspection with a five-second execution timeout.
+        """Поставьте инспекцию в очередь с лимитом исполнения пять секунд.
 
         Args:
-            body (Inspect): Validated inspection execution ID.
-
-        Returns:
-            dict: Execution ID, state, and decoded result, if available.
+            body: Стабильный ID команды инспекции.
         """
         return app.state.agent.accept(
             {
@@ -242,49 +192,36 @@ def create_app(settings=None, containers_factory=Containers):
 
     @app.post("/executions/stop")
     async def stop_executions(body: StopExecutions):
-        """Stop accepted work while retaining the running kernel."""
+        """Остановите принятые команды и сохраните работающий kernel.
+
+        Args:
+            body: Идентификатор операции и известные backend команды.
+        """
         await app.state.agent.live().stop_executions(body.operation_id, body.execution_ids)
         return {"stopped": True}
 
     @app.post("/kernel/interrupt")
     async def interrupt():
-        """Request interruption of the active execution.
-
-        Returns:
-            dict: Acknowledgement that interruption was requested.
-        """
+        """Запросите прерывание выполняемой команды."""
         await app.state.agent.live().interrupt()
         return {"interrupt_requested": True}
 
     @app.post("/kernel/restart")
     async def restart():
-        """Restart a ready, idle kernel and reset its memory.
-
-        Returns:
-            dict: New kernel generation UUID.
-        """
+        """Перезапустите свободный kernel и очистите его память."""
         runtime = app.state.agent.live()
         await runtime.restart()
         return {"generation": runtime.generation}
 
     @app.post("/runtime/drain")
     async def drain():
-        """Stop accepting work and interrupt the active execution.
-
-        Returns:
-            dict: Acknowledgement that draining was requested.
-        """
+        """Запретите новые команды и прервите текущее исполнение."""
         await app.state.agent.live().drain()
         return {"draining": True}
 
     @app.post("/runtime/stop")
     async def stop():
-        """Stop a session and report whether resource cleanup completed.
-
-        Returns:
-            JSONResponse: Stopped flag and generation; HTTP 503 while cleanup remains
-            pending.
-        """
+        """Остановите сессию и верните результат очистки ресурсов."""
         snapshot = await app.state.agent.stop_session()
         return JSONResponse(
             {
@@ -296,13 +233,10 @@ def create_app(settings=None, containers_factory=Containers):
 
     @app.get("/events")
     async def events(after: int = Query(default=0, ge=0, le=2**63 - 1)):
-        """Read a page of events after an exclusive sequence cursor.
+        """Верните страницу событий после курсора.
 
         Args:
-            after (int): Last received sequence number, or zero for the first page.
-
-        Returns:
-            dict: An events list containing up to 100 journal records.
+            after: Исключающий номер последнего прочитанного события.
         """
         sid = app.state.agent.assigned().id
         app.state.agent.journal.session(sid)
@@ -310,13 +244,10 @@ def create_app(settings=None, containers_factory=Containers):
 
     @app.websocket("/events/ws")
     async def stream(ws: WebSocket):
-        """Authenticate a WebSocket and stream replayed and new session events.
-
-        Invalid credentials, cursors, or missing sessions reject the handshake. The stream
-        sends heartbeats while idle and bounds send time for slow clients.
+        """Проверьте доступ WebSocket и передайте журнал и новые события.
 
         Args:
-            ws (WebSocket): Connection carrying the bearer header and optional after cursor.
+            ws: Соединение клиента с заголовком токена и курсором.
         """
         agent = app.state.agent
         if agent.token is None or not hmac.compare_digest(
@@ -338,11 +269,7 @@ def create_app(settings=None, containers_factory=Containers):
         agent.subscribers.add(wakeup)
 
         async def replay():
-            """Send journal pages and subsequent events, updating the connection cursor.
-
-            Raises:
-                TimeoutError: Sending an event or heartbeat exceeds ten seconds.
-            """
+            """Отправляйте страницы журнала, продвигая курсор соединения."""
             nonlocal after
             while True:
                 wakeup.clear()
@@ -362,7 +289,7 @@ def create_app(settings=None, containers_factory=Containers):
                         )
 
         async def disconnected():
-            """Read incoming WebSocket events until the client disconnects."""
+            """Дождитесь отключения клиента WebSocket."""
             while (await ws.receive())["type"] != "websocket.disconnect":
                 pass
 

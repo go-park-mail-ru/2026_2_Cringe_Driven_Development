@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,7 +14,7 @@ import (
 // LogStorage записывает безопасную сводку одной завершённой операции с хранилищем.
 func LogStorage(ctx context.Context, operation string, started time.Time, err error) {
 	outcome := "success"
-	attrs := []any{slog.String("operation", operation), slog.Duration("duration", time.Since(started))}
+	attrs := []any{slog.String("storage", strings.SplitN(operation, ".", 2)[0]), slog.String("operation", operation), slog.Duration("duration", time.Since(started))}
 	if err != nil {
 		outcome = "error"
 		code := ErrorCode(err)

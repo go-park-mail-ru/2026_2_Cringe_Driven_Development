@@ -14,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 )
 
+// startupError связывает ошибку старта с безопасной категорией для логов.
 func startupError(stage string, err error) error {
 	switch stage {
 	case "database_connect", "database_migrate", "s3_client", "redis_connect", "runtime_init", "http_listen", "totp_init":

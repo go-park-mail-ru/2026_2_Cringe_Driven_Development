@@ -13,23 +13,31 @@ import (
 
 var ErrInvalidToken = errors.New("invalid access token")
 
+// AccessToken выпускает и проверяет JWT для учётных данных сессии.
 type AccessToken struct {
 	secret []byte
 	ttl    time.Duration
 }
+
+// accessClaims описывает зарегистрированные поля JWT и ссылку на сессию.
 type accessClaims struct {
 	jwt.RegisteredClaims
 	SessionID string `json:"sid"`
 	Version   string `json:"session_version"`
 }
 
+// NewAccessToken связывает секрет подписи JWT и срок жизни access-токена.
 func NewAccessToken(secret []byte, ttl time.Duration) *AccessToken {
 	return &AccessToken{secret: secret, ttl: ttl}
 }
+
+// Issue выпускает JWT для указанного пользователя.
 func (t *AccessToken) Issue(claims usecase.SessionClaims) (string, error) {
 	token, _, err := t.IssueAccess(claims)
 	return token, err
 }
+
+// IssueAccess выпускает JWT с идентификатором и версией сессии.
 func (t *AccessToken) IssueAccess(c usecase.SessionClaims) (string, time.Time, error) {
 	if c.UserID <= 0 || strings.TrimSpace(c.SessionID) == "" || c.Version == 0 {
 		return "", time.Time{}, ErrInvalidToken
@@ -41,6 +49,8 @@ func (t *AccessToken) IssueAccess(c usecase.SessionClaims) (string, time.Time, e
 	}
 	return token, claims.ExpiresAt.Time, nil
 }
+
+// Parse проверяет подпись, срок жизни и обязательные данные JWT.
 func (t *AccessToken) Parse(token string) (usecase.SessionClaims, error) {
 	var c accessClaims
 	_, err := jwt.ParseWithClaims(token, &c, func(*jwt.Token) (any, error) { return t.secret, nil }, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())

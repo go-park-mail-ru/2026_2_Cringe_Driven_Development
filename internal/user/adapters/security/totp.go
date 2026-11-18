@@ -66,6 +66,7 @@ func (*TOTP) Setup(secret, login string) (usecase.TwoFactorSetup, error) {
 	return usecase.TwoFactorSetup{Secret: secret, QRCode: "data:image/png;base64," + base64.StdEncoding.EncodeToString(out.Bytes())}, nil
 }
 
+// totpAAD привязывает зашифрованный TOTP-секрет к владельцу.
 func totpAAD(id int64) []byte { return []byte("cellestial:totp:v1:" + strconv.FormatInt(id, 10)) }
 
 // Encrypt включает версию формата и свежий nonce в каждый шифротекст.

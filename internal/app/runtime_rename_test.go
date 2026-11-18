@@ -110,10 +110,10 @@ func (a *renameSessionAgent) Stop(ctx context.Context, sid uuid.UUID) error {
 
 func (a *renameSessionAgent) Interrupt(ctx context.Context, sid uuid.UUID) error {
 	a.controls.Add(1)
-	return a.SessionAgent.(UC.KernelAgent).Interrupt(ctx, sid)
+	return a.SessionAgent.Interrupt(ctx, sid)
 }
 
 func (a *renameSessionAgent) Restart(ctx context.Context, sid uuid.UUID) (string, error) {
 	a.controls.Add(1)
-	return a.SessionAgent.(UC.KernelAgent).Restart(ctx, sid)
+	return a.SessionAgent.Restart(ctx, sid)
 }

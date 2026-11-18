@@ -13,9 +13,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// requestMetaKey хранит уникальный ключ метаданных access log.
 type requestMetaKey struct{}
+
+// requestMeta хранит шаблон маршрута для сводки запроса.
 type requestMeta struct{ route string }
 
+// validRequestID разрешает ограниченный набор символов для корреляции логов.
 func validRequestID(id string) bool {
 	if len(id) == 0 || len(id) > 64 {
 		return false
@@ -30,6 +34,7 @@ func validRequestID(id string) bool {
 	return true
 }
 
+// RequestID принимает безопасный X-Request-ID или создаёт новый и передаёт его в next.
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := r.Header.Get("X-Request-ID")
@@ -43,6 +48,7 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
+// Logging записывает метод, шаблон маршрута, статус и длительность вызова next.
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -63,6 +69,7 @@ func Logging(next http.Handler) http.Handler {
 	})
 }
 
+// RecordRoute сохраняет шаблон сопоставленного маршрута для access log.
 func RecordRoute(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if meta, ok := r.Context().Value(requestMetaKey{}).(*requestMeta); ok {
@@ -76,6 +83,7 @@ func RecordRoute(next http.Handler) http.Handler {
 	})
 }
 
+// Recover преобразует panic из next во внутреннюю HTTP-ошибку.
 func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

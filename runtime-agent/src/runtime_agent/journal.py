@@ -1,4 +1,4 @@
-"""Only the event-loop thread accesses SQLite; state and events commit together."""
+"""Храните состояние и события в SQLite на потоке event loop."""
 
 import fcntl
 import hashlib
@@ -8,47 +8,30 @@ import time
 import uuid
 
 from .models import AgentError
+from .observability import LoggedConnection
 
 
 def encode(value):
-    """Serialize a value as compact UTF-8-compatible JSON text.
+    """Сериализуйте значение в компактный JSON с исходным Unicode.
 
     Args:
-        value (object): JSON-serializable value.
-
-    Returns:
-        str: JSON preserving Unicode characters.
-
-    Raises:
-        TypeError: The value contains an unsupported object.
-        ValueError: The value contains non-finite numbers or circular references.
+        value: Значение без циклических ссылок, NaN и бесконечностей.
     """
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 class Journal:
-    """Persist session state, commands, and replayable events in SQLite.
+    """Храните состояние, команды и события одной сессии.
 
-    Use only from the owning event-loop thread. State transitions and their associated
-    events commit together. A filesystem lock prevents a second process owning the
-    directory.
-
-    Attributes:
-        lock (io.TextIOWrapper): Open file holding the exclusive process lock.
-        db (sqlite3.Connection): SQLite connection used by the event-loop thread.
-        instance_id (str): Persistent agent UUID used to label owned containers.
+    Переходы состояния записываются вместе с событиями одной транзакцией.
+    Файловая блокировка запрещает второму процессу открыть каталог состояния.
     """
 
     def __init__(self, directory):
-        """Lock a state directory and initialize the persistent schema.
+        """Заблокируйте каталог состояния и подготовьте SQLite.
 
         Args:
-            directory (pathlib.Path): Directory for the lock and SQLite database.
-
-        Raises:
-            RuntimeError: The exclusive state lock cannot be acquired.
-            OSError: The state directory or lock file cannot be created.
-            sqlite3.Error: The database cannot be opened or initialized.
+            directory: Каталог SQLite и файла межпроцессной блокировки.
         """
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = (directory / "agent.lock").open("a")
@@ -57,7 +40,7 @@ class Journal:
         except OSError:
             self.lock.close()
             raise RuntimeError("Another agent owns STATE_DIR") from None
-        self.db = sqlite3.connect(directory / "runtime.sqlite3")
+        self.db = sqlite3.connect(directory / "runtime.sqlite3", factory=LoggedConnection)
         self.db.row_factory = sqlite3.Row
         self.db.executescript("""
             PRAGMA journal_mode=WAL;
@@ -97,18 +80,18 @@ class Journal:
         ).fetchone()[0]
 
     def close(self):
-        """Close SQLite and release the exclusive process lock."""
+        """Закройте SQLite и освободите межпроцессную блокировку."""
         self.db.close()
         self.lock.close()
 
     def _event(self, session_id, kind, execution_id=None, **data):
-        """Insert an event into the caller-owned transaction.
+        """Запишите событие в транзакции вызывающего кода.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            kind (str): Event type.
-            execution_id (str | None): Related execution, or None for session events.
-            **data: Additional JSON-serializable event fields.
+            session_id: UUID сессии.
+            kind: Вид события журнала.
+            execution_id: ID команды при наличии.
+            **data: Поля события.
         """
         self.db.execute(
             "INSERT INTO events(session_id, body) VALUES (?, ?)",
@@ -127,45 +110,31 @@ class Journal:
         )
 
     def event(self, session_id, kind, execution_id=None, **data):
-        """Commit a standalone event.
+        """Запишите отдельное событие в собственной транзакции.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            kind (str): Event type.
-            execution_id (str | None): Related execution, or None for session events.
-            **data: Additional JSON-serializable event fields.
+            session_id: UUID сессии.
+            kind: Вид события.
+            execution_id: ID команды при наличии.
+            **data: Поля события.
         """
         with self.db:
             self._event(session_id, kind, execution_id, **data)
 
     def session(self, session_id):
-        """Read persisted session metadata.
-
-        Args:
-            session_id (str): Canonical UUID of the session.
-
-        Returns:
-            dict: Session ID, language, state, generation, reason, and last activity
-            timestamp.
-
-        Raises:
-            AgentError: The session does not exist (HTTP 404).
-        """
+        """Прочитайте метаданные сессии по session_id."""
         row = self.db.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
         if row is None:
             raise AgentError(404, "Session not found")
         return {"session_id": row["id"], **{k: row[k] for k in row.keys() if k != "id"}}
 
     def create(self, session_id, language, token):
-        """Atomically record the assignment: a STARTING session, its token and event.
+        """Запишите назначение, токен и событие в одной транзакции.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            language (str): Validated kernel language.
-            token (str): Bearer token of the session API.
-
-        Raises:
-            sqlite3.IntegrityError: The session ID is already stored.
+            session_id: Назначаемый UUID.
+            language: Язык kernel.
+            token: Токен внутреннего API сессии.
         """
         with self.db:
             self.db.execute(
@@ -176,15 +145,7 @@ class Journal:
             self._event(session_id, "session_state", state="STARTING", reason=None)
 
     def assignment(self):
-        """Read the recorded assignment.
-
-        Returns:
-            tuple[str, str, str] | None: Session ID, language and token, or None
-            before the assignment.
-
-        Raises:
-            RuntimeError: The state directory holds more than one session.
-        """
+        """Прочитайте сохранённое назначение и его токен."""
         rows = self.db.execute("SELECT id, language FROM sessions").fetchall()
         if not rows:
             return None
@@ -194,14 +155,13 @@ class Journal:
         return rows[0]["id"], rows[0]["language"], token[0] if token else ""
 
     def session_state(self, session_id, state, reason=None, generation=None):
-        """Commit a session state change and its event.
+        """Сохраните переход состояния и событие атомарно.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            state (str): New persisted state.
-            reason (str | None): Machine-readable reason for the transition.
-            generation (str | None): New kernel UUID, or None to preserve the current
-                generation.
+            session_id: UUID сессии.
+            state: Новое состояние.
+            reason: Причина перехода при наличии.
+            generation: Поколение kernel при наличии.
         """
         with self.db:
             self.db.execute(
@@ -218,29 +178,18 @@ class Journal:
             )
 
     def touch(self, session_id):
-        """Persist the current wall-clock time as session activity.
-
-        Args:
-            session_id (str): Canonical UUID of the session.
-        """
+        """Обновите время активности сессии session_id по системным часам."""
         with self.db:
             self.db.execute(
                 "UPDATE sessions SET last_activity=? WHERE id=?", (time.time(), session_id)
             )
 
     def existing(self, session_id, command):
-        """Check whether an idempotent command already exists.
+        """Найдите идемпотентный повтор или обнаружьте конфликт запроса.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            command (dict): Validated command including execution_id, kind, and
-                timeout_seconds.
-
-        Returns:
-            bool: True for an identical stored command; False for an unused execution ID.
-
-        Raises:
-            AgentError: The ID belongs to a command with different contents (HTTP 409).
+            session_id: UUID сессии.
+            command: Команда с ID и содержимым для сравнения.
         """
         row = self.db.execute(
             "SELECT fingerprint FROM executions WHERE session_id=? AND id=?",
@@ -254,27 +203,15 @@ class Journal:
 
     @staticmethod
     def fingerprint(command):
-        """Hash a command using sorted JSON object keys.
-
-        Args:
-            command (dict): Validated command including execution_id, kind, and
-                timeout_seconds.
-
-        Returns:
-            str: Hexadecimal SHA-256 digest used for idempotency checks.
-        """
+        """Вычислите хеш команды command с устойчивым порядком ключей."""
         return hashlib.sha256(json.dumps(command, sort_keys=True).encode()).hexdigest()
 
     def accept(self, session_id, command):
-        """Commit a new QUEUED command and its state event.
+        """Сохраните новую команду и событие QUEUED.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            command (dict): Validated command including execution_id, kind, and
-                timeout_seconds.
-
-        Raises:
-            sqlite3.IntegrityError: The execution already exists or its session is missing.
+            session_id: UUID сессии.
+            command: Проверенная команда с устойчивым ID.
         """
         with self.db:
             self.db.execute(
@@ -287,18 +224,7 @@ class Journal:
             )
 
     def execution(self, session_id, execution_id):
-        """Read the current state and result of a command.
-
-        Args:
-            session_id (str): Canonical UUID of the session.
-            execution_id (str): Command identifier within the session.
-
-        Returns:
-            dict: Execution ID, state, and decoded result, if available.
-
-        Raises:
-            AgentError: The execution does not exist (HTTP 404).
-        """
+        """Прочитайте состояние и результат команды execution_id в сессии session_id."""
         row = self.db.execute(
             "SELECT * FROM executions WHERE session_id=? AND id=?", (session_id, execution_id)
         ).fetchone()
@@ -311,17 +237,14 @@ class Journal:
         }
 
     def transition(self, session_id, execution_id, state, result=None, *, limit=None):
-        """Commit an execution state change and its event.
+        """Сохраните состояние команды и событие в одной транзакции.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            execution_id (str): Command identifier within the session.
-            state (str): New persisted state.
-            result (object | None): JSON-serializable result or failure details.
-            limit (int | None): Cumulative output budget in bytes. When set,
-                charge both stored result copies and replace an oversized result
-                with a fixed truncation summary. None skips budget accounting for
-                trusted lifecycle transitions.
+            session_id: UUID сессии.
+            execution_id: ID команды.
+            state: Новое состояние.
+            result: Результат при наличии.
+            limit: Бюджет результата в байтах при наличии.
         """
         with self.db:
             if limit is not None and result is not None:
@@ -338,7 +261,12 @@ class Journal:
             self._event(session_id, "execution_state", execution_id, state=state, result=result)
 
     def fence_commands(self, session_id, execution_ids):
-        """Keep delayed deliveries from starting after a confirmed stop."""
+        """Запретите позднюю доставку команд после подтверждённой остановки.
+
+        Args:
+            session_id: UUID сессии.
+            execution_ids: ID остановленных команд.
+        """
         with self.db:
             self.db.executemany(
                 "INSERT OR IGNORE INTO stopped_execution_ids VALUES (?, ?)",
@@ -346,7 +274,7 @@ class Journal:
             )
 
     def fenced(self, session_id, execution_id):
-        """Check the durable cancellation barrier for a command ID."""
+        """Проверьте барьер остановки для execution_id в сессии session_id."""
         return (
             self.db.execute(
                 "SELECT 1 FROM stopped_execution_ids WHERE session_id=? AND id=?",
@@ -356,13 +284,13 @@ class Journal:
         )
 
     def dispatched(self, session_id, execution_id, msg_id, generation):
-        """Persist kernel-message correlation before sending a command.
+        """Сохраните связь команды с сообщением Jupyter до отправки.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            execution_id (str): Command identifier within the session.
-            msg_id (str): Jupyter execution request ID.
-            generation (str): UUID of the kernel generation.
+            session_id: UUID сессии.
+            execution_id: ID команды.
+            msg_id: ID сообщения Jupyter.
+            generation: Поколение отправки.
         """
         with self.db:
             self.db.execute(
@@ -378,16 +306,12 @@ class Journal:
             )
 
     def parent(self, session_id, generation, msg_id):
-        """Find an execution by its kernel generation and message ID.
+        """Найдите команду для сообщения, включая поздний вывод.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            generation (str): UUID of the kernel generation.
-            msg_id (str | None): Parent request ID from a kernel message.
-
-        Returns:
-            sqlite3.Row | None: Complete execution row, or None if the message is
-            unattributed.
+            session_id: UUID сессии.
+            generation: Поколение kernel.
+            msg_id: Родительский ID сообщения Jupyter.
         """
         return self.db.execute(
             "SELECT * FROM executions WHERE session_id=? AND generation=? AND msg_id=?",
@@ -395,24 +319,13 @@ class Journal:
         ).fetchone()
 
     def _charge(self, session_id, execution_id, size, limit):
-        """Reserve output bytes within the caller-owned transaction.
-
-        Read current counters from SQLite so multiple writes cannot use a stale
-        budget. The first excess reservation records output_truncated; later
-        reservations for that execution are rejected without another notification.
+        """Зарезервируйте часть бюджета вывода в текущей транзакции.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            execution_id (str): Execution whose output budget is charged.
-            size (int): Serialized UTF-8 bytes to reserve, including stored copies.
-            limit (int): Maximum cumulative output bytes for this execution.
-
-        Returns:
-            bool: True if the bytes were reserved in the current transaction;
-            False if the output is already truncated or the reservation exceeds it.
-
-        Raises:
-            sqlite3.Error: Budget counters or the truncation event cannot be written.
+            session_id: UUID сессии.
+            execution_id: ID команды.
+            size: Размер новой записи в байтах.
+            limit: Общий лимит вывода в байтах.
         """
         row = self.db.execute(
             "SELECT output_bytes,truncated FROM executions WHERE session_id=? AND id=?",
@@ -434,13 +347,13 @@ class Journal:
         return True
 
     def output(self, session_id, row, payload, limit):
-        """Persist output within its cumulative budget or mark truncation once.
+        """Запишите вывод в пределах бюджета или один раз отметьте усечение.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            row (sqlite3.Row): Current execution row, including output counters.
-            payload (dict): Kernel message fields to persist.
-            limit (int): Maximum serialized output size in bytes for this execution.
+            session_id: UUID сессии.
+            row: Сохранённая связь сообщения с командой.
+            payload: Данные вывода.
+            limit: Общий бюджет вывода в байтах.
         """
         size = len(encode(payload).encode())
         with self.db:
@@ -448,12 +361,12 @@ class Journal:
                 self._event(session_id, "kernel_message", row["id"], **payload)
 
     def unfinished(self, session_id, state, reason):
-        """Transition all QUEUED and RUNNING commands in a session.
+        """Переведите все ожидающие и активные команды в заданное состояние.
 
         Args:
-            session_id (str): Canonical UUID of the session.
-            state (str): New persisted state.
-            reason (str): Reason stored in each execution result.
+            session_id: UUID сессии.
+            state: Терминальное состояние команд.
+            reason: Причина завершения.
         """
         rows = self.db.execute(
             "SELECT id FROM executions WHERE session_id=? AND state IN ('QUEUED','RUNNING')",
@@ -463,11 +376,7 @@ class Journal:
             self.transition(session_id, row[0], state, {"reason": reason})
 
     def recover(self):
-        """Stop unfinished sessions and mark their pending commands UNKNOWN.
-
-        Call after stale containers have been removed. Commands are never replayed
-        automatically.
-        """
+        """Завершите прерванные сессии и пометьте команды UNKNOWN."""
         for row in self.db.execute(
             "SELECT id FROM sessions WHERE state NOT IN ('STOPPED','FAILED')"
         ).fetchall():
@@ -475,10 +384,11 @@ class Journal:
             self.session_state(row[0], "STOPPED", "agent_restarted")
 
     def events(self, session_id, after):
-        """Возвращает до 100 событий после курсора с целевым размером страницы 16 МиБ.
+        """Верните до 100 событий с целевым размером страницы 16 МиБ.
 
-        Первое слишком большое событие возвращается целиком, чтобы курсор
-        мог продвинуться и следующие события оставались доступными.
+        Args:
+            session_id: UUID сессии.
+            after: Исключающий seq последнего прочитанного события.
         """
         rows = self.db.execute(
             "SELECT seq,body FROM events WHERE session_id=? AND seq>? ORDER BY seq LIMIT 100",

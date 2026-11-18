@@ -1,1 +1,1 @@
-"""Cellestial runtime agent."""
+"""Пакет агента исполнения Cellestial."""

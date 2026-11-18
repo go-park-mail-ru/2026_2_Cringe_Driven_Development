@@ -16,6 +16,7 @@ import (
 	notebookpostgres "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/adapters/postgres"
 	notebookdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/delivery/http"
 	notebookusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
+	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	runtimemodule "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime"
 	runtimeusecase "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtime/usecase"
 	sessionenv "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/runtimesession/adapters/environment"
@@ -35,6 +36,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
+
+var _ sessionusecase.Store = (*sessionpostgres.Store)(nil)
 
 // application — HTTP-сервер, provisioning и пользовательские runtime-сессии.
 type application struct {
@@ -56,12 +59,18 @@ type application struct {
 func newServer(ctx context.Context, cfg config.Config) (*application, error) {
 	dbURL := cfg.PostgresURL()
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	poolConfig, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, startupError("database_connect", fmt.Errorf("invalid database configuration: %w", err))
+	}
+	poolConfig.ConnConfig.Tracer = observability.PostgresTracer{}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, startupError("database_connect", fmt.Errorf("unable to connect to database: %w", err))
 	}
 	client := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(cfg.RedisHost, strconv.Itoa(cfg.RedisPort)), Password: cfg.RedisPassword, DB: cfg.RedisDB,
 		DialTimeout: cfg.RedisDialTimeout, ReadTimeout: cfg.RedisOperationTimeout, WriteTimeout: cfg.RedisOperationTimeout, PoolTimeout: cfg.RedisOperationTimeout, ContextTimeoutEnabled: true, MaxRetries: -1})
+	client.AddHook(observability.RedisHook{})
 	closeResources := func() { _ = client.Close(); pool.Close() }
 	ready := false
 	defer func() {

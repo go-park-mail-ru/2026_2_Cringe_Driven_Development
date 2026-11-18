@@ -15,6 +15,7 @@ import (
 //go:embed *.sql
 var files embed.FS
 
+// Up применяет ещё не выполненные встроенные миграции к PostgreSQL.
 func Up(ctx context.Context, pool *pgxpool.Pool) error {
 	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()

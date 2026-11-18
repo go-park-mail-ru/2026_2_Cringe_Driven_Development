@@ -186,6 +186,7 @@ func (a *Agent) snapshotLocked(s *agentState) (usecase.AgentHealth, int, error) 
 	return h, status, nil
 }
 
+// transition меняет состояние fake-агента для сценария сессии.
 func (a *Agent) transition(ctx context.Context, method string, ep usecase.AgentEndpoint, state string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()

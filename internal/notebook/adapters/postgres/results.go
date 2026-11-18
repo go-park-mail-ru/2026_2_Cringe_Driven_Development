@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ExecutionSource читает текущий исходник ячейки для будущей проверки результата исполнения.
 func (r *NotebookRepository) ExecutionSource(ctx context.Context, id, ownerID int64, cellID string) (usecase.ExecutionSource, error) {
 	var out usecase.ExecutionSource
 	err := r.db.QueryRow(ctx, `SELECT c.cell_id,c.source,c.source_version FROM notebook_cells c JOIN notebooks n ON n.id=c.notebook_id WHERE n.id=$1 AND n.owner_id=$2 AND c.cell_id=$3 AND c.kind='code'`, id, ownerID, cellID).Scan(&out.CellID, &out.Source, &out.SourceVersion)
@@ -18,6 +19,8 @@ func (r *NotebookRepository) ExecutionSource(ctx context.Context, id, ownerID in
 	}
 	return out, err
 }
+
+// SaveResult сохраняет результат при совпадении версии исходника и возвращает новую ревизию.
 func (r *NotebookRepository) SaveResult(ctx context.Context, id, ownerID int64, result usecase.CellResult) (string, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

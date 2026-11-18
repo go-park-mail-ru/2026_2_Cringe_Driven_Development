@@ -210,13 +210,19 @@ func (e *agentReadError) Error() string { return "agent journal unavailable" }
 // Unwrap раскрывает исходную ошибку для errors.Is и errors.As без потери классификации.
 func (e *agentReadError) Unwrap() error { return e.err }
 
+const (
+	maxEventPagesPerPass = 6
+	maxEventsPerPage     = 100
+	maxEventPageBytes    = 16 << 20
+)
+
 // collect архивирует доступные страницы журнала агента и продвигает курсор только после записи в базу.
 func (w *Worker) collect(ctx context.Context, l D.Lease, v *D.Session) (bool, error) {
-	for range 6 {
+	for range maxEventPagesPerPass {
 		if err := w.store.CheckLease(ctx, l); err != nil {
 			return false, err
 		}
-		batch, err := w.agent.Events(ctx, v.ID, v.AgentSeq, D.EventLimits{Count: 100, Bytes: 16 << 20})
+		batch, err := w.agent.Events(ctx, v.ID, v.AgentSeq, D.EventLimits{Count: maxEventsPerPage, Bytes: maxEventPageBytes})
 		if err != nil {
 			return false, &agentReadError{err}
 		}
@@ -348,18 +354,17 @@ func (w *Worker) ready(ctx context.Context, l D.Lease, v *D.Session) error {
 // dispatch отправляет одну ожидающую команду с прежним ID; при заполнении агента оставляет её в очереди
 // backend.
 func (w *Worker) dispatch(ctx context.Context, l D.Lease, v *D.Session) error {
-	if guard, ok := w.store.(interface {
-		DispatchGuard(context.Context, D.Lease, func(context.Context) error) error
-	}); ok {
-		err := guard.DispatchGuard(ctx, l, func(ctx context.Context) error { return w.dispatchCommand(ctx, l, v) })
-		if errors.Is(err, D.ErrConflict) {
-			return nil
-		}
-		return err
+	err := w.store.DispatchGuard(ctx, l, func(ctx context.Context) error {
+		return w.dispatchCommand(ctx, l, v)
+	})
+	if errors.Is(err, D.ErrConflict) {
+		return nil
 	}
-	return w.dispatchCommand(ctx, l, v)
+	return err
 }
 
+// dispatchCommand проверяет lease перед сетевым вызовом. Сохранение под тем же lease
+// отделяет ответ агента от отложенной записи результата в ячейку.
 func (w *Worker) dispatchCommand(ctx context.Context, l D.Lease, v *D.Session) error {
 	x, err := w.store.NextPending(ctx, v.ID)
 	if errors.Is(err, D.ErrNotFound) {

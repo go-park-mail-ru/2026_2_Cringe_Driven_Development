@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// loadRedis читает адрес, таймауты и параметры доступа к Redis.
 func (c *Config) loadRedis(lookup func(string) (string, bool)) error {
 	get := func(key, fallback string) string {
 		if v, ok := lookup(key); ok {

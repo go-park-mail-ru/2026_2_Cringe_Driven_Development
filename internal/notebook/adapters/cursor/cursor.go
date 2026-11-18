@@ -12,7 +12,10 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/usecase"
 )
 
+// Codec подписывает и проверяет курсоры списка блокнотов.
 type Codec struct{ key []byte }
+
+// payload хранит подписанные данные курсора и его привязку к фильтру.
 type payload struct {
 	Version    int       `json:"v"`
 	OwnerID    int64     `json:"owner_id"`
@@ -21,16 +24,21 @@ type payload struct {
 	ID         int64     `json:"id"`
 }
 
+// New создаёт подписанный курсор из ключа приложения.
 func New(jwtSecret []byte) *Codec {
 	mac := hmac.New(sha256.New, jwtSecret)
 	mac.Write([]byte("notebook-list-cursor:v1"))
 	return &Codec{key: mac.Sum(nil)}
 }
+
+// signature вычисляет HMAC для сериализованного курсора.
 func (c *Codec) signature(data []byte) []byte {
 	mac := hmac.New(sha256.New, c.key)
 	mac.Write(data)
 	return mac.Sum(nil)
 }
+
+// Encode подписывает позицию position для владельца ownerID и поиска search.
 func (c *Codec) Encode(ownerID int64, search string, position usecase.ListPosition) (string, error) {
 	if ownerID <= 0 || position.ID <= 0 || position.UpdatedAt.IsZero() {
 		return "", usecase.ErrInvalidList
@@ -41,6 +49,8 @@ func (c *Codec) Encode(ownerID int64, search string, position usecase.ListPositi
 	}
 	return base64.RawURLEncoding.EncodeToString(data) + "." + base64.RawURLEncoding.EncodeToString(c.signature(data)), nil
 }
+
+// Decode проверяет подпись token и его привязку к ownerID и search.
 func (c *Codec) Decode(token string, ownerID int64, search string) (usecase.ListPosition, error) {
 	invalid := usecase.ErrInvalidList
 	// All generated tokens are small and fixed-size except for bounded timestamp text.

@@ -120,6 +120,7 @@ func userID(ctx context.Context) int64 {
 	return id
 }
 
+// toAPINotebook переводит блокнот домена в контракт HTTP.
 func toAPINotebook(n domain.Notebook) api.Notebook {
 	cells := make([]api.Cell, 0, len(n.Cells))
 	for _, c := range n.Cells {
@@ -134,6 +135,7 @@ func toAPINotebook(n domain.Notebook) api.Notebook {
 	}
 }
 
+// toAPICell переводит ячейку домена в контракт HTTP.
 func toAPICell(c domain.Cell) api.Cell {
 	return api.Cell{Id: c.ID, Kind: api.CellKind(c.Kind), Source: c.Source}
 }

@@ -9,13 +9,18 @@ import (
 	"strings"
 )
 
+// accountAttemptKey разделяет лимиты попыток по операции и пользователю.
 func accountAttemptKey(operation string, id int64) string {
 	return operation + ":" + strconv.FormatInt(id, 10)
 }
+
+// unknownLoginKey формирует ключ лимита для попыток с неизвестным логином.
 func unknownLoginKey(login string) string {
 	hash := sha256.Sum256([]byte(strings.ToLower(login)))
 	return "login_unknown:" + hex.EncodeToString(hash[:])
 }
+
+// allow проверяет бюджет попыток выбранной операции.
 func (uc *UserUsecase) allow(ctx context.Context, key string, limit int) error {
 	if uc.limiter == nil {
 		return nil
@@ -103,6 +108,7 @@ func (uc *UserUsecase) DisableTwoFactor(ctx context.Context, id int64, password 
 	})
 }
 
+// validTOTPFormat проверяет форму кода до его криптографической проверки.
 func validTOTPFormat(code string) bool {
 	if len(code) != 6 {
 		return false
@@ -114,6 +120,8 @@ func validTOTPFormat(code string) bool {
 	}
 	return true
 }
+
+// consumeTOTP проверяет код и исключает повтор использованного шага.
 func (uc *UserUsecase) consumeTOTP(state *AuthState, code string) error {
 	if !validTOTPFormat(code) {
 		return ErrInvalidTOTP

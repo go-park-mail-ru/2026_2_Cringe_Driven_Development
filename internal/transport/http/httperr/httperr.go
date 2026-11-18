@@ -12,9 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 )
 
-// ErrNotImplemented возвращают ещё не написанные хендлеры, клиент получает 501.
-var ErrNotImplemented = errors.New("not implemented")
-
+// Write отправляет через w JSON-ошибку с HTTP status, кодом code и сообщением message.
 func Write(w http.ResponseWriter, status int, code api.ErrorCode, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -45,17 +43,16 @@ func ResponseError(w http.ResponseWriter, r *http.Request, err error) {
 		Write(w, http.StatusRequestEntityTooLarge, api.ErrorCodeValidationError, "notebook size limit exceeded")
 		return
 	}
-	if errors.Is(err, ErrNotImplemented) {
-		Write(w, http.StatusNotImplemented, api.ErrorCodeNotImplemented, "not implemented yet")
-		return
-	}
+
 	Internal(w, r, err)
 }
 
+// NotFound отвечает на запрос к неизвестному маршруту.
 func NotFound(w http.ResponseWriter, _ *http.Request) {
 	Write(w, http.StatusNotFound, api.ErrorCodeNotFound, "no such endpoint")
 }
 
+// MethodNotAllowed отвечает на неизвестный для маршрута метод.
 func MethodNotAllowed(w http.ResponseWriter, _ *http.Request) {
 	Write(w, http.StatusMethodNotAllowed, api.ErrorCodeValidationError, "method not allowed")
 }

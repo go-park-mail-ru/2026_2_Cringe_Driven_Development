@@ -12,14 +12,8 @@ Production-команды (VPS2, `/opt/cellestial`, Vault, порядок CD) �
 
 ## Перед сбросом
 
-До остановки API убедиться, что ветка восстановления включает актуальную цепочку
-[CI → CD → Ansible](release.md#production): CI получает registry digest из
-`docker/build-push-action`, передаёт полный
-`backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`
-через output job `docker` и input reusable CD в `deploy-backend.yml` из `infra/main`.
-`backend_image_tag` и SHA-тег вместо digest не принимаются. Изменения этой цепочки
-из backend#83 должны быть включены в ветку backend#80 до восстановления.
-До сброса проверить передачу ref и validation Ansible без выкладки на production.
+Сверить образ и порядок запуска с [актуальным runbook релиза](release.md).
+CD использует immutable release и полный digest в `backend_image_ref`.
 
 1. В Vault есть постоянный `TOTP_ENCRYPTION_KEY` (base64 32 байт): без него API не стартует
    (`startup_config`). Сброс не меняет ключ.
@@ -51,12 +45,8 @@ Production-команды (VPS2, `/opt/cellestial`, Vault, порядок CD) �
    очистки `DBSIZE` = 0. Доступ проверяется по записи
    сессии в Redis, поэтому старые access/refresh-токены и cookie BFF перестают действовать,
    даже если новые пользователи получат прежние ID.
-3. Только после завершения сброса разрешить merge ветки восстановления в `main`:
-   при `PRODUCTION_ENABLED=true` он автоматически запускает CI/CD. CI публикует
-   образ, проверяет его публичность и анонимную доступность опубликованного digest,
-   затем CD передаёт `backend_image_ref` в Ansible. Не подставлять прежний SHA-тег
-   и не отключать digest-валидацию infra. При старте API применяются все миграции,
-   включая удаление `notebook_legacy_sources`.
+3. После завершения сброса оператор запускает выкладку по runbook infra.
+   При старте Go API применяет встроенные миграции goose.
 
 ## Приёмка
 

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// NotebookUsecase выполняет пользовательские операции с блокнотами через порты.
 type NotebookUsecase struct {
 	repo     Repository
 	sessions ActiveSessions
@@ -15,19 +16,43 @@ type NotebookUsecase struct {
 	cursor   ListCursor
 }
 
+// NewNotebookUsecase связывает репозиторий repo, источник активных сессий sessions
+// и кодек списка cursor. Идентификаторы ячеек создаются локально.
 func NewNotebookUsecase(repo Repository, sessions ActiveSessions, cursor ListCursor) *NotebookUsecase {
 	return &NotebookUsecase{repo: repo, sessions: sessions, cursor: cursor, newID: uuid.NewString}
 }
+
+// Create создаёт блокнот с именем name и начальной ячейкой кода для владельца ownerID.
+// Контекст ctx определяет срок записи. Пустое после обрезки имя отклоняется.
 func (uc *NotebookUsecase) Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return domain.Notebook{}, ErrEmptyName
 	}
-	return uc.repo.Create(ctx, domain.Notebook{OwnerID: ownerID, Name: name, Document: domain.Document{NBFormat: 4, NBFormatMinor: 5, Metadata: []byte(`{}`)}, Cells: []domain.Cell{{ID: uc.newID(), Kind: domain.CellKindCode, Metadata: []byte(`{}`), Outputs: []byte(`[]`), HasExecutionCount: true}}})
+	return uc.repo.Create(ctx, domain.Notebook{
+		OwnerID: ownerID,
+		Name:    name,
+		Document: domain.Document{
+			NBFormat:      4,
+			NBFormatMinor: 5,
+			Metadata:      []byte(`{}`),
+		},
+		Cells: []domain.Cell{{
+			ID:                uc.newID(),
+			Kind:              domain.CellKindCode,
+			Metadata:          []byte(`{}`),
+			Outputs:           []byte(`[]`),
+			HasExecutionCount: true,
+		}},
+	})
 }
+
+// Get читает блокнот id, доступный владельцу ownerID в контексте ctx.
 func (uc *NotebookUsecase) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
 	return uc.repo.Get(ctx, id, ownerID)
 }
+
+// Content возвращает ячейки и текущую редакцию блокнота владельца.
 func (uc *NotebookUsecase) Content(ctx context.Context, id, ownerID int64) (domain.Content, error) {
 	n, err := uc.repo.Get(ctx, id, ownerID)
 	if err != nil {
@@ -35,10 +60,14 @@ func (uc *NotebookUsecase) Content(ctx context.Context, id, ownerID int64) (doma
 	}
 	return domain.Content{Hash: n.Revision, Cells: n.Cells}, nil
 }
+
+// CreateCell добавляет ячейку через операцию редактирования.
 func (uc *NotebookUsecase) CreateCell(ctx context.Context, id, ownerID int64, hash string, kind domain.CellKind, index *int) (domain.Cell, error) {
 	r, err := uc.AddCell(ctx, id, ownerID, hash, kind, "", index)
 	return r.Cell, err
 }
+
+// DeleteCell удаляет выбранную ячейку через операцию редактирования.
 func (uc *NotebookUsecase) DeleteCell(ctx context.Context, id, ownerID int64, hash string, index int) error {
 	_, err := uc.repo.Apply(ctx, id, ownerID, hash, Operation{Kind: Delete, Index: &index})
 	return err

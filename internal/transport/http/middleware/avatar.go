@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/principal"
 )
 
+// avatarBodyKey хранит контекстный ключ проверенной загрузки аватара.
 type avatarBodyKey struct{}
 
 // AvatarRequestBody позволяет потоковому обработчику проверить и HTTP-эпилог.

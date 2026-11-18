@@ -21,12 +21,15 @@ type AvatarUploader interface {
 	Upload(context.Context, int64, io.ReadSeeker, string) (domain.User, error)
 }
 
+// Option настраивает зависимости обработчика пользовательского профиля.
 type Option func(*Handler)
 
+// WithProfile подключает операции профиля и аватаров к HTTP-обработчику.
 func WithProfile(avatars AvatarUploader, publicURL string) Option {
 	return func(h *Handler) { h.avatars = avatars; h.avatarURL = strings.TrimRight(publicURL, "/") }
 }
 
+// UpdateCurrentUser сохраняет новый логин текущего пользователя и возвращает профиль.
 func (h *Handler) UpdateCurrentUser(ctx context.Context, req api.UpdateCurrentUserRequestObject) (api.UpdateCurrentUserResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -50,6 +53,7 @@ func (h *Handler) UpdateCurrentUser(ctx context.Context, req api.UpdateCurrentUs
 	}
 }
 
+// ChangeCurrentUserPassword меняет пароль текущего пользователя и отзывает его сессии.
 func (h *Handler) ChangeCurrentUserPassword(ctx context.Context, req api.ChangeCurrentUserPasswordRequestObject) (api.ChangeCurrentUserPasswordResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -73,6 +77,7 @@ func (h *Handler) ChangeCurrentUserPassword(ctx context.Context, req api.ChangeC
 	}
 }
 
+// UploadCurrentUserAvatar читает multipart-загрузку аватара текущего пользователя.
 func (h *Handler) UploadCurrentUserAvatar(ctx context.Context, req api.UploadCurrentUserAvatarRequestObject) (api.UploadCurrentUserAvatarResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -131,6 +136,7 @@ func (h *Handler) UploadCurrentUserAvatar(ctx context.Context, req api.UploadCur
 	return api.UploadCurrentUserAvatar200JSONResponse(h.toAPIUser(user)), nil
 }
 
+// avatarError переводит результат загрузки аватара в безопасную ошибку HTTP.
 func avatarError(err error) (api.UploadCurrentUserAvatarResponseObject, error) {
 	var limit *http.MaxBytesError
 	switch {

@@ -13,12 +13,14 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 )
 
+// Handler связывает HTTP-операции пользователей с прикладными сценариями.
 type Handler struct {
 	uc        usecase.Usecase
 	avatars   AvatarUploader
 	avatarURL string
 }
 
+// NewHandler собирает обработчик пользователей из основного сценария и опций профиля.
 func NewHandler(uc usecase.Usecase, options ...Option) *Handler {
 	h := &Handler{uc: uc}
 	for _, option := range options {
@@ -27,6 +29,7 @@ func NewHandler(uc usecase.Usecase, options ...Option) *Handler {
 	return h
 }
 
+// RegisterUser регистрирует пользователя по данным r и возвращает первую сессию.
 func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestObject) (api.RegisterUserResponseObject, error) {
 	u, sess, err := h.uc.Register(ctx, req.Body.Login, req.Body.Password)
 	switch {
@@ -43,6 +46,8 @@ func (h *Handler) RegisterUser(ctx context.Context, req api.RegisterUserRequestO
 	}
 	return api.RegisterUser201JSONResponse{User: h.toAPIUser(u), Tokens: pair}, nil
 }
+
+// LoginUser проверяет учётные данные из r и создаёт сессию.
 func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject) (api.LoginUserResponseObject, error) {
 	var codes []*string
 	if req.Body.UserCode != nil {
@@ -70,6 +75,8 @@ func (h *Handler) LoginUser(ctx context.Context, req api.LoginUserRequestObject)
 	}
 	return api.LoginUser200JSONResponse{User: h.toAPIUser(u), Tokens: pair}, nil
 }
+
+// RefreshToken обновляет пару токенов по refresh-токену из r.
 func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestObject) (api.RefreshTokenResponseObject, error) {
 	sess, err := h.uc.Refresh(ctx, req.Body.RefreshToken)
 	if errors.Is(err, usecase.ErrInvalidRefresh) {
@@ -84,6 +91,8 @@ func (h *Handler) RefreshToken(ctx context.Context, req api.RefreshTokenRequestO
 	}
 	return api.RefreshToken200JSONResponse(pair), nil
 }
+
+// LogoutUser отзывает сессию по проверенному Bearer и refresh-токену из r.
 func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObject) (api.LogoutUserResponseObject, error) {
 	claims, ok := principal.SessionFromContext(ctx)
 	if !ok {
@@ -98,6 +107,8 @@ func (h *Handler) LogoutUser(ctx context.Context, req api.LogoutUserRequestObjec
 	}
 	return api.LogoutUser204Response{}, nil
 }
+
+// LogoutAllUserSessions отзывает все сессии пользователя, установленного в ctx.
 func (h *Handler) LogoutAllUserSessions(ctx context.Context, _ api.LogoutAllUserSessionsRequestObject) (api.LogoutAllUserSessionsResponseObject, error) {
 	id, ok := principal.UserIDFromContext(ctx)
 	if !ok {
@@ -109,6 +120,7 @@ func (h *Handler) LogoutAllUserSessions(ctx context.Context, _ api.LogoutAllUser
 	return api.LogoutAllUserSessions204Response{}, nil
 }
 
+// GetCurrentUser возвращает профиль пользователя, установленного в ctx.
 func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
 	id, _ := principal.UserIDFromContext(ctx)
 	u, err := h.uc.CurrentUser(ctx, id)
@@ -120,6 +132,8 @@ func (h *Handler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserReques
 	}
 	return api.GetCurrentUser200JSONResponse(h.toAPIUser(u)), nil
 }
+
+// toTokenPair преобразует прикладные токены и сроки в HTTP-модель.
 func toTokenPair(sess usecase.Session) (api.TokenPair, error) {
 	now := time.Now()
 	access := int64(math.Ceil(sess.AccessExpiresAt.Sub(now).Seconds()))
@@ -129,6 +143,8 @@ func toTokenPair(sess usecase.Session) (api.TokenPair, error) {
 	}
 	return api.TokenPair{AccessToken: sess.AccessToken, RefreshToken: sess.RefreshToken, AccessExpiresIn: access, RefreshExpiresIn: refresh}, nil
 }
+
+// toAPIUser преобразует пользователя домена в публичный профиль.
 func (h *Handler) toAPIUser(u domain.User) api.User {
 	result := api.User{Id: u.ID, Login: u.Login, Has2fa: u.Has2FA}
 	if u.AvatarKey != "" {

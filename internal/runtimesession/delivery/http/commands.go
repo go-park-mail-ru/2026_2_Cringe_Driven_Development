@@ -133,6 +133,7 @@ func (f *failure) VisitInterruptRuntimeKernelResponse(w http.ResponseWriter) err
 // VisitRestartRuntimeKernelResponse записывает безопасную ошибку в HTTP-ответ соответствующей операции.
 func (f *failure) VisitRestartRuntimeKernelResponse(w http.ResponseWriter) error { return f.write(w) }
 
+// StopRuntimeExecutions останавливает команды сессии, указанной в r, в контексте авторизованного владельца.
 func (h *Handler) StopRuntimeExecutions(ctx context.Context, r api.StopRuntimeExecutionsRequestObject) (api.StopRuntimeExecutionsResponseObject, error) {
 	if err := h.uc.StopExecutions(ctx, owner(ctx), r.Id); err != nil {
 		return failureFor(err)
@@ -140,4 +141,5 @@ func (h *Handler) StopRuntimeExecutions(ctx context.Context, r api.StopRuntimeEx
 	return api.StopRuntimeExecutions200JSONResponse{Stopped: true}, nil
 }
 
+// VisitStopRuntimeExecutionsResponse записывает подтверждение остановки команд в w.
 func (f *failure) VisitStopRuntimeExecutionsResponse(w http.ResponseWriter) error { return f.write(w) }

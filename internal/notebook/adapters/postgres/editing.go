@@ -21,6 +21,7 @@ type target struct {
 	edit, outputs, execution, attachments int64
 }
 
+// findTarget находит ячейку по ID или позиции в текущей редакции.
 func findTarget(ctx context.Context, tx pgx.Tx, id int64, op usecase.Operation) (target, error) {
 	var t target
 	predicate := "c.cell_id=$2"
@@ -35,6 +36,8 @@ func findTarget(ctx context.Context, tx pgx.Tx, id int64, op usecase.Operation) 
 	}
 	return t, err
 }
+
+// Apply применяет op к блокноту id владельца ownerID. Ревизия expected проверяется под блокировкой строки.
 func (r *NotebookRepository) Apply(ctx context.Context, id, ownerID int64, expected string, op usecase.Operation) (usecase.Change, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -179,6 +182,8 @@ func (r *NotebookRepository) Apply(ctx context.Context, id, ownerID int64, expec
 	}
 	return result, nil
 }
+
+// preview рассчитывает результирующие размеры и поля перед записью ячеек.
 func preview(ctx context.Context, tx pgx.Tx, id int64) (string, error) {
 	var source string
 	err := tx.QueryRow(ctx, `SELECT source FROM notebook_cells WHERE notebook_id=$1 AND kind='code' AND preview_candidate ORDER BY position LIMIT 1`, id).Scan(&source)
@@ -191,6 +196,7 @@ func preview(ctx context.Context, tx pgx.Tx, id int64) (string, error) {
 	return domain.Preview(source), nil
 }
 
+// publish сохраняет подготовленное изменение внутри транзакции.
 func publish(ctx context.Context, tx pgx.Tx, n domain.Notebook) (string, error) {
 	if n.SizeBytes > usecase.MaxNotebookBytes {
 		return "", usecase.ErrTooLarge

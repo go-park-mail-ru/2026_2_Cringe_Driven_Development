@@ -45,6 +45,7 @@ type AccessSessions interface {
 	ValidateAccess(context.Context, usecase.SessionClaims) error
 }
 
+// AuthenticateBearer проверяет Bearer и передаёт подтверждённую сессию обработчику.
 func AuthenticateBearer(tokens TokenParser, sessions AccessSessions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

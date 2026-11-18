@@ -23,6 +23,7 @@ func New(delay time.Duration) (*Cloud, *Host, *Agent) {
 	return NewCloud(delay), host, agent
 }
 
+// resource хранит метаданные выделенного fake-ресурса.
 type resource struct {
 	kind, id, ip string
 	session      uuid.UUID // сессия или VPS пула (pool)
@@ -128,12 +129,14 @@ func (c *Cloud) begin(ctx context.Context, method string) error {
 	return take(c.FailNext, method)
 }
 
+// after выполняет отложенную проверку исхода fake-операции.
 func (c *Cloud) after(method string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return take(c.FailAfter, method)
 }
 
+// take выдаёт настроенный результат следующей fake-операции.
 func take(m map[string]error, key string) error {
 	err, ok := m[key]
 	if ok {
@@ -166,6 +169,7 @@ func (c *Cloud) ensure(kind, known string, env domain.Environment) *resource {
 	return c.create(kind, env.SessionID, env.IsPoolVPS())
 }
 
+// sortedLocked копирует ресурсы в предсказуемом порядке под общей блокировкой.
 func (c *Cloud) sortedLocked() []*resource {
 	out := make([]*resource, 0, len(c.resources))
 	for _, r := range c.resources {
@@ -211,6 +215,7 @@ func (c *Cloud) EnsureServer(ctx context.Context, env domain.Environment, _ stri
 	return r.id, c.after("EnsureServer")
 }
 
+// remove удаляет выделенный ресурс из состояния fake-провайдера.
 func (c *Cloud) remove(ctx context.Context, method, kind, id string) error {
 	if err := c.begin(ctx, method); err != nil {
 		return err

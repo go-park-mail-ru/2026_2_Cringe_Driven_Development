@@ -19,6 +19,7 @@ var (
 	ErrUserNotFound           = errors.New("user not found")
 )
 
+// Usecase задаёт операции пользователей, которые вызывает HTTP delivery.
 type Usecase interface {
 	EnableTwoFactor(ctx context.Context, id int64) (TwoFactorSetup, error)
 	ConfirmTwoFactor(ctx context.Context, id int64, code string) error
@@ -34,6 +35,7 @@ type Usecase interface {
 	CurrentUser(ctx context.Context, id int64) (domain.User, error)
 }
 
+// TokenIssuer выпускает access-токен для проверенной пользовательской сессии.
 type TokenIssuer interface {
 	IssueAccess(claims SessionClaims) (token string, expiresAt time.Time, err error)
 }

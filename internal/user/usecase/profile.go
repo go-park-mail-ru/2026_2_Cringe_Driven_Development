@@ -12,6 +12,7 @@ var profileLogin = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
 // passwordRule повторяет схему Password контракта: ASCII-символ — один байт, поэтому 72 укладываются в лимит bcrypt.
 var passwordRule = regexp.MustCompile(`^[!-~]{8,72}$`)
 
+// UpdateCurrentUser сохраняет новый логин текущего пользователя и возвращает профиль.
 func (uc *UserUsecase) UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error) {
 	if !profileLogin.MatchString(login) {
 		return domain.User{}, ErrValidation
@@ -19,6 +20,7 @@ func (uc *UserUsecase) UpdateCurrentUser(ctx context.Context, id int64, login st
 	return uc.users.UpdateLogin(ctx, id, login)
 }
 
+// ChangeCurrentUserPassword меняет пароль текущего пользователя и отзывает его сессии.
 func (uc *UserUsecase) ChangeCurrentUserPassword(ctx context.Context, id int64, currentPassword, newPassword string) error {
 	if currentPassword == newPassword || !passwordRule.MatchString(newPassword) || !passwordRule.MatchString(currentPassword) {
 		return ErrValidation

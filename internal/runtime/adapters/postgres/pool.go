@@ -40,6 +40,7 @@ const (
 	poolDeleteSQL = `DELETE FROM runtime_pool WHERE id = $1 AND state = 'DELETING'`
 )
 
+// scanPool декодирует запись подготовленного окружения пула.
 func scanPool(row pgx.Row) (domain.PoolVPS, error) {
 	var p domain.PoolVPS
 	var state string

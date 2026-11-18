@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/transport/http/api"
 )
 
+// GetNotebookContent возвращает содержимое блокнота из запроса r авторизованного владельца в ctx.
 func (h *Handler) GetNotebookContent(ctx context.Context, req api.GetNotebookContentRequestObject) (api.GetNotebookContentResponseObject, error) {
 	result, err := h.uc.Content(ctx, req.Id, userID(ctx))
 	if errors.Is(err, usecase.ErrNotebookNotFound) {
@@ -67,8 +68,10 @@ func parseIfMatch(value string) (string, error) {
 	return hash, nil
 }
 
+// quotedETag оформляет редакцию как HTTP entity tag.
 func quotedETag(hash string) *string { value := `"` + hash + `"`; return &value }
 
+// editingError преобразует прикладную ошибку редактирования в ответ API.
 func editingError(err error) (int, api.NotebookEditingError) {
 	code := api.NotebookEditingErrorCodeValidationError
 	status := http.StatusBadRequest
@@ -89,6 +92,7 @@ func editingError(err error) (int, api.NotebookEditingError) {
 	return status, api.NotebookEditingError{Code: code, Message: err.Error()}
 }
 
+// AddNotebookCell добавляет ячейку по запросу r к актуальной редакции блокнота.
 func (h *Handler) AddNotebookCell(ctx context.Context, req api.AddNotebookCellRequestObject) (api.AddNotebookCellResponseObject, error) {
 	hash, err := parseIfMatch(req.Params.IfMatch)
 	if err != nil {
@@ -111,6 +115,7 @@ func (h *Handler) AddNotebookCell(ctx context.Context, req api.AddNotebookCellRe
 	return api.AddNotebookCell201JSONResponse{Body: api.NotebookCellChange{Hash: result.Hash, Cell: toAPICell(result.Cell)}, Headers: api.AddNotebookCell201ResponseHeaders{ETag: quotedETag(result.Hash)}}, nil
 }
 
+// EditNotebookCell изменяет ячейку, выбранную в r, с проверкой редакции.
 func (h *Handler) EditNotebookCell(ctx context.Context, req api.EditNotebookCellRequestObject) (api.EditNotebookCellResponseObject, error) {
 	hash, err := parseIfMatch(req.Params.IfMatch)
 	if err != nil {
@@ -133,6 +138,7 @@ func (h *Handler) EditNotebookCell(ctx context.Context, req api.EditNotebookCell
 	return api.EditNotebookCell200JSONResponse{Body: api.NotebookCellChange{Hash: result.Hash, Cell: toAPICell(result.Cell)}, Headers: api.EditNotebookCell200ResponseHeaders{ETag: quotedETag(result.Hash)}}, nil
 }
 
+// MoveNotebookCell меняет порядок ячеек по позиции и редакции из r.
 func (h *Handler) MoveNotebookCell(ctx context.Context, req api.MoveNotebookCellRequestObject) (api.MoveNotebookCellResponseObject, error) {
 	hash, err := parseIfMatch(req.Params.IfMatch)
 	if err != nil {
@@ -155,6 +161,7 @@ func (h *Handler) MoveNotebookCell(ctx context.Context, req api.MoveNotebookCell
 	return api.MoveNotebookCell200JSONResponse{Body: api.NotebookContentChange{Hash: result}, Headers: api.MoveNotebookCell200ResponseHeaders{ETag: quotedETag(result)}}, nil
 }
 
+// RemoveNotebookCell удаляет ячейку из актуальной редакции, указанной в r.
 func (h *Handler) RemoveNotebookCell(ctx context.Context, req api.RemoveNotebookCellRequestObject) (api.RemoveNotebookCellResponseObject, error) {
 	hash, err := parseIfMatch(req.Params.IfMatch)
 	if err != nil {

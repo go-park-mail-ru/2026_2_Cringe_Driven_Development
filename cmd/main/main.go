@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 )
 
+// main запускает приложение и передаёт результат процессу.
 func main() {
 	var level slog.LevelVar
 	level.Set(slog.LevelInfo)

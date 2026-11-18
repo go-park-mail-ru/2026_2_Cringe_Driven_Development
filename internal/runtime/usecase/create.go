@@ -63,6 +63,7 @@ func provisioning(s domain.State) bool {
 	return s == domain.StateCreating || s == domain.StateConfiguring || s == domain.StateVerifying
 }
 
+// startupExpired определяет исчерпание бюджета запуска окружения.
 func (r *jobRun) startupExpired(env domain.Environment) bool {
 	return !r.w.clock.Now().Before(env.CreatedAt.Add(r.w.s.StartupTimeout))
 }
@@ -178,8 +179,10 @@ func cloudInit(privatePEM []byte, publicKey string) string {
 	return b.String()
 }
 
+// agentURL формирует адрес внутреннего API окружения.
 func agentURL(ip string) string { return "https://" + ip + ":" + agentPort }
 
+// agentEndpoint читает адрес и открывает учётные данные внутреннего API.
 func (r *jobRun) agentEndpoint(env domain.Environment, s SealedSecrets) (AgentEndpoint, error) {
 	tok, err := r.w.sec.Open(s.Token)
 	if err != nil {
@@ -261,6 +264,7 @@ func (r *jobRun) assign(ctx context.Context, env domain.Environment) error {
 	}
 }
 
+// healthProblem классифицирует ответ проверки готовности агента.
 func healthProblem(env domain.Environment, h AgentHealth, status int, err error) string {
 	switch {
 	case err != nil:
@@ -305,6 +309,7 @@ func (r *jobRun) createFailed(cause error) (bool, error) {
 	return true, r.retry(cause)
 }
 
+// sleepCtx ждёт интервал, пока контекст разрешает повтор.
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
 	defer t.Stop()

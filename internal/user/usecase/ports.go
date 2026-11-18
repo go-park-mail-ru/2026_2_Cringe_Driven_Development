@@ -6,6 +6,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/domain"
 )
 
+// UserStore задаёт операции хранения учётных данных и профиля пользователя.
 type UserStore interface {
 	WithAuthLock(ctx context.Context, id int64, fn func(*AuthState) error) error
 	CredentialsByID(ctx context.Context, id int64) (domain.User, string, error)

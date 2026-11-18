@@ -61,6 +61,7 @@ func (r *jobRun) leavePool(env domain.Environment, cause error) error {
 // poolCheckInterval — период сверки пула с БД; запрос — один count под advisory-lock.
 const poolCheckInterval = 30 * time.Second
 
+// kickPool инициирует проверку запаса подготовленных окружений.
 func (w *Worker) kickPool() {
 	select {
 	case w.poolKick <- struct{}{}:
@@ -87,6 +88,7 @@ func (w *Worker) poolLoop(ctx context.Context) {
 	}
 }
 
+// replenish пополняет пул с учётом настроенного запаса и текущих ресурсов.
 func (w *Worker) replenish(ctx context.Context, wg *sync.WaitGroup) {
 	w.poolMu.Lock()
 	paused := w.clock.Now().Before(w.poolRetryAt)
@@ -231,6 +233,7 @@ func (w *Worker) deletePoolVPS(ctx context.Context, vps domain.PoolVPS, reason s
 	w.log.Info("pool vps deleted", "pool_id", vps.ID, "reason", reason)
 }
 
+// deletePoolResources освобождает ресурсы записи пула.
 func (w *Worker) deletePoolResources(ctx context.Context, vps domain.PoolVPS) error {
 	owned, err := w.cloud.ListOwned(ctx)
 	if err != nil {
@@ -308,6 +311,7 @@ func (w *Worker) reconcilePool(ctx context.Context, rows []domain.PoolVPS) error
 	return nil
 }
 
+// claimedSessions собирает назначения, которые пул уже передал сессиям.
 func (w *Worker) claimedSessions(ctx context.Context, rows []domain.PoolVPS) (map[uuid.UUID]domain.State, error) {
 	var ids []uuid.UUID
 	for _, vps := range rows {

@@ -1,4 +1,4 @@
-"""Manage one mount-free kernel container on an infra-provisioned bridge."""
+"""Управляйте контейнером kernel в закрытой сети Docker."""
 
 import asyncio
 import ipaddress
@@ -19,27 +19,14 @@ _ROOT_ERROR = "Run the agent as a dedicated non-root user in the docker group"
 
 
 class Containers:
-    """Manage only this agent's labelled Docker resources.
-
-    Blocking Docker calls run in worker threads. Containers have no host mounts;
-    infra owns the bridge network, DNS and firewall policy.
-
-    Attributes:
-        settings (Settings): Immutable runtime and network configuration.
-        instance_id (str): Persistent agent UUID used for ownership labels.
-        client (docker.DockerClient): Docker API client owned by this backend.
-    """
+    """Управляйте ресурсами Docker, помеченными ID этого агента."""
 
     def __init__(self, settings, instance_id):
-        """Configure container ownership and open the Docker client.
+        """Настройте владение ресурсами и откройте Docker-клиент.
 
         Args:
-            settings (Settings): Validated assignment and network configuration.
-            instance_id (str): Persistent agent UUID used for names and labels.
-
-        Raises:
-            RuntimeError: The agent is running as root.
-            docker.errors.DockerException: The Docker client cannot connect.
+            settings: Проверенные параметры хоста и образа kernel.
+            instance_id: Постоянный ID агента для меток владения.
         """
         if os.getuid() == 0:
             raise RuntimeError(_ROOT_ERROR)
@@ -48,43 +35,15 @@ class Containers:
         self.client = docker.from_env(timeout=10)
 
     async def ping(self):
-        """Check Docker without changing host or network policy.
-
-        Returns:
-            bool: True when the Docker daemon responds successfully.
-
-        Raises:
-            docker.errors.DockerException: The daemon cannot be reached or rejects
-                the request.
-        """
+        """Проверьте доступность Docker без изменения сети."""
         return await asyncio.to_thread(self.client.ping)
 
     def name(self):
-        """Build the deterministic name of this agent's only kernel container.
-
-        The container starts before the session is assigned, so its name does not
-        contain the session.
-
-        Returns:
-            str: Docker container name containing the agent UUID.
-        """
+        """Верните стабильное имя единственного контейнера агента."""
         return f"cellestial-{self.instance_id}-kernel"
 
     async def network(self):
-        """Validate the infra-provisioned IPv4 bridge network.
-
-        Accepts a network name or ID, but rejects the resolved default bridge,
-        non-bridge drivers, IPv6, disabled IPv4 and networks without egress.
-        This check does not verify that infra installed the required firewall.
-
-        Returns:
-            docker.models.networks.Network: Existing dedicated bridge network.
-
-        Raises:
-            docker.errors.NotFound: The configured network does not exist.
-            docker.errors.APIError: Docker cannot inspect the network.
-            RuntimeError: The resolved network does not satisfy the contract.
-        """
+        """Проверьте предварительно подготовленную сеть IPv4 bridge."""
         network = await asyncio.to_thread(self.client.networks.get, self.settings.kernel_network)
         attrs = network.attrs
         if (
@@ -99,16 +58,7 @@ class Containers:
         return network
 
     async def recover(self):
-        """Validate the network and remove this instance's stale containers.
-
-        Only containers matching the persistent ownership label are removed.
-        No host directories are created or recursively deleted.
-
-        Raises:
-            docker.errors.DockerException: Docker cannot inspect the network, list
-                owned containers or remove them.
-            RuntimeError: The configured network does not satisfy the contract.
-        """
+        """Проверьте сеть и удалите устаревшие контейнеры этого агента."""
         await self.network()
         containers = await asyncio.to_thread(
             self.client.containers.list,
@@ -119,27 +69,7 @@ class Containers:
             await asyncio.to_thread(container.remove, force=True, v=True)
 
     async def start(self):
-        """Start one restricted Python kernel container and connect to its Jupyter server.
-
-        Jupyter uses private TCP without published ports. A fresh container token
-        is generated, and startup failure triggers container cleanup. Cancellation
-        waits for container creation and cleanup to finish, including repeated
-        cancellation, before propagating to the caller.
-
-        Returns:
-            Jupyter: Open transport whose kernel has confirmed readiness.
-
-        Raises:
-            asyncio.CancelledError: Startup was cancelled, after creation and
-                container cleanup have completed or cleanup has failed.
-            docker.errors.DockerException: Network inspection or a container
-                operation fails.
-            RuntimeError: The network is invalid or cleanup finds a foreign container.
-            TimeoutError: Jupyter does not become ready before the startup deadline.
-            ConnectionError: Jupyter closes a channel before confirming readiness.
-            ValueError: The container IPv4 address or a Jupyter response is invalid,
-                or Jupyter attempts an HTTP redirect.
-        """
+        """Запустите ограниченный Python-контейнер и подключитесь к Jupyter."""
         network = await self.network()
         token = secrets.token_urlsafe(32)
         try:
@@ -168,7 +98,8 @@ class Containers:
                         tmpfs={
                             "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
                             "/tmp": "rw,nosuid,nodev,size=256m,mode=1777",
-                            # Docker tmpfs defaults to noexec; C extensions (numpy) need mmap exec.
+                            # Docker монтирует tmpfs с noexec по умолчанию.
+                            # Расширения C, включая numpy, требуют mmap с правом выполнения.
                             "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
                         },
                         environment={
@@ -208,14 +139,7 @@ class Containers:
             raise startup_error
 
     async def alive(self):
-        """Check whether the kernel container is running.
-
-        Returns:
-            bool: True for a running container; False if it is stopped or missing.
-
-        Raises:
-            docker.errors.APIError: Docker cannot inspect the container.
-        """
+        """Проверьте, работает ли контейнер kernel."""
         try:
             container = await asyncio.to_thread(self.client.containers.get, self.name())
             return container.status == "running"
@@ -223,15 +147,7 @@ class Containers:
             return False
 
     async def remove(self):
-        """Remove the owned container and all of its temporary data.
-
-        Missing containers are treated as already removed. Cleanup never traverses
-        user-controlled directories on the host.
-
-        Raises:
-            docker.errors.APIError: Docker cannot inspect or remove the container.
-            RuntimeError: The named container has another ownership label.
-        """
+        """Удалите принадлежащий агенту контейнер вместе с временными данными."""
         try:
             container = await asyncio.to_thread(self.client.containers.get, self.name())
             if container.labels.get(LABEL) != self.instance_id:
@@ -241,5 +157,5 @@ class Containers:
             pass
 
     async def close(self):
-        """Release the Docker client's connection pool."""
+        """Освободите пул соединений Docker-клиента."""
         await asyncio.to_thread(self.client.close)

@@ -6,8 +6,7 @@ import (
 	userdelivery "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/delivery/http"
 )
 
-// Оба типа называются Handler, а встроить в структуру два поля с одним именем
-// нельзя. Псевдонимы дают встроенным полям разные имена.
+// Псевдонимы различают три встроенных типа Handler.
 type (
 	UserHandler     = userdelivery.Handler
 	NotebookHandler = notebookdelivery.Handler

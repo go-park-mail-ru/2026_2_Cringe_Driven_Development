@@ -1,7 +1,7 @@
 # Авторизация через BFF
 
 Go API обслуживает серверные запросы BFF. Для запуска обязательны `JWT_SECRET`,
-`BFF_API_KEY`, `S3_NOTEBOOKS_BUCKET`, `S3_AVATARS_BUCKET` и
+`BFF_API_KEY`, `S3_AVATARS_BUCKET` и
 `S3_AVATARS_PUBLIC_URL`. `BFF_API_KEY` должен содержать непустой
 общий секрет Go и BFF; пустое значение или только пробелы останавливают запуск.
 

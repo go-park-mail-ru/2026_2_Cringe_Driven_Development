@@ -11,6 +11,10 @@ import (
 
 // Store задаёт операции хранения сессий, команд, журнала и владения фоновыми задачами.
 type Store interface {
+	// DispatchGuard удерживает блокировку очереди до отправки, чтобы остановка не пропустила принятую команду.
+	DispatchGuard(context.Context, domain.Lease, func(context.Context) error) error
+	// StopExecutions останавливает команды и сохраняет события агента под блокировкой очереди.
+	StopExecutions(context.Context, int64, uuid.UUID, bool, func(context.Context, string, int64, []string) ([]domain.AgentEvent, error)) error
 	// Queue читает только незавершённые исполнения ячеек: выполняемое первым, затем ожидающие; инспекции не
 	// включаются.
 	Queue(context.Context, int64, uuid.UUID) (domain.Queue, error)
@@ -73,6 +77,13 @@ type Environments interface {
 
 // SessionAgent определяет внутреннее общение с агентом; его токены и адреса остаются внутри адаптера.
 type SessionAgent interface {
+	// Interrupt запрашивает прерывание текущей команды без автоматического повтора при потере ответа.
+	Interrupt(context.Context, uuid.UUID) error
+	// Restart перезапускает свободный kernel и возвращает новое поколение; потерянный ответ автоматически не
+	// повторяется.
+	Restart(context.Context, uuid.UUID) (string, error)
+	// StopExecutions останавливает указанные команды, сохраняя kernel.
+	StopExecutions(context.Context, uuid.UUID, string, []string) error
 	// Health читает готовность агента, поколение kernel и состояние его очереди.
 	Health(context.Context, uuid.UUID) (domain.Health, error)
 	// Execute передаёт сохранённую команду агенту; неизменный ID позволяет безопасно повторить сетевой запрос.
@@ -91,12 +102,3 @@ type SessionAgent interface {
 
 // Clock позволяет подменять текущее время в тестах восстановления и жизненного цикла.
 type Clock func() time.Time
-
-// KernelAgent отделяет команды управления памятью kernel от исполнения кода и чтения событий.
-type KernelAgent interface {
-	// Interrupt запрашивает прерывание текущей команды без автоматического повтора при потере ответа.
-	Interrupt(context.Context, uuid.UUID) error
-	// Restart перезапускает свободный kernel и возвращает новое поколение; потерянный ответ автоматически не
-	// повторяется.
-	Restart(context.Context, uuid.UUID) (string, error)
-}

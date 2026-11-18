@@ -1,4 +1,4 @@
-"""Define validated API command models and application errors."""
+"""Определения проверяемых команд API и прикладных ошибок."""
 
 from typing import Annotated
 from uuid import UUID
@@ -9,19 +9,13 @@ ExecutionID = Annotated[str, Field(min_length=1, max_length=128)]
 
 
 class Command(BaseModel):
-    """Reject unknown command fields and non-finite numeric values."""
+    """Отклоняет неизвестные поля и NaN и бесконечности."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 class Execute(Command):
-    """Describe a code execution request.
-
-    Attributes:
-        execution_id (str): Idempotency key scoped to the session.
-        code (str): Source code to execute in the existing kernel.
-        timeout_seconds (float): Execution deadline, from 1 to 86400 seconds.
-    """
+    """Описывает команду исполнения кода в Python kernel."""
 
     execution_id: ExecutionID
     code: str = Field(max_length=1024 * 1024)
@@ -29,30 +23,20 @@ class Execute(Command):
 
 
 class Inspect(Command):
-    """Describe a variable inspection request queued alongside executions.
-
-    Attributes:
-        execution_id (str): Idempotency key scoped to the session.
-    """
+    """Описывает инспекцию переменных в общей очереди."""
 
     execution_id: ExecutionID
 
 
 class StopExecutions(Command):
-    """Identify a retry of the same execution stop."""
+    """Связывает повтор остановки с прежним идентификатором операции."""
 
     operation_id: ExecutionID
     execution_ids: list[ExecutionID] = Field(default_factory=list)
 
 
 class Assign(Command):
-    """Describe the one-time assignment of the agent to a session.
-
-    Attributes:
-        session_id (UUID): Session served by this VPS.
-        language (str): Kernel language; only python is accepted by the agent.
-        token (str): Bearer token for all following session requests.
-    """
+    """Описывает однократное назначение агенту сессии."""
 
     session_id: UUID
     language: str = Field(max_length=32)
@@ -60,19 +44,14 @@ class Assign(Command):
 
 
 class AgentError(Exception):
-    """Carry an application error to the HTTP exception handler.
-
-    Attributes:
-        status (int): HTTP status code.
-        detail (str): Public error description.
-    """
+    """Передаёт прикладную ошибку обработчику HTTP."""
 
     def __init__(self, status: int, detail: str):
-        """Store the HTTP status and public error description.
+        """Создайте прикладную ошибку для HTTP.
 
         Args:
-            status (int): HTTP status code.
-            detail (str): Description safe to expose to the client.
+            status: HTTP-код ответа.
+            detail: Публичное описание ошибки.
         """
         self.status = status
         self.detail = detail

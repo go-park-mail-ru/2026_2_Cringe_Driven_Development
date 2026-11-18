@@ -24,13 +24,16 @@ type SanitizedAvatar struct {
 	ContentType string
 }
 
+// AvatarSanitizer проверяет формат изображения и создаёт безопасный файл для загрузки.
 type AvatarSanitizer func(context.Context, io.ReadSeeker, string) (SanitizedAvatar, error)
 
+// AvatarStorage задаёт запись и удаление объектов аватаров.
 type AvatarStorage interface {
 	Put(context.Context, string, io.ReadSeeker, int64, string) error
 	Delete(context.Context, string) error
 }
 
+// AvatarRepository обновляет ссылку на аватар в данных пользователя.
 type AvatarRepository interface {
 	UserByID(context.Context, int64) (domain.User, error)
 	SwapAvatar(context.Context, int64, string) (domain.User, string, error)
@@ -43,10 +46,12 @@ type AvatarUsecase struct {
 	sanitize AvatarSanitizer
 }
 
+// NewAvatarUsecase связывает репозиторий users, хранилище storage и обработчик изображения sanitize.
 func NewAvatarUsecase(users AvatarRepository, storage AvatarStorage, sanitize AvatarSanitizer) *AvatarUsecase {
 	return &AvatarUsecase{users: users, storage: storage, sanitize: sanitize}
 }
 
+// Upload проверяет изображение source с MIME mime, загружает его и обновляет профиль пользователя id.
 func (u *AvatarUsecase) Upload(ctx context.Context, id int64, source io.ReadSeeker, mime string) (domain.User, error) {
 	if _, err := u.users.UserByID(ctx, id); err != nil {
 		return domain.User{}, err

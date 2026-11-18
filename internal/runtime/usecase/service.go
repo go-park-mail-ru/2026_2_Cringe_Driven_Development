@@ -29,6 +29,7 @@ func NewService(repo EnvironmentRepository, s Settings) *Service {
 
 var _ EnvironmentService = (*Service)(nil)
 
+// normProfile применяет значения по умолчанию к профилю ресурсов.
 func normProfile(p string) string {
 	if p == "" {
 		return defaultProfile

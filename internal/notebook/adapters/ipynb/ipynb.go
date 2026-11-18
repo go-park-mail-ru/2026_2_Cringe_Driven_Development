@@ -21,6 +21,7 @@ type file struct {
 	NBFormatMinor int      `json:"nbformat_minor"`
 }
 
+// cell представляет ячейку при разборе старого интерфейса codec.
 type cell struct {
 	ID             string          `json:"id"`
 	CellType       domain.CellKind `json:"cell_type"`
@@ -100,5 +101,8 @@ func Build(cells []domain.Cell) ([]byte, error) {
 // Codec преобразует блоки в файл nbformat 4.5 и обратно.
 type Codec struct{}
 
-func (Codec) Parse(data []byte) ([]domain.Cell, error)  { return Parse(data) }
+// Parse декодирует документ и ячейки из JSON файла IPYNB.
+func (Codec) Parse(data []byte) ([]domain.Cell, error) { return Parse(data) }
+
+// Build кодирует doc и cells в IPYNB.
 func (Codec) Build(cells []domain.Cell) ([]byte, error) { return Build(cells) }
