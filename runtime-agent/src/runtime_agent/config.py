@@ -1,4 +1,4 @@
-"""Load and validate runtime-agent configuration."""
+"""Загружайте и проверяйте настройки агента."""
 
 import math
 import os
@@ -9,22 +9,9 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Settings:
-    """Store immutable host configuration of the runtime agent.
+    """Хранит параметры хоста и ограничения kernel.
 
-    The session, its language and the API token are not configured here: Go API
-    assigns them once with POST /assign and the journal keeps them.
-
-    Attributes:
-        state_dir (Path): Directory containing SQLite state and the process lock.
-        kernel_network (str): Infra-provisioned IPv4 bridge network.
-        kernel_dns (str): Infra-approved IPv4 DNS resolver.
-        max_output_bytes (int): Serialized output budget per execution or unattributed
-            generation.
-        idle_seconds (float): Idle lifetime of a session, in seconds.
-        startup_seconds (float): Jupyter startup and restart deadline, in seconds.
-        interrupt_seconds (float): Time to wait for interrupt confirmation, in seconds.
-        monitor_seconds (float): Interval between lifecycle checks, in seconds.
-        python_image (str): Docker image of the Python kernel.
+    Назначение, язык и токен поступают от Go API и сохраняются в journal.
     """
 
     state_dir: Path
@@ -39,11 +26,7 @@ class Settings:
     python_image: str = "cellestial-kernel-python:local"
 
     def __post_init__(self):
-        """Validate the network, DNS and resource limits.
-
-        Raises:
-            ValueError: The network, DNS or a numeric limit is invalid.
-        """
+        """Проверьте параметры сети, DNS и ресурсные лимиты."""
         IPv4Address(self.kernel_dns)
         for name in (
             "max_output_bytes",
@@ -59,14 +42,7 @@ class Settings:
 
     @classmethod
     def from_env(cls):
-        """Read settings from environment variables and apply defaults.
-
-        Returns:
-            Settings: Validated host configuration with an absolute state path.
-
-        Raises:
-            ValueError: An environment value cannot be parsed or fails validation.
-        """
+        """Прочитайте настройки из окружения и примените значения по умолчанию."""
         return cls(
             state_dir=Path(os.environ.get("STATE_DIR", "/var/lib/cellestial-agent")).resolve(),
             kernel_network=os.environ.get("KERNEL_NETWORK", ""),

@@ -128,11 +128,13 @@ func (Codec) Sanitize(ctx context.Context, source io.ReadSeeker, contentType str
 	return f, nil
 }
 
+// contextReader прерывает чтение изображения при отмене запроса.
 type contextReader struct {
 	ctx    context.Context
 	reader io.Reader
 }
 
+// Read читает байты при преобразовании загруженного изображения.
 func (r contextReader) Read(p []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
@@ -140,11 +142,13 @@ func (r contextReader) Read(p []byte) (int, error) {
 	return r.reader.Read(p)
 }
 
+// contextWriter прерывает запись изображения при отмене запроса.
 type contextWriter struct {
 	ctx    context.Context
 	writer io.Writer
 }
 
+// Write записывает байты преобразованного изображения.
 func (w contextWriter) Write(p []byte) (int, error) {
 	if err := w.ctx.Err(); err != nil {
 		return 0, err

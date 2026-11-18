@@ -9,30 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type stopStore interface {
-	StopExecutions(context.Context, int64, uuid.UUID, bool, func(context.Context, string, int64, []string) ([]D.AgentEvent, error)) error
-}
-type executionsAgent interface {
-	StopExecutions(context.Context, uuid.UUID, string, []string) error
-}
-
 // StopExecutions останавливает команды, сохраняя окружение.
 func (s *Service) StopExecutions(ctx context.Context, owner int64, sid uuid.UUID) error {
 	return s.stopExecutions(ctx, owner, sid, false)
 }
+
+// stopExecutions останавливает команды и догружает события до подтверждения результата.
 func (s *Service) stopExecutions(ctx context.Context, owner int64, sid uuid.UUID, resume bool) error {
-	store, ok := s.store.(stopStore)
-	if !ok {
-		return D.ErrUnavailable
-	}
-	agent, ok := s.agent.(executionsAgent)
-	if !ok {
-		return D.ErrUnavailable
-	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	err := store.StopExecutions(ctx, owner, sid, resume, func(ctx context.Context, operation string, after int64, ids []string) ([]D.AgentEvent, error) {
-		stopErr := agent.StopExecutions(ctx, sid, operation, ids)
+	err := s.store.StopExecutions(ctx, owner, sid, resume, func(ctx context.Context, operation string, after int64, ids []string) ([]D.AgentEvent, error) {
+		stopErr := s.agent.StopExecutions(ctx, sid, operation, ids)
 		if stopErr != nil {
 			stopErr = D.ErrUnavailable
 		}

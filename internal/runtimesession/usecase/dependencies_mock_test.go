@@ -174,6 +174,20 @@ func (mr *MockStoreMockRecorder) Control(arg0, arg1, arg2, arg3, arg4 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Control", reflect.TypeOf((*MockStore)(nil).Control), arg0, arg1, arg2, arg3, arg4)
 }
 
+// DispatchGuard mocks base method.
+func (m *MockStore) DispatchGuard(arg0 context.Context, arg1 domain.Lease, arg2 func(context.Context) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DispatchGuard", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DispatchGuard indicates an expected call of DispatchGuard.
+func (mr *MockStoreMockRecorder) DispatchGuard(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchGuard", reflect.TypeOf((*MockStore)(nil).DispatchGuard), arg0, arg1, arg2)
+}
+
 // Events mocks base method.
 func (m *MockStore) Events(arg0 context.Context, arg1 int64, arg2 uuid.UUID, arg3 int64, arg4 domain.EventLimits) (domain.EventPage, error) {
 	m.ctrl.T.Helper()
@@ -332,6 +346,20 @@ func (m *MockStore) Start(arg0 context.Context, arg1 domain.Session) (domain.Ses
 func (mr *MockStoreMockRecorder) Start(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStore)(nil).Start), arg0, arg1)
+}
+
+// StopExecutions mocks base method.
+func (m *MockStore) StopExecutions(arg0 context.Context, arg1 int64, arg2 uuid.UUID, arg3 bool, arg4 func(context.Context, string, int64, []string) ([]domain.AgentEvent, error)) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StopExecutions", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StopExecutions indicates an expected call of StopExecutions.
+func (mr *MockStoreMockRecorder) StopExecutions(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopExecutions", reflect.TypeOf((*MockStore)(nil).StopExecutions), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockEnvironments is a mock of Environments interface.
@@ -514,6 +542,35 @@ func (mr *MockSessionAgentMockRecorder) Health(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Health", reflect.TypeOf((*MockSessionAgent)(nil).Health), arg0, arg1)
 }
 
+// Interrupt mocks base method.
+func (m *MockSessionAgent) Interrupt(arg0 context.Context, arg1 uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Interrupt", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Interrupt indicates an expected call of Interrupt.
+func (mr *MockSessionAgentMockRecorder) Interrupt(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Interrupt", reflect.TypeOf((*MockSessionAgent)(nil).Interrupt), arg0, arg1)
+}
+
+// Restart mocks base method.
+func (m *MockSessionAgent) Restart(arg0 context.Context, arg1 uuid.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Restart", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Restart indicates an expected call of Restart.
+func (mr *MockSessionAgentMockRecorder) Restart(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restart", reflect.TypeOf((*MockSessionAgent)(nil).Restart), arg0, arg1)
+}
+
 // Stop mocks base method.
 func (m *MockSessionAgent) Stop(arg0 context.Context, arg1 uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -526,4 +583,18 @@ func (m *MockSessionAgent) Stop(arg0 context.Context, arg1 uuid.UUID) error {
 func (mr *MockSessionAgentMockRecorder) Stop(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockSessionAgent)(nil).Stop), arg0, arg1)
+}
+
+// StopExecutions mocks base method.
+func (m *MockSessionAgent) StopExecutions(arg0 context.Context, arg1 uuid.UUID, arg2 string, arg3 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StopExecutions", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StopExecutions indicates an expected call of StopExecutions.
+func (mr *MockSessionAgentMockRecorder) StopExecutions(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopExecutions", reflect.TypeOf((*MockSessionAgent)(nil).StopExecutions), arg0, arg1, arg2, arg3)
 }

@@ -44,6 +44,7 @@ type Environment struct {
 	CreatedAt, UpdatedAt time.Time
 }
 
+// transitions задаёт допустимые переходы состояний окружения.
 func transitions() map[State]map[State]struct{} {
 	return map[State]map[State]struct{}{
 		StateQueued:      {StateCreating: {}, StateVerifying: {}, StateDeleting: {}},

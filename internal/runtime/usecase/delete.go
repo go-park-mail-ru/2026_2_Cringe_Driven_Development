@@ -122,6 +122,7 @@ func (r *jobRun) deleteResources(env domain.Environment) (domain.Environment, er
 	return env, nil
 }
 
+// deleteResource запрашивает удаление известного ресурса окружения.
 func (w *Worker) deleteResource(ctx context.Context, kind, id string) error {
 	switch kind {
 	case kindServer:
@@ -161,6 +162,7 @@ func (r *jobRun) deleteFailed(cause error) (bool, error) {
 	return true, nil
 }
 
+// nonEmpty выбирает доступное непустое значение для очистки.
 func nonEmpty(id string) []string {
 	if id == "" {
 		return nil

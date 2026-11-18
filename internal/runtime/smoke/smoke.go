@@ -96,6 +96,7 @@ type Report struct {
 	Error          string          `json:"error,omitempty"`
 }
 
+// sessionRun хранит данные одного прогона smoke-сценария.
 type sessionRun struct {
 	deps  Deps
 	opts  Options
@@ -178,11 +179,13 @@ func Run(ctx context.Context, deps Deps, opts Options) (Report, error) {
 	return rep, nil
 }
 
+// fail оформляет этап и причину отказа smoke.
 func fail(rep Report, err error) (Report, error) {
 	rep.Error = err.Error()
 	return rep, err
 }
 
+// run выполняет smoke и гарантирует попытку очистки после ошибки.
 func (s *sessionRun) run(ctx context.Context) {
 	start := time.Now()
 	s.rep.SessionID = s.id.String()
@@ -236,8 +239,10 @@ func (s *sessionRun) cleanup(ctx context.Context) error {
 	return nil
 }
 
+// owner вычисляет идентификатор владельца smoke-ресурса.
 func (s *sessionRun) owner(role string) string { return "smoke-" + s.id.String()[:8] + "-" + role }
 
+// scenario выполняет последовательность проверок одного окружения.
 func (s *sessionRun) scenario(ctx context.Context) error {
 	start := time.Now()
 	if _, err := s.deps.Service.RequestCreate(ctx, usecase.CreateEnvironment{
@@ -377,6 +382,7 @@ func (s *sessionRun) check(ctx context.Context) error {
 	return s.checkEvents(ctx, ep)
 }
 
+// waitExecution опрашивает агент до терминального состояния команды.
 func (s *sessionRun) waitExecution(ctx context.Context, ep usecase.AgentEndpoint) error {
 	ctx, cancel := context.WithTimeout(ctx, stepTimeout)
 	defer cancel()
@@ -399,6 +405,7 @@ func (s *sessionRun) waitExecution(ctx context.Context, ep usecase.AgentEndpoint
 	}
 }
 
+// checkEvents проверяет ожидаемые события и вывод smoke-команды.
 func (s *sessionRun) checkEvents(ctx context.Context, ep usecase.AgentEndpoint) error {
 	ctx, cancel := context.WithTimeout(ctx, stepTimeout)
 	defer cancel()

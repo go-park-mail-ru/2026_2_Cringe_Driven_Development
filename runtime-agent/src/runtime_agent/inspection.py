@@ -1,4 +1,4 @@
-"""Build kernel inspection requests and normalize their results."""
+"""Формируйте запросы инспекции kernel и проверяйте результаты."""
 
 import ast
 import json
@@ -14,14 +14,10 @@ PYTHON_EXPRESSION = """__import__('json').dumps([
 
 
 def request_content(command):
-    """Build the content of a Jupyter execute_request.
+    """Сформируйте содержимое Jupyter execute_request.
 
     Args:
-        command (dict): Validated command including execution_id, kind, and
-            timeout_seconds.
-
-    Returns:
-        dict: Execution content with stdin disabled and inspection settings.
+        command: Проверенная команда исполнения или инспекции.
     """
     inspect = command["kind"] == "inspect"
     return {
@@ -35,19 +31,10 @@ def request_content(command):
 
 
 def result(reply):
-    """Decode and validate variable inspection output.
+    """Декодируйте и проверьте результат инспекции переменных.
 
     Args:
-        reply (dict): Successful execute_reply content, including Python user
-            expressions.
-
-    Returns:
-        dict: A variables list containing up to 200 name, type, and preview descriptors.
-
-    Raises:
-        ValueError: Inspection failed or returned invalid JSON or variable descriptors.
-        KeyError: A required Python expression result field is missing.
-        SyntaxError: The Python text/plain result is not a valid literal.
+        reply: Содержимое ответа Jupyter на команду инспекции.
     """
     expression = reply.get("user_expressions", {}).get("variables", {})
     if expression.get("status") != "ok":

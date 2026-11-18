@@ -73,6 +73,7 @@ func (r *Repository) Retry(ctx context.Context, job usecase.Job, owner string, a
 	return r.ownedExec(ctx, "retry job", retrySQL, job.ID, owner, at)
 }
 
+// ownedExec выполняет изменение задачи при действующем lease.
 func (r *Repository) ownedExec(ctx context.Context, what, sql string, args ...any) error {
 	tag, err := r.db.Exec(ctx, sql, args...)
 	if err != nil {

@@ -1,17 +1,17 @@
-"""Start the runtime agent as a single-worker Uvicorn process."""
+"""Запускайте агент исполнения одним процессом Uvicorn."""
 
 import os
 
 import uvicorn
 
+from .observability import configure_logging
+
 
 def main():
-    """Apply a private file-creation mask and run the configured HTTP server.
-
-    Raises:
-        ValueError: PORT cannot be parsed as an integer.
-    """
+    """Установите закрытую маску файлов и запустите HTTP-сервер."""
     os.umask(0o077)
+    level = os.environ.get("LOG_LEVEL", "info")
+    configure_logging(level)
     uvicorn.run(
         "runtime_agent.api:create_app",
         factory=True,
@@ -20,6 +20,8 @@ def main():
         workers=1,
         timeout_graceful_shutdown=45,
         proxy_headers=False,
+        access_log=False,
+        log_level=level,
     )
 
 

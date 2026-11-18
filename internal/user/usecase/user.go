@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserUsecase управляет учётными данными, сессиями и профилем пользователя.
 type UserUsecase struct {
 	twoFactor  TwoFactorSecurity
 	limiter    AttemptLimiter
@@ -25,6 +26,7 @@ type UserUsecase struct {
 	now func() time.Time
 }
 
+// NewUserUsecase связывает users и sessions с выпуском tokens, хешированием passwords и refresh, сроком refreshTTL и расширениями options.
 func NewUserUsecase(users UserStore, sessions SessionStore, tokens TokenIssuer, passwords PasswordHasher, refresh RefreshTokens, refreshTTL time.Duration, options ...func(*UserUsecase)) *UserUsecase {
 	uc := &UserUsecase{users: users, sessions: sessions, tokens: tokens, passwords: passwords, refresh: refresh, refreshTTL: refreshTTL, now: time.Now}
 	for _, option := range options {
@@ -33,6 +35,7 @@ func NewUserUsecase(users UserStore, sessions SessionStore, tokens TokenIssuer, 
 	return uc
 }
 
+// Register проверяет login и password, создаёт пользователя и его первую сессию.
 func (uc *UserUsecase) Register(ctx context.Context, login, password string) (domain.User, Session, error) {
 	if !passwordRule.MatchString(password) {
 		return domain.User{}, Session{}, ErrValidation
@@ -73,6 +76,7 @@ func (uc *UserUsecase) Register(ctx context.Context, login, password string) (do
 	return u, sess, err
 }
 
+// Login проверяет login, password и необязательный код userCode, затем создаёт сессию.
 func (uc *UserUsecase) Login(ctx context.Context, login, password string, userCode ...*string) (domain.User, Session, error) {
 	u, _, err := uc.users.UserByLogin(ctx, login)
 	if errors.Is(err, ErrUserNotFound) {
@@ -122,6 +126,7 @@ func (uc *UserUsecase) Login(ctx context.Context, login, password string, userCo
 	return u, sess, nil
 }
 
+// Refresh атомарно заменяет refreshToken и возвращает новую пару токенов.
 func (uc *UserUsecase) Refresh(ctx context.Context, refreshToken string) (Session, error) {
 	oldHash := uc.refresh.Hash(refreshToken)
 	old, err := uc.sessions.Find(ctx, oldHash)
@@ -142,6 +147,7 @@ func (uc *UserUsecase) Refresh(ctx context.Context, refreshToken string) (Sessio
 	return sess, nil
 }
 
+// refreshError преобразует отказ обновления сессии в прикладную ошибку.
 func refreshError(err error) error {
 	if errors.Is(err, ErrInvalidSession) {
 		return ErrInvalidRefresh
@@ -149,6 +155,7 @@ func refreshError(err error) error {
 	return err
 }
 
+// Logout отзывает сессию, если refreshToken соответствует проверенным claims.
 func (uc *UserUsecase) Logout(ctx context.Context, refreshToken string, claims SessionClaims) error {
 	err := uc.sessions.Revoke(ctx, uc.refresh.Hash(refreshToken), claims)
 	if err == nil {
@@ -162,6 +169,7 @@ func (uc *UserUsecase) RevokeAll(ctx context.Context, userID int64) error {
 	return uc.sessions.RevokeAll(ctx, userID)
 }
 
+// CurrentUser читает профиль пользователя id из текущего сеанса.
 func (uc *UserUsecase) CurrentUser(ctx context.Context, id int64) (domain.User, error) {
 	u, err := uc.users.UserByID(ctx, id)
 	if errors.Is(err, ErrUserNotFound) {
@@ -170,6 +178,7 @@ func (uc *UserUsecase) CurrentUser(ctx context.Context, id int64) (domain.User, 
 	return u, err
 }
 
+// startSession создаёт токены и сохраняет сессию до ответа клиенту.
 func (uc *UserUsecase) startSession(ctx context.Context, userID int64, version SessionVersion) (Session, error) {
 	sid, err := uuid.NewRandom()
 	if err != nil {
@@ -185,6 +194,7 @@ func (uc *UserUsecase) startSession(ctx context.Context, userID int64, version S
 	return sess, nil
 }
 
+// prepareSession выпускает токены и готовит запись для атомарного сохранения.
 func (uc *UserUsecase) prepareSession(claims SessionClaims) (Session, NewSession, error) {
 	access, accessExpiresAt, err := uc.tokens.IssueAccess(claims)
 	if err != nil {

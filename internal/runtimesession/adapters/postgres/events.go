@@ -200,6 +200,7 @@ func (s *Store) Project(ctx context.Context) error {
 	return tx.Commit(ctx)
 }
 
+// applyOutput добавляет событие вывода к сохранённому результату команды.
 func (s *Store) applyOutput(ctx context.Context, tx pgx.Tx, x domain.Execution) (bool, error) {
 	outputs := make([]map[string]json.RawMessage, 0, len(x.Outputs))
 	for _, raw := range x.Outputs {

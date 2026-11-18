@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// checkAdmission проверяет возможность приёма команды под блокировкой очереди.
 func (s *Store) checkAdmission(ctx context.Context, tx pgx.Tx, owner int64, sid uuid.UUID) error {
 	v, err := readSession(tx.QueryRow(ctx, "SELECT data FROM runtime_sessions WHERE id=$1 AND owner_id=$2", sid, owner))
 	if err != nil {
@@ -21,6 +22,7 @@ func (s *Store) checkAdmission(ctx context.Context, tx pgx.Tx, owner int64, sid 
 	return nil
 }
 
+// commandLock сериализует отправку и остановку команд сессии.
 func commandLock(ctx context.Context, tx pgx.Tx, sid uuid.UUID, namespace int) error {
 	var ok bool
 	if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtextextended($1,$2))", sid.String(), namespace).Scan(&ok); err != nil {
@@ -32,7 +34,8 @@ func commandLock(ctx context.Context, tx pgx.Tx, sid uuid.UUID, namespace int) e
 	return nil
 }
 
-// DispatchGuard закрывает промежуток между проверкой очереди и отправкой агенту.
+// DispatchGuard держит общую с остановкой блокировку от проверки очереди до
+// отправки агенту, чтобы остановка не завершилась перед отправкой выбранной команды.
 func (s *Store) DispatchGuard(ctx context.Context, l D.Lease, call func(context.Context) error) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

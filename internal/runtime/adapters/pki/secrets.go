@@ -75,6 +75,7 @@ func New(key []byte, caCertPEM, caKeyPEM []byte, clock usecase.Clock) (*Secrets,
 	return &Secrets{aead: aead, caCert: caCert, caKey: caKey, clock: clock}, nil
 }
 
+// parseSigner загружает ключ подписи сертификатов.
 func parseSigner(der []byte) (crypto.Signer, error) {
 	if k, err := x509.ParsePKCS8PrivateKey(der); err == nil {
 		switch s := k.(type) {

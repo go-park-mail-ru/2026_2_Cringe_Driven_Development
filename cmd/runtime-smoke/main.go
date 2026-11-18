@@ -17,10 +17,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// main запускает приложение и передаёт результат процессу.
 func main() {
 	os.Exit(run())
 }
 
+// run разбирает параметры smoke и возвращает код завершения.
 func run() int {
 	var opts smoke.Options
 	flag.StringVar(&opts.Language, "language", "python", "kernel language: python")

@@ -13,6 +13,12 @@ import (
 
 // Client определяет доступные операции внутреннего клиента агента.
 type Client interface {
+	// Interrupt прерывает текущую команду.
+	Interrupt(context.Context, U.AgentEndpoint) error
+	// Restart перезапускает kernel и возвращает новое поколение.
+	Restart(context.Context, U.AgentEndpoint) (string, error)
+	// StopExecutions останавливает указанные команды по ключу операции.
+	StopExecutions(context.Context, U.AgentEndpoint, string, []string) error
 	// Health читает готовность агента, поколение kernel и состояние его очереди.
 	Health(context.Context, U.AgentEndpoint) (U.AgentHealth, int, error)
 	// ExecuteCommand передаёт агенту исполнение кода или инспекцию с неизменным execution_id и проверяет
@@ -151,13 +157,7 @@ func (g *Gateway) Interrupt(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	c, ok := g.client.(interface {
-		Interrupt(context.Context, U.AgentEndpoint) error
-	})
-	if !ok {
-		return D.ErrUnavailable
-	}
-	return c.Interrupt(ctx, ep)
+	return g.client.Interrupt(ctx, ep)
 }
 
 // Restart перезапускает свободный kernel и возвращает новое поколение; потерянный ответ автоматически не
@@ -167,13 +167,7 @@ func (g *Gateway) Restart(ctx context.Context, id uuid.UUID) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c, ok := g.client.(interface {
-		Restart(context.Context, U.AgentEndpoint) (string, error)
-	})
-	if !ok {
-		return "", D.ErrUnavailable
-	}
-	return c.Restart(ctx, ep)
+	return g.client.Restart(ctx, ep)
 }
 
 // StopExecutions останавливает команды без завершения окружения.
@@ -182,11 +176,5 @@ func (g *Gateway) StopExecutions(ctx context.Context, id uuid.UUID, operation st
 	if err != nil {
 		return err
 	}
-	c, ok := g.client.(interface {
-		StopExecutions(context.Context, U.AgentEndpoint, string, []string) error
-	})
-	if !ok {
-		return D.ErrUnavailable
-	}
-	return c.StopExecutions(ctx, ep, operation, executionIDs)
+	return g.client.StopExecutions(ctx, ep, operation, executionIDs)
 }

@@ -1,150 +1,86 @@
-# Backend: инструкции для агента
+# Backend Cellestial
 
-Разрабатываем аналог Google Colab: блокноты с блоками Python и текста. Правила работы с задачами, ветками и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами). Как завести и закрыть задачу — в [CONTRIBUTING.md](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md) организации; в Codex и Claude Code используй командный скилл `cdd-tasks`. Код/PR/issues — Cringe-Driven-Development-Team/backend; api-N, `Closes #N`, review ментора, кроме настроенного исключения YarikMix (см. CONTRIBUTING). Учебный repo — копия main без Actions и новых PR.
+Go API для пользователей, блокнотов и исполнения Python. Актуальный контракт
+HTTP — [spec/openapi.json](spec/openapi.json). Точки входа и штатные проверки
+описаны в [локальной разработке](docs/local-development.md).
 
-## Wiki и общий поиск
+## Границы и источники
 
-Для поиска контекста начни с `openwiki_search`, затем `openwiki_read` с ID wiki из результата; если ответа достаточно и нет противоречий, остановись. Не загружай wiki при старте; для простой правки известного файла поиск не обязателен.
-Корень checkout: `git rev-parse --show-toplevel`; проверь `origin`: `Cringe-Driven-Development-Team/backend`. При обычном чтении опубликованная wiki считается актуальной; её актуальность обеспечивает процесс обновления и публикации. Не проверяй свежесть, не сравнивай SHA и не делай fetch или grep по исходникам ради перепроверки ответа.
-Конкретный исходник нужен при пробеле, противоречии или для правки; явные ошибки инструментов не игнорируй. Без wiki читай README, docs и исходники. HTTP-контракт — `spec/openapi.json`.
-Для межрепозиторных вопросов используй общий workspace соседних `docs`, `frontend`, `backend`, `infra`: настройка — в README docs. При нескольких пространствах проверь `openwiki workspace current`, выбери через `openwiki workspace use`. В `openwiki_read` передавай ID wiki из результата; не считай чужую страницу локальной.
-Карта владения — docs, клиент/BFF — frontend, выкладка — infra; внутренности `@cdd-team/*` — frontend-packages по карте docs.
-Без MCP читай quickstart и нужную Markdown-страницу с тем же правилом остановки, локально или на GitHub: https://github.com/Cringe-Driven-Development-Team/backend/tree/main/openwiki. Соседний docs из worktree: `git -C "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../docs" rev-parse --show-toplevel`.
-Проверь его `origin`: `Cringe-Driven-Development-Team/docs`; без клона — https://github.com/Cringe-Driven-Development-Team/docs/tree/main/openwiki.
-Проверки свежести (`bun scripts/openwiki-check.ts --against <SHA>` у владельца) относятся к обслуживанию, генерации, CI и явной диагностике по запросу пользователя.
-Пути определяй заново. Состояние прода прямо сейчас требует соответствующего свидетельства или проверки стенда; будущие фичи — в `/modules/` docs.
+- `cmd/` содержит точки входа. Сборка зависимостей и запуск API — `internal/app`,
+  конфигурация — `internal/config`. Тестируемая логика и тесты живут в `internal/`.
+- HTTP delivery вызывает usecase через интерфейсы. Usecase задаёт порты,
+  adapters их реализуют, domain хранит типы и инварианты без привязки к транспорту.
+- PostgreSQL хранит пользователей, блокноты по ячейкам, окружения и результаты.
+  Redis хранит сессии и лимиты авторизации. S3 хранит аватары. Миграции goose
+  встроены и применяются при старте API.
+- `internal/runtime` управляет подготовкой и удалением VPS, `internal/runtimesession`
+  — пользовательскими сессиями, очередью и результатами. `runtime-agent/`
+  управляет одним Python kernel через закрытый TCP. SQLite journal на хосте
+  сохраняет состояние команд и события. Сеть, mTLS и systemd принадлежат infra.
+- Браузер работает через BFF из `frontend`. Go требует `BFF_API_KEY`, кроме
+  `GET /health`. BFF отвечает за браузерные cookies и публичную HTTP-границу.
+  Выкладка и секреты — в `infra`, общепроектная документация — в `docs` команды.
+- Для контекста начни с `openwiki_search` и прочитай найденную страницу по ID.
+  При пробеле или правке сверяйся с исходниками. Для нескольких репозиториев
+  используй общий workspace и проверяй владельца страницы. Для простой правки
+  достаточно известного файла. [Работа с OpenWiki](docs/openwiki.md).
+- Состояние production подтверждай отдельной проверкой. Локальные инструкции
+  описывают реализованные возможности. Учебные требования и будущие решения
+  ведутся в задачах и в командной документации.
 
-## Учебный проект: совместимость и прод
+## Работа с кодом
 
-Живых пользователей нет; прод проверяют примерно раз в месяц. Временный простой между выкладками допустим.
-Без прямого требования владельца не добавляй в задачи и код legacy, старый API, поэтапный деплой и высокий uptime.
-Локально независимые фронт/бэк не связывай `Blocked by`; проверь интеграцию после обеих задач. К проверке прод должен работать.
+- Сохраняй контекст запроса до адаптеров. Порядок HTTP-обёрток сохраняет request ID
+  и access log на всех ответах, в том числе на 401, 404 и 405. Контекст запроса
+  связывает внутренние вызовы агента и операции хранилищ.
+- Используй штатные структурированные логи. При добавлении HTTP-входа или
+  хранилища проверь, что на штатной границе пишутся операция, длительность,
+  результат и request ID при наличии. Для SQL, Redis, S3 и SQLite используй
+  централизованную инструментацию. Исключай секреты, тела, ключи, SQL с аргументами
+  и сырые ошибки. [Поля логов и уровни](docs/local-development.md#логи).
+- Пиши короткие русские Go doc comments и Python docstrings к ручным определениям.
+  Для API, часто используемого и сложного кода опиши смысл каждого параметра,
+  значимые единицы, результат, ошибки и владение ресурсами. Начинай Go-комментарий
+  с имени определения. Соблюдай [Go Doc Comments](https://go.dev/doc/comment)
+  и [PEP 257](https://peps.python.org/pep-0257/). Поясняй причины блокировок и повтора
+  рядом с кодом.
+- Меняй OpenAPI в `spec/openapi.json`, генерируй через `make generate`.
+  Используй схемы components, явный `additionalProperties` и валидные примеры.
+  Сверяй поддержку ограничений генератором frontend-packages.
+  [Работа с контрактом](docs/openapi.md).
+- Изменение поведения, команд или границ пакетов сопровождай правкой соответствующего
+  руководства в `docs/`. Проверяй утверждения по коду и конфигурации. Убирай
+  дублирование, сохраняй используемые ссылки и оставляй в AGENTS только правила,
+  нужные при большинстве задач. Лимит AGENTS.md — 150 строк.
+- Для Go начинай с `go_workspace`, затем `go_search`, `go_file_context`, references и
+  diagnostics. Для Python используй Serena и Pyright. При недоступности MCP сообщи
+  об этом и используй `rg`, `go vet`, Pyright и тесты.
 
-## Code Review Rules
+## Проверки
 
-- Пиши заголовки и пояснения замечаний к PR на русском языке. Имена файлов, идентификаторы, команды и метки приоритета сохраняй без перевода.
+- `make check-fast` и тесты затронутых пакетов во время правок.
+- `make check` и `make docker-build` перед PR. `make test` запускает race-тесты
+  и проверяет ≥60% по `coverage.out`. Сгенерированный Go-код исключён из покрытия.
+- Моки обновляй через `bash scripts/generate-mocks.sh`. Для агента используй
+  `make agent-setup agent-lint agent-test agent-build` и
+  `make agent-images agent-integration`.
+- Production deploy идёт из `main` по immutable digest, через CI и playbook infra.
+  Сценарии выкатки и отката — в [release](docs/release.md).
 
-## Целевые продуктовые требования
+## Git и задачи
 
-- Регистрация и авторизация с валидацией; профиль пользователя.
-- Список файлов пользователя; страница файла; создание, редактирование и сохранение
-  отдельных блоков кода и текста.
-- Исполнение файлов на R или Python с выводом результата.
-- Шеринг файлов, поиск по файлу, комментарии к блокам кода и текста.
-- Выделение квот на количество исполнений и ресурсы; статистика их использования;
-  покупка подписок с квотой.
-- Загрузка и скачивание ipynb, включая экспорт после исполнения.
-
-## Стек и команды
-
-- Go: версия в [go.mod](go.mod), зависимости через Go Modules (`go.mod`, `go.sum`).
-- HTTP: `net/http`, Gorilla mux; PostgreSQL: `pgx/v5/pgxpool`.
-- Локально: Docker Compose с Go API, PostgreSQL 18, Redis 8 и SeaweedFS (S3).
-- `runtime-agent/`: Python 3.13 сервис systemd; одна VPS, одна сессия, один контейнер/kernel.
-  Агент ждёт с готовым kernel; сессию назначает Go API (`POST /assign`). SQLite и токен — только на хосте.
-  Jupyter — закрытый TCP без host mounts; сеть и firewall реализует infra (роль `runtime_host`) по docs/runtime-agent-network.md.
-
-Нужны Go, C-компилятор (`-race`), Make, curl, Node.js ≥ 22.12 с npm, Docker с Compose. `.env` — см. [.env.example](.env.example). Команды из корня:
-
-```bash
-go mod download       # скачать зависимости
-go mod tidy -diff      # проверить согласованность go.mod/go.sum
-make build            # собрать bin/server
-make test             # тесты с -race, coverage.out и итоговое покрытие
-make lint             # статический анализ
-make docker-build     # собрать colab-backend:local
-make doctor           # инструменты, настройки и GitHub-доступы; ничего не меняет
-make check-fast       # gofmt и go vet; затем тесты изменённого пакета
-make check            # tidy, сборка всех пакетов, race-тесты, lint, contract-check перед PR
-make up               # собрать и запустить API, PostgreSQL, Redis, SeaweedFS; ждать health
-make health           # GET /health; make logs — последние логи; make down — остановка
-make run              # то же окружение с логами в терминале
-make agent-setup agent-lint agent-test agent-build # Python-агент: установка и проверки
-make agent-images agent-integration # Docker-образ kernel Python и интеграционные тесты
-make agent-network-check # отдельная VPS с firewall infra; не обычный CI. smoke: — docs/runtime-provisioning.md
-```
-
-`make test` и CI используют `scripts/test.sh`: тестируются все пакеты с `-race -count=1 -coverpkg=./...` (включая вызовы из тестов других пакетов). Из `coverage.out` исключаются `internal/transport/http/api`, `migrations` и `cmd/main`. Логика приложения в `internal/app` учитывается. Последняя строка — итоговое покрытие; CI пишет ту же строку в summary. Цель — ≥50%, автоматического порога нет. Отчёт: `go tool cover -func=coverage.out`.
-
-Запускай клиент агента из корня backend с `go.mod`, включая отдельный worktree.
-Настройка Codex/Claude Code, gopls и сценарий новой сессии — в
-[docs/local-development.md](docs/local-development.md), раздел «Harness AI-агента».
-Сначала вызови `go_workspace`, затем `go_search`;
-после чтения Go-файла — `go_file_context`, перед изменением символа —
-`go_symbol_references`, после изменений — `go_diagnostics` и тесты пакета.
-Если MCP недоступен, явно укажи это; `rg`, `go vet` и тесты дают запасной путь.
-Для Python: Serena `initial_instructions` → `activate_project` для `runtime-agent/`;
-через `serena_repl` изучи `s.info("lsp")`, затем `s.lsp.get_symbols_overview` / `find_symbol`.
-Перед изменением символа — `s.lsp.find_referencing_symbols`; после — диагностика файла,
-Pyright с Python из `runtime-agent/.venv` и тесты агента. Без MCP — явно укажи это и используй `rg`, Pyright и тесты.
-Перед PR нужны `make check` и `make docker-build`; результаты и ограничения — в PR.
-
-## Паттерны кода
-
-В `cmd/` размещай только точки входа в приложение; допустим README с описанием микросервиса. Тесты в `cmd/` запрещены: проверяемую логику и её тесты размещай в `internal/` (сборка и запуск API — `internal/app`).
-
-Карта кода: `cmd/main` → `internal/app` (сборка и запуск), `internal/config` — окружение.
-`internal/runtime` — provisioning VPS; `internal/runtimesession` — сессии, исполнение и результаты; `cmd/runtime-smoke` — ручная проверка;
-`internal/transport/http` — роутер, `/health`, API-генерация, middleware, security, principal, httperr; `internal/{user,notebook}/delivery/http`
-→ `usecase` (сценарии, порты) → `domain`; `adapters/{postgres,s3,avatar,security,ipynb}`
-реализуют порты. Usecase не импортирует HTTP или адаптеры; domain не знает о них.
-Сессии и лимиты входа/2FA — Redis primary; пользователи и зашифрованные TOTP-секреты — PostgreSQL; [runbook](docs/redis-sessions.md).
-Блокноты: PostgreSQL по ячейкам, токен редакции и размеры — docs/notebook-editing.md; однократный сброс БД вместо переноса — docs/database-reset.md.
-`migrations` — встроенные goose SQL. `api.gen.go` не редактируй: правь только `spec/openapi.json` ([docs/openapi.md](docs/openapi.md)), затем `make generate` (Redocly + oapi-codegen); контракт и код — в одном PR, skills `redocly-cli`/`redocly-lint-rules`.
-Схемы — components/`$ref`, `additionalProperties` явно, подмножество генератора frontend-packages#63, валидные примеры и default; неподдержанное ограничение — сначала в генератор, молча не ослабляй. oasdiff — по желанию.
-
-Сохраняй контекст запроса при передаче дальше; для операций БД из обработчика используй `r.Context()`. Порядок: request ID → logging → recover → S2S → Bearer → ограничение тела блокнотов (512 КиБ) и аватаров (6 МиБ) → Validator. Общие middleware оборачивают весь роутер, чтобы request ID был на всех ответах, включая S2S-отказы, 404 и 405. API обслуживает только BFF; `BFF_API_KEY` обязателен, `GET /health` исключён.
-
-## Границы backend и эксплуатация
-
-Общепроектный контекст, действующая архитектура и планы развития проекта — в [Контекст проекта](https://docs.cellestial.ru/project-context).
-Спеки и планы реализации конкретной задачи размещай в репозитории, где выполняется
-работа; общие для нескольких компонентов решения отражай в `docs`.
-При внесении изменений проверяй реализацию по актуальному коду и конфигурации.
-
-- Backend отвечает за Go API, данные и бизнес-логику; местный Compose — для разработки.
-- Агент сам VPS не создаёт: создание, настройку (воркер запускает playbook) и удаление runtime-VPS выполняет
-  `internal/runtime` ([docs](docs/runtime-provisioning.md)). Роли (`runtime_host`, `runtime_agent`, `prepare.yml`, mount `/app/deploy/runtime`): установка агента/systemd, mTLS-доступ Go API
-  к агенту, сеть/firewall и секреты — в `infra`; запускает их воркер `internal/runtime`.
-- `infra`: Pulumi, Ansible Vault, production Compose и Caddyfile. Не переноси
-  production-конфигурацию в backend и не коммить открытые секреты.
-- Проект Compose на VPS — `cellestial`, каталог `/opt/cellestial`; существующие
-  volumes Caddy сохраняются. Миграции goose выполняются при старте API.
-- S3 используется аватарами: `S3_AVATARS_BUCKET`, `S3_AVATARS_PUBLIC_URL` и `AWS_*`; блокноты в S3 не хранятся и не переносятся.
-  Локально SeaweedFS: anonymous Read только аватарам через `s3-init`; production S3/CDN — infra.
-- `ci.yml` проверяет код и публикует immutable Release `release-<полный SHA>` с образом и manifest;
-  затем вызывает самостоятельный `cd.yml` через `workflow_dispatch` с release tag. CD в environment `production`
-  запускает `deploy-backend.yml` из `infra/main`. Inventory статический;
-  Selectel credentials и Pulumi в CI не используются.
-- Merge в `main` требует review ментора, кроме YarikMix; отдельного approval environment нет.
-  Деплой только из `main`, без отмены выполняющейся выкатки.
-- Откат — тот же playbook с прежним digest-ref через `backend_image_ref`, без автоматических миграций Down.
-
-Фактический [CI backend](.github/workflows/ci.yml) публикует
-`ghcr.io/cringe-driven-development-team/backend`: теги `sha-<полный SHA>` и `main`,
-без `latest`. Пакет должен быть публичным: CI проверяет видимость `public`, привязку
-к репозиторию и анонимную доступность опубликованного digest с пустым Docker config.
-Публикация использует `GITHUB_TOKEN` с `packages: write`; CD и Ansible скачивают
-образ анонимно, без GHCR credentials и deploy-only `packages: read`.
-Выкатывается полный `backend_image_ref=ghcr.io/cringe-driven-development-team/backend@sha256:<64 hex>`.
-Deploy требует PRODUCTION_ENABLED=true; sync — COURSE_SYNC_ENABLED=true,
-needs lint/test/docker, независимо от deploy. Повтор sync принимает только ci_run_id.
-Deploy/Rollback создают явные production Deployments; прямого Telegram sender нет.
-Откат — Actions → Rollback на main, цель из успешных Deployments; правила — docs/release.md.
-Runtime всегда включён: обязательные настройки проверяются при старте, локально provider=fake.
-## Коммиты
-
-Формат: `<тип>: <описание>` или `<тип>(<область>): <описание>`.
-Типы: `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`.
-
-```text
-docs: добавить инструкции для агента
-refactor(auth): вынести проверку токена в middleware
-```
-Назначение типов — в [локальной разработке](docs/local-development.md#типы-коммитов).
-
-## Документация
-
-README содержит краткую, актуальную информацию о проекте и его использовании. Порядок выкатки конкретной задачи, временные зависимости и условия слияния описывай в задаче при необходимости, а не в README. Подробную общепроектную документацию размещай в репозитории организации [docs](https://github.com/Cringe-Driven-Development-Team/docs). Локальные инструкции backend по запуску, API и CI размещай в `docs/`, оставляя README коротким навигатором.
-## Актуальность документа
-При изменении команд или архитектурных границ обновляй этот файл в том же изменении, размер этого документа не более 150 строк.
+- Ветка задачи — `api-N`. Коммит — `<тип>: <действие>` или
+  `<тип>(<область>): <действие>`. Типы: `feat`, `fix`, `refactor`, `style`,
+  `test`, `docs`, `chore`. Пример: `refactor(runtime): сделать порты явными`.
+- Заголовок PR — `API-N: <название задачи>`. В описании указывай `Closes #N`,
+  изменения, проверки и ограничения. Применяй командный навык `cdd-tasks` и
+  [CONTRIBUTING команды](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
+- Создавай PR/MR только по прямому поручению, в указанную личную ветку пользователя.
+  Если цель не названа однозначно, уточни её. PR/MR в `main` открывает пользователь.
+  Любое изменение существующего PR/MR требует отдельного поручения.
+- При merge или rebase сначала просмотри коммиты и задачи, уже вошедшие в целевую
+  ветку и затронувшие конфликтующие участки. Сохрани требования обеих веток.
+  После разрешения проверь итоговый diff и затронутые сценарии, включая вызовы,
+  которые должны использовать добавленную инфраструктуру, например логирование.
+- Заголовки и пояснения замечаний к PR пиши по-русски. Имена файлов, команд,
+  идентификаторы и метки приоритета сохраняй.

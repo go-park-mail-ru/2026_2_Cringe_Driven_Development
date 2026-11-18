@@ -30,15 +30,23 @@ type Store struct {
 
 var _ usecase.SessionStore = (*Store)(nil)
 
+// NewStore использует client для хранения сессий с префиксом prefix и лимитом времени timeout.
 func NewStore(client *goredis.Client, prefix string, timeout time.Duration) *Store {
 	return &Store{client: client, prefix: prefix, timeout: timeout}
 }
-func (s *Store) authKey(sid string) string     { return s.prefix + "auth_session:" + sid }
+
+// authKey формирует Redis-ключ проверяемой сессии.
+func (s *Store) authKey(sid string) string { return s.prefix + "auth_session:" + sid }
+
+// refreshKey формирует Redis-ключ хеша refresh-токена.
 func (s *Store) refreshKey(hash string) string { return s.prefix + "refresh_session:" + hash }
+
+// versionKey формирует Redis-ключ версии сессий пользователя.
 func (s *Store) versionKey(id int64) string {
 	return s.prefix + "user_session_version:" + strconv.FormatInt(id, 10)
 }
 
+// record представляет согласованный с Lua формат записи Redis.
 type record struct {
 	UserID           string `json:"user_id,omitempty"`
 	SID              string `json:"sid,omitempty"`
@@ -49,12 +57,17 @@ type record struct {
 	OldHash          string `json:"old_hash,omitempty"`
 }
 
+// claimsRecord преобразует данные проверки сессии в формат Redis.
 func claimsRecord(c usecase.SessionClaims) record {
 	return record{UserID: strconv.FormatInt(c.UserID, 10), SID: c.SessionID, Version: strconv.FormatUint(uint64(c.Version), 10)}
 }
+
+// validClaims проверяет обязательные данные авторизационной сессии.
 func validClaims(c usecase.SessionClaims) bool {
 	return c.UserID > 0 && c.SessionID != "" && c.Version > 0
 }
+
+// sessionRecord формирует Redis-запись с параметрами новой сессии.
 func sessionRecord(n usecase.NewSession) record {
 	r := claimsRecord(n.SessionClaims)
 	r.TokenHash = n.TokenHash
@@ -63,6 +76,8 @@ func sessionRecord(n usecase.NewSession) record {
 	r.AccessValidUntil = n.AccessExpiresAt.Add(time.Millisecond - 1).UnixMilli()
 	return r
 }
+
+// run вызывает Lua-операцию сессий с единым временем ожидания.
 func (s *Store) run(ctx context.Context, op string, r record, keys ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
@@ -83,6 +98,8 @@ func (s *Store) run(ctx context.Context, op string, r record, keys ...string) (s
 	}
 	return out, nil
 }
+
+// candidate генерирует случайную начальную версию сессий.
 func candidate() (string, error) {
 	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64((1<<62)-1))
 	if err != nil {
@@ -90,6 +107,8 @@ func candidate() (string, error) {
 	}
 	return n.Add(n, big.NewInt(1)).String(), nil
 }
+
+// CurrentVersion читает версию сессий пользователя id, создавая её при первом обращении.
 func (s *Store) CurrentVersion(ctx context.Context, id int64) (usecase.SessionVersion, error) {
 	if id <= 0 {
 		return 0, errors.New("invalid user ID")
@@ -105,6 +124,8 @@ func (s *Store) CurrentVersion(ctx context.Context, id int64) (usecase.SessionVe
 	n, err := strconv.ParseUint(out, 10, 64)
 	return usecase.SessionVersion(n), err
 }
+
+// Create атомарно сохраняет параметры новой сессии n в Redis.
 func (s *Store) Create(ctx context.Context, n usecase.NewSession) error {
 	if !validClaims(n.SessionClaims) || n.TokenHash == "" {
 		return usecase.ErrInvalidSession
@@ -112,6 +133,8 @@ func (s *Store) Create(ctx context.Context, n usecase.NewSession) error {
 	_, err := s.run(ctx, "create", sessionRecord(n), s.versionKey(n.UserID), s.authKey(n.SessionID), s.refreshKey(n.TokenHash))
 	return err
 }
+
+// Find читает refresh-сессию по хешу hash.
 func (s *Store) Find(ctx context.Context, hash string) (usecase.RefreshSession, error) {
 	out, err := s.run(ctx, "find", record{OldHash: hash}, s.refreshKey(hash))
 	if err != nil {
@@ -131,6 +154,8 @@ func (s *Store) Find(ctx context.Context, hash string) (usecase.RefreshSession, 
 	}
 	return usecase.RefreshSession{SessionClaims: usecase.SessionClaims{UserID: id, SessionID: r.SID, Version: usecase.SessionVersion(v)}, TokenHash: r.TokenHash, ExpiresAt: time.UnixMilli(r.RefreshExpiresAt)}, nil
 }
+
+// ValidateAccess подтверждает владельца и версию сессии из c в Redis.
 func (s *Store) ValidateAccess(ctx context.Context, c usecase.SessionClaims) error {
 	if !validClaims(c) {
 		return usecase.ErrInvalidSession
@@ -138,6 +163,8 @@ func (s *Store) ValidateAccess(ctx context.Context, c usecase.SessionClaims) err
 	_, err := s.run(ctx, "access", claimsRecord(c), s.authKey(c.SessionID))
 	return err
 }
+
+// Rotate одной операцией заменяет refresh-токен old и сохраняет новые данные n.
 func (s *Store) Rotate(ctx context.Context, old string, n usecase.NewSession) error {
 	if !validClaims(n.SessionClaims) || n.TokenHash == "" {
 		return usecase.ErrInvalidSession
@@ -147,6 +174,8 @@ func (s *Store) Rotate(ctx context.Context, old string, n usecase.NewSession) er
 	_, err := s.run(ctx, "rotate", r, s.refreshKey(old))
 	return err
 }
+
+// Revoke отзывает сессию при совпадении refresh-хеша hash и данных c.
 func (s *Store) Revoke(ctx context.Context, hash string, c usecase.SessionClaims) error {
 	if !validClaims(c) {
 		return usecase.ErrInvalidSession
@@ -156,6 +185,8 @@ func (s *Store) Revoke(ctx context.Context, hash string, c usecase.SessionClaims
 	_, err := s.run(ctx, "revoke", r, s.refreshKey(hash))
 	return err
 }
+
+// RevokeAll повышает версию сессий пользователя id и отзывает прежние токены.
 func (s *Store) RevokeAll(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return errors.New("invalid user ID")

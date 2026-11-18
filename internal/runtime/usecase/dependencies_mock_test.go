@@ -232,17 +232,18 @@ func (mr *MockPoolRepositoryMockRecorder) ListPool(ctx any) *gomock.Call {
 }
 
 // MarkPoolDeleting mocks base method.
-func (m *MockPoolRepository) MarkPoolDeleting(ctx context.Context, id uuid.UUID, reason string) error {
+func (m *MockPoolRepository) MarkPoolDeleting(ctx context.Context, id uuid.UUID, from domain.PoolState, sessionID uuid.UUID, reason string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkPoolDeleting", ctx, id, reason)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "MarkPoolDeleting", ctx, id, from, sessionID, reason)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // MarkPoolDeleting indicates an expected call of MarkPoolDeleting.
-func (mr *MockPoolRepositoryMockRecorder) MarkPoolDeleting(ctx, id, reason any) *gomock.Call {
+func (mr *MockPoolRepositoryMockRecorder) MarkPoolDeleting(ctx, id, from, sessionID, reason any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkPoolDeleting", reflect.TypeOf((*MockPoolRepository)(nil).MarkPoolDeleting), ctx, id, reason)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkPoolDeleting", reflect.TypeOf((*MockPoolRepository)(nil).MarkPoolDeleting), ctx, id, from, sessionID, reason)
 }
 
 // ReservePool mocks base method.

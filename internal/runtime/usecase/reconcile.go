@@ -69,6 +69,7 @@ func (w *Worker) reconcile(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
+// retryCleanups повторяет незавершённую очистку окружений.
 func (w *Worker) retryCleanups(ctx context.Context) []error {
 	pending, err := w.repo.ListByState(ctx, domain.StateCleanupPending)
 	if err != nil {
@@ -85,6 +86,7 @@ func (w *Worker) retryCleanups(ctx context.Context) []error {
 	return errs
 }
 
+// deleteOrphans ищет облачные ресурсы, для которых исчезла запись владельца.
 func (w *Worker) deleteOrphans(ctx context.Context, owned []CloudResource, pool []domain.PoolVPS) error {
 	var errs []error
 	for _, kind := range deleteOrder() {
@@ -106,6 +108,7 @@ func (w *Worker) deleteOrphans(ctx context.Context, owned []CloudResource, pool 
 	return errors.Join(errs...)
 }
 
+// deleteSessionOrphans удаляет лишние облачные ресурсы конкретной сессии.
 func (w *Worker) deleteSessionOrphans(ctx context.Context, owned []CloudResource) error {
 	var ids []uuid.UUID
 	for _, r := range owned {

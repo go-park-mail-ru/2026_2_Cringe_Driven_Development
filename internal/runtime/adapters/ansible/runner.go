@@ -76,6 +76,7 @@ func New(workDir, playbook, sshKeyFile, sshUser, binary string, artifacts Artifa
 
 var opDirName = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$`)
 
+// vars передаёт параметры развёртывания в playbook.
 func (r *Runner) vars(c usecase.HostConfig) (map[string]any, error) {
 	sha, err := os.ReadFile(r.art.AgentWheelSHA256File)
 	if err != nil {
@@ -104,6 +105,7 @@ func (r *Runner) vars(c usecase.HostConfig) (map[string]any, error) {
 	}, nil
 }
 
+// writeJSON сохраняет переменные запуска в JSON-файл.
 func writeJSON(path string, v any, mode os.FileMode) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -187,6 +189,7 @@ type logWriter struct {
 	done chan struct{}
 }
 
+// newLogWriter создаёт ограниченный накопитель вывода subprocess.
 func newLogWriter(name string) *logWriter {
 	pr, pw := io.Pipe()
 	l := &logWriter{pr: pr, pw: pw, done: make(chan struct{})}
@@ -202,8 +205,10 @@ func newLogWriter(name string) *logWriter {
 	return l
 }
 
+// Write сохраняет вывод Ansible в пределах заданного лимита.
 func (l *logWriter) Write(p []byte) (int, error) { return l.pw.Write(p) }
 
+// flush записывает последнюю накопленную строку вывода.
 func (l *logWriter) flush() {
 	_ = l.pw.Close()
 	<-l.done

@@ -54,6 +54,7 @@ func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler 
 	}
 }
 
+// validator собирает валидатор запросов из HTTP-контракта.
 func validator(spec *openapi3.T, prefix string, excludeBody bool) func(http.Handler) http.Handler {
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
 		Prefix:               prefix,
@@ -84,6 +85,7 @@ func requireUser(_ context.Context, input *openapi3filter.AuthenticationInput) e
 	return nil
 }
 
+// validationError оформляет безопасный ответ на невалидный запрос.
 func validationError(_ context.Context, err error, w http.ResponseWriter, _ *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
 	var securityErr *openapi3filter.SecurityRequirementsError
 	switch {

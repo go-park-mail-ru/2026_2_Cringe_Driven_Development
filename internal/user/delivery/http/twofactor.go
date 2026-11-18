@@ -68,11 +68,13 @@ func (h *Handler) DisableTwoFactorAuth(ctx context.Context, req api.DisableTwoFa
 	return api.DisableTwoFactorAuth200Response{}, nil
 }
 
+// twoFactorFailure содержит статус и тело отказа двухфакторной операции.
 type twoFactorFailure struct {
 	status int
 	body   api.Error
 }
 
+// mapTwoFactorError классифицирует прикладные ошибки двухфакторной аутентификации.
 func mapTwoFactorError(err error) *twoFactorFailure {
 	f := &twoFactorFailure{}
 	switch {
@@ -96,17 +98,25 @@ func mapTwoFactorError(err error) *twoFactorFailure {
 	}
 	return f
 }
+
+// write отправляет отказ двухфакторной операции клиенту.
 func (f twoFactorFailure) write(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(f.status)
 	return json.NewEncoder(w).Encode(f.body)
 }
+
+// VisitEnableTwoFactorAuthResponse записывает параметры настройки двухфакторной аутентификации.
 func (f twoFactorFailure) VisitEnableTwoFactorAuthResponse(w http.ResponseWriter) error {
 	return f.write(w)
 }
+
+// VisitConfirmTwoFactorAuthResponse подтверждает включение двухфакторной аутентификации HTTP-ответом.
 func (f twoFactorFailure) VisitConfirmTwoFactorAuthResponse(w http.ResponseWriter) error {
 	return f.write(w)
 }
+
+// VisitDisableTwoFactorAuthResponse подтверждает отключение двухфакторной аутентификации HTTP-ответом.
 func (f twoFactorFailure) VisitDisableTwoFactorAuthResponse(w http.ResponseWriter) error {
 	return f.write(w)
 }

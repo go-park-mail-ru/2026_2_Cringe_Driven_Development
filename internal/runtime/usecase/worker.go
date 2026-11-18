@@ -95,6 +95,7 @@ func NewWorker(repo EnvironmentRepository, pool PoolRepository, q JobQueue, clou
 	}
 }
 
+// orDefault подставляет значение по умолчанию для нулевой настройки.
 func orDefault(d, def time.Duration) time.Duration {
 	if d <= 0 {
 		return def
@@ -315,11 +316,13 @@ func (r *jobRun) execute() error {
 	}
 }
 
+// deleting проверяет переход окружения к удалению.
 func (r *jobRun) deleting(env domain.Environment) bool {
 	return r.job.Kind == JobDelete || env.DesiredState == domain.StateDeleted || env.State.Finished() ||
 		env.State == domain.StateDeleting || env.State == domain.StateCleanupPending
 }
 
+// leaseErr переводит потерю владения в ошибку фонового задания.
 func (r *jobRun) leaseErr() error {
 	if r.leaseCtx.Err() != nil {
 		return context.Cause(r.leaseCtx)
@@ -363,6 +366,7 @@ func (r *jobRun) complete() error {
 	return ErrLeaseLost
 }
 
+// finish завершает шаг воркера с учётом результата и владения заданием.
 func (r *jobRun) finish() (bool, error) {
 	if err := r.complete(); err != nil {
 		return false, err

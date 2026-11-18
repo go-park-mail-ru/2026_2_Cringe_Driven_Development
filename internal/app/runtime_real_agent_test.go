@@ -290,3 +290,12 @@ func (a *realSessionAgent) Restart(ctx context.Context, id uuid.UUID) (string, e
 	}
 	return p.client.Restart(ctx, p.endpoint)
 }
+
+// StopExecutions передаёт остановку команд реальному агенту интеграционного теста.
+func (a *realSessionAgent) StopExecutions(ctx context.Context, id uuid.UUID, operation string, ids []string) error {
+	process, err := a.process(ctx, id)
+	if err != nil {
+		return err
+	}
+	return process.client.StopExecutions(ctx, process.endpoint, operation, ids)
+}

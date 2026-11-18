@@ -41,6 +41,7 @@ type Provider struct {
 	poll                     time.Duration
 }
 
+// newProvider связывает облачные клиенты с конфигурацией ресурсов.
 func newProvider(compute, volume, network *gophercloud.ServiceClient, cfg config.RuntimeConfig) *Provider {
 	return &Provider{compute: compute, volume: volume, network: network, cfg: cfg, poll: defaultPoll}
 }
@@ -48,6 +49,7 @@ func newProvider(compute, volume, network *gophercloud.ServiceClient, cfg config
 // owner — владелец ресурса по metadata: сессия или VPS пула (ровно одно из полей).
 type owner struct{ session, pool uuid.UUID }
 
+// ownerOf извлекает владельца из метаданных облачного ресурса.
 func ownerOf(env domain.Environment) owner {
 	if env.IsPoolVPS() {
 		return owner{pool: env.SessionID}
@@ -63,6 +65,7 @@ func ownerKey(env domain.Environment) string {
 	return keySession
 }
 
+// resourceName строит имя облачного ресурса для сессии.
 func resourceName(env domain.Environment) string {
 	if env.IsPoolVPS() {
 		return "runtime-pool-" + env.SessionID.String()
@@ -70,6 +73,7 @@ func resourceName(env domain.Environment) string {
 	return "runtime-" + env.SessionID.String()
 }
 
+// metadata формирует метки владения ресурсом для сверки и очистки.
 func (p *Provider) metadata(env domain.Environment) map[string]string {
 	return map[string]string{
 		keyRuntime:    "1",
@@ -91,10 +95,12 @@ func (p *Provider) owned(md map[string]string) (owner, bool) {
 	return owner{session: id}, err == nil
 }
 
+// portTags кодирует принадлежность сетевого порта в тегах.
 func (p *Provider) portTags(env domain.Environment) []string {
 	return []string{keyRuntime + "=1", keyEnv + "=" + p.cfg.EnvName, ownerKey(env) + "=" + env.SessionID.String()}
 }
 
+// portDescription кодирует принадлежность порта в его описании.
 func (p *Provider) portDescription(env domain.Environment) string {
 	return fmt.Sprintf("%s=1 %s=%s %s=%s %s=%s", keyRuntime, keyEnv, p.cfg.EnvName,
 		ownerKey(env), env.SessionID, keyOperation, env.OperationID)
@@ -198,6 +204,7 @@ func (p *Provider) tagPort(ctx context.Context, port ports.Port, env domain.Envi
 	return port.ID, p.portIP(port), nil
 }
 
+// portIP извлекает адрес порта из выделенных IP.
 func (p *Provider) portIP(port ports.Port) string {
 	for _, ip := range port.FixedIPs {
 		if ip.SubnetID == p.cfg.SubnetID {
@@ -210,6 +217,7 @@ func (p *Provider) portIP(port ports.Port) string {
 	return ""
 }
 
+// listPorts читает сетевые порты OpenStack.
 func (p *Provider) listPorts(ctx context.Context, opts ports.ListOpts) ([]ports.Port, error) {
 	pages, err := ports.List(p.network, opts).AllPages(ctx)
 	if err != nil {
@@ -277,6 +285,7 @@ func (p *Provider) EnsureVolume(ctx context.Context, env domain.Environment) (st
 	return id, err
 }
 
+// listVolumes читает тома OpenStack и их метаданные.
 func (p *Provider) listVolumes(ctx context.Context, md map[string]string) ([]volumes.Volume, error) {
 	pages, err := volumes.List(p.volume, volumes.ListOpts{Metadata: md}).AllPages(ctx)
 	if err != nil {
@@ -358,6 +367,7 @@ func (p *Provider) EnsureServer(ctx context.Context, env domain.Environment, use
 	return id, err
 }
 
+// listServers читает VPS OpenStack и их метаданные.
 func (p *Provider) listServers(ctx context.Context, opts servers.ListOpts) ([]servers.Server, error) {
 	pages, err := servers.List(p.compute, opts).AllPages(ctx)
 	if err != nil {

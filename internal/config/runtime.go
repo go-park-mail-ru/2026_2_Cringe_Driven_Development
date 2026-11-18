@@ -39,6 +39,7 @@ type RuntimeConfig struct {
 	MaxConcurrentOps, MaxActive                  int
 }
 
+// loadRuntime читает и проверяет настройки provisioning и сессий.
 func loadRuntime(lookup func(string) (string, bool)) (RuntimeConfig, error) {
 	get := func(key, fallback string) string {
 		if v, ok := lookup(key); ok && strings.TrimSpace(v) != "" {

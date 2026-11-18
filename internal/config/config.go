@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Config настройки Go API, хранилищ и provisioning runtime из окружения.
 type Config struct {
 	TOTPEncryptionKey                       []byte
 	RedisHost, RedisPassword                string

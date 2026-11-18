@@ -26,5 +26,8 @@ func HashRefreshToken(token string) string {
 // RefreshTokens реализует выпуск и хеширование refresh-токенов.
 type RefreshTokens struct{}
 
-func (RefreshTokens) New() (string, string)    { return NewRefreshToken() }
+// New создаёт случайный refresh-токен для новой сессии.
+func (RefreshTokens) New() (string, string) { return NewRefreshToken() }
+
+// Hash вычисляет хеш refresh-токена для поиска сессии.
 func (RefreshTokens) Hash(token string) string { return HashRefreshToken(token) }

@@ -5,9 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
-	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/observability"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/domain"
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/user/usecase"
 	"github.com/jackc/pgx/v5"
@@ -23,22 +21,23 @@ type Querier interface {
 
 const uniqueViolation = "23505"
 
+// UserRepository читает и изменяет пользователей в PostgreSQL.
 type UserRepository struct {
 	db Querier
 }
 
+// NewUserRepository использует db для запросов к данным пользователя.
 func NewUserRepository(db Querier) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// CreateUser сохраняет login и passwordHash в контексте ctx и возвращает созданного пользователя.
 func (r *UserRepository) CreateUser(ctx context.Context, login, passwordHash string) (domain.User, error) {
-	started := time.Now()
 	u := domain.User{Login: login}
 	err := r.db.QueryRow(ctx,
 		`INSERT INTO users (login, password_hash) VALUES ($1, $2) RETURNING id`,
 		login, passwordHash,
 	).Scan(&u.ID)
-	observability.LogStorage(ctx, "user.create", started, err)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 		return domain.User{}, usecase.ErrLoginTaken
@@ -49,13 +48,12 @@ func (r *UserRepository) CreateUser(ctx context.Context, login, passwordHash str
 	return u, nil
 }
 
+// UserByLogin ищет login без учёта регистра и возвращает пользователя и хеш пароля.
 func (r *UserRepository) UserByLogin(ctx context.Context, login string) (u domain.User, passwordHash string, err error) {
-	started := time.Now()
 	err = r.db.QueryRow(ctx,
 		`SELECT id, login, password_hash, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE lower(login) = lower($1)`,
 		login,
 	).Scan(&u.ID, &u.Login, &passwordHash, &u.AvatarKey, &u.Has2FA)
-	observability.LogStorage(ctx, "user.by_login", started, err)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, "", usecase.ErrUserNotFound
 	}
@@ -65,11 +63,10 @@ func (r *UserRepository) UserByLogin(ctx context.Context, login string) (u domai
 	return u, passwordHash, nil
 }
 
+// UserByID читает профиль по идентификатору id в контексте ctx.
 func (r *UserRepository) UserByID(ctx context.Context, id int64) (domain.User, error) {
-	started := time.Now()
 	u := domain.User{ID: id}
 	err := r.db.QueryRow(ctx, `SELECT login, COALESCE(avatar_key, ''), totp_enabled FROM users WHERE id = $1`, id).Scan(&u.Login, &u.AvatarKey, &u.Has2FA)
-	observability.LogStorage(ctx, "user.by_id", started, err)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, usecase.ErrUserNotFound
 	}
@@ -79,6 +76,7 @@ func (r *UserRepository) UserByID(ctx context.Context, id int64) (domain.User, e
 	return u, nil
 }
 
+// CredentialsByID читает профиль и хеш пароля по идентификатору id.
 func (r *UserRepository) CredentialsByID(ctx context.Context, id int64) (domain.User, string, error) {
 	var u domain.User
 	var hash string
@@ -91,6 +89,8 @@ func (r *UserRepository) CredentialsByID(ctx context.Context, id int64) (domain.
 	}
 	return u, hash, nil
 }
+
+// UpdateLogin меняет логин пользователя id и возвращает его актуальный профиль.
 func (r *UserRepository) UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error) {
 	var u domain.User
 	err := r.db.QueryRow(ctx, `UPDATE users SET login = $2, updated_at = clock_timestamp() WHERE id = $1 RETURNING id, login, COALESCE(avatar_key, ''), totp_enabled`, id, login).Scan(&u.ID, &u.Login, &u.AvatarKey, &u.Has2FA)
@@ -106,6 +106,8 @@ func (r *UserRepository) UpdateLogin(ctx context.Context, id int64, login string
 	}
 	return u, nil
 }
+
+// CompareAndSwapPassword заменяет хеш oldHash на newHash, пока пароль пользователя id не изменился.
 func (r *UserRepository) CompareAndSwapPassword(ctx context.Context, id int64, oldHash, newHash string) error {
 	result, err := r.db.Exec(ctx, `UPDATE users SET password_hash = $3, updated_at = clock_timestamp() WHERE id = $1 AND password_hash = $2`, id, oldHash, newHash)
 	if err != nil {
@@ -116,6 +118,8 @@ func (r *UserRepository) CompareAndSwapPassword(ctx context.Context, id int64, o
 	}
 	return nil
 }
+
+// SwapAvatar обновляет ключ аватара пользователя id на newKey и возвращает прежний ключ для очистки.
 func (r *UserRepository) SwapAvatar(ctx context.Context, id int64, newKey string) (domain.User, string, error) {
 	beginner, ok := r.db.(interface {
 		Begin(context.Context) (pgx.Tx, error)

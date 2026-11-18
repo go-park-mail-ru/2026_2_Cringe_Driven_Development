@@ -69,6 +69,7 @@ const (
 	listByStateSQL = `SELECT ` + envColumns + ` FROM runtime_environments WHERE state = $1 ORDER BY updated_at`
 )
 
+// scanEnv восстанавливает окружение из строки PostgreSQL.
 func scanEnv(row pgx.Row) (domain.Environment, error) {
 	var e domain.Environment
 	var state, desired string
@@ -163,6 +164,7 @@ func (r *Repository) MarkForDelete(ctx context.Context, id uuid.UUID, reason str
 	return commit(ctx, tx)
 }
 
+// commit завершает транзакцию provisioning и сохраняет исходную ошибку.
 func commit(ctx context.Context, tx pgx.Tx) error {
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit: %w", err)

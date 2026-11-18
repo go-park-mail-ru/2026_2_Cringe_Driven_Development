@@ -51,17 +51,13 @@ func (s *Service) GetInspection(ctx context.Context, owner int64, id uuid.UUID, 
 
 // Kernel выполняет ограниченный по времени interrupt или restart под общей блокировкой приёма команд.
 func (s *Service) Kernel(ctx context.Context, owner int64, id uuid.UUID, restart bool) (string, error) {
-	a, ok := s.agent.(KernelAgent)
-	if !ok {
-		return "", D.ErrUnavailable
-	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	generation, err := s.store.Control(ctx, owner, id, restart, func(ctx context.Context) (string, error) {
 		if restart {
-			return a.Restart(ctx, id)
+			return s.agent.Restart(ctx, id)
 		}
-		return "", a.Interrupt(ctx, id)
+		return "", s.agent.Interrupt(ctx, id)
 	})
 	if err != nil && !errors.Is(err, D.ErrNotFound) && !errors.Is(err, D.ErrConflict) {
 		return "", D.ErrUnavailable

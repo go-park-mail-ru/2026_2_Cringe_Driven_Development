@@ -15,18 +15,23 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// DB задаёт поддерживаемые операции PostgreSQL для репозитория блокнотов.
 type DB interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 	Begin(context.Context) (pgx.Tx, error)
 }
+
+// NotebookRepository хранит документы блокнотов и их ячейки в PostgreSQL.
 type NotebookRepository struct{ db DB }
 
+// NewNotebookRepository связывает операции блокнотов с пулом или тестовой реализацией db.
 func NewNotebookRepository(db DB) *NotebookRepository { return &NotebookRepository{db: db} }
 
 const selectNotebook = `SELECT id,owner_id,name,revision,cells_count,preview_code,size_bytes,created_at,updated_at FROM notebooks WHERE id=$1 AND owner_id=$2`
 
+// scanNotebook декодирует строку блокнота из PostgreSQL.
 func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 	var n domain.Notebook
 	var revision *string
@@ -44,6 +49,8 @@ func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 	n.Revision = *revision
 	return n, nil
 }
+
+// rawMap читает JSON-поля, сохраняя их исходные значения.
 func rawMap(m map[string]json.RawMessage) []byte {
 	if m == nil {
 		return []byte(`{}`)
@@ -51,12 +58,16 @@ func rawMap(m map[string]json.RawMessage) []byte {
 	b, _ := json.Marshal(m)
 	return b
 }
+
+// optionalJSON сохраняет различие между отсутствующим и заданным JSON-полем.
 func optionalJSON(b json.RawMessage) any {
 	if len(b) == 0 {
 		return nil
 	}
 	return []byte(b)
 }
+
+// Create создаёт блокнот и исходные ячейки одной операцией.
 func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (domain.Notebook, error) {
 	if err := prepare(&n); err != nil {
 		return domain.Notebook{}, err
@@ -80,6 +91,8 @@ func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (dom
 	}
 	return n, nil
 }
+
+// prepare нормализует документ и проверяет размеры перед сохранением.
 func prepare(n *domain.Notebook) error {
 	if len(n.Cells) > usecase.MaxCells {
 		return usecase.ErrTooManyCells
@@ -117,6 +130,8 @@ func prepare(n *domain.Notebook) error {
 	n.Revision = uuid.NewString()
 	return nil
 }
+
+// insertCell записывает новую ячейку с её порядком и метаданными.
 func insertCell(ctx context.Context, tx pgx.Tx, id int64, pos int, c *domain.Cell) error {
 	c.SourceVersion = uuid.NewString()
 	_, err := tx.Exec(ctx, `INSERT INTO notebook_cells(notebook_id,cell_id,position,kind,source,source_version,metadata,extra,edit_bytes,preview_candidate,runtime_metadata_overhead) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, id, c.ID, pos, c.Kind, c.Source, c.SourceVersion, optionalJSON(c.Metadata), rawMap(c.Extra), ipynb.LightSize(*c), domain.Preview(c.Source) != "", ipynb.RuntimeMetadataOverhead(*c))
@@ -127,6 +142,8 @@ func insertCell(ctx context.Context, tx pgx.Tx, id int64, pos int, c *domain.Cel
 	_, err = tx.Exec(ctx, `INSERT INTO notebook_cell_data(notebook_id,cell_id,outputs,execution_count,has_execution_count,attachments,outputs_bytes,execution_bytes,attachments_bytes,output_truncated,has_runtime_metadata,runtime_metadata_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, id, c.ID, optionalJSON(c.Outputs), c.ExecutionCount, c.HasExecutionCount, optionalJSON(c.Attachments), o, e, a, c.OutputTruncated, c.HasRuntimeMetadata || c.OutputTruncated, ipynb.RuntimeMetadataSize(*c))
 	return err
 }
+
+// Get читает блокнот notebookID, доступный владельцу ownerID в контексте ctx.
 func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -153,6 +170,7 @@ func (r *NotebookRepository) Get(ctx context.Context, id, ownerID int64) (domain
 var _ usecase.Repository = (*NotebookRepository)(nil)
 var _ usecase.Results = (*NotebookRepository)(nil)
 
+// readContent читает ячейки блокнота в сохранённом порядке.
 func readContent(ctx context.Context, tx pgx.Tx, n domain.Notebook) (domain.Notebook, error) {
 	var err error
 

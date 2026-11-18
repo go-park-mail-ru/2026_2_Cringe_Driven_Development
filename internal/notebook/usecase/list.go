@@ -7,6 +7,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 )
 
+// List возвращает страницу блокнотов владельца с учётом поиска и курсора.
 func (uc *NotebookUsecase) List(ctx context.Context, ownerID int64, input ListInput) (ListPage, error) {
 	limit := 24
 	if input.Limit != nil {

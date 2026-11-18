@@ -1,4 +1,4 @@
-"""Finish resource operations before propagating caller cancellation."""
+"""Завершайте операции с ресурсами перед передачей отмены вызывающему."""
 
 import asyncio
 from collections.abc import Coroutine
@@ -6,23 +6,10 @@ from typing import Any
 
 
 async def complete_before_cancel[T](operation: Coroutine[Any, Any, T]) -> T:
-    """Wait for an owned operation even if the caller is cancelled repeatedly.
-
-    Keep a strong reference to the operation task and shield it from caller
-    cancellation. After it finishes, propagate the deferred cancellation. If the
-    operation also fails, observe its exception and retain it as the cause.
+    """Дождитесь операции даже при повторной отмене вызывающей задачи.
 
     Args:
-        operation (Coroutine): Operation whose side effects must finish before
-            the caller proceeds to resource cleanup or shutdown.
-
-    Returns:
-        T: Operation result when the caller was not cancelled.
-
-    Raises:
-        asyncio.CancelledError: The caller was cancelled, after the operation
-            finishes, or the operation task was itself cancelled.
-        Exception: The operation failed and no caller cancellation was deferred.
+        operation: Корутина, владеющая изменением ресурсов.
     """
     task = asyncio.create_task(operation)
     cancellation = None
