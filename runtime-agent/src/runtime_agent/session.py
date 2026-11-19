@@ -418,6 +418,23 @@ class Session:
             await self.finish("FAILED", "restart_failed")
             raise AgentError(503, "Kernel restart failed") from None
 
+    async def suspend(self):
+        """Закройте процесс агента с сохранением файлов и transfer checkpoint."""
+        async with self.lock:
+            self.ready = False
+            for task in (self.worker, self.reader):
+                if task is not None:
+                    task.cancel()
+            await asyncio.gather(
+                *(task for task in (self.worker, self.reader) if task is not None),
+                return_exceptions=True,
+            )
+            self.journal.unfinished(self.id, "UNKNOWN", "agent_restarted")
+            if self.transport is not None:
+                await self.transport.close()
+            await self.agent.containers.remove()
+            self.closed = True
+
     async def finish(self, state="STOPPED", reason="requested"):
         """Отмените и дождитесь задач сессии перед очисткой контейнера.
 
@@ -445,6 +462,8 @@ class Session:
                     await self.transport.close()
             try:
                 await self.agent.containers.remove()
+                if self.agent.workspace is not None:
+                    await self.agent.workspace.close_workspace()
             except Exception:
                 # Runtime остаётся недоступным, пока очистка не пройдёт. Монитор повторяет попытки.
                 log.exception("Container cleanup failed: %s", self.id)

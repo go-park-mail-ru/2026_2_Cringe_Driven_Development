@@ -1,0 +1,80 @@
+syntax = "proto3";
+package celestial.files.v1;
+option go_package = "github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/gen/cellestial/files/v1;filesv1";
+
+// Целевой файловый порт #123. Все RPC требуют mTLS identity и проверенного пользователя.
+service Files {
+  rpc Command(CommandRequest) returns (CommandResponse);
+  rpc Subscribe(SubscriptionRequest) returns (stream Event);
+  rpc Upload(stream UploadChunk) returns (stream UploadAck);
+  rpc Download(DownloadRequest) returns (stream DownloadChunk);
+}
+message Workspace {
+  string session_id = 1;
+  string generation = 2;
+}
+message CommandRequest {
+  Workspace workspace = 1;
+  string request_id = 2;
+  string operation_id = 3;
+  oneof command {
+    List list = 10;
+    Mkdir mkdir = 11;
+    Rename rename = 12;
+    Delete delete = 13;
+    UploadBegin upload_begin = 14;
+    DownloadBegin download_begin = 15;
+    TransferReference upload_status = 16;
+    TransferReference upload_commit = 17;
+    TransferReference transfer_status = 18;
+    TransferReference transfer_cancel = 19;
+  }
+}
+message List { string path = 1; uint32 limit = 2; string cursor = 3; }
+message Mkdir { string path = 1; }
+message Rename { string path = 1; string name = 2; string expected_version = 3; }
+message Delete { string path = 1; string expected_version = 2; bool recursive = 3; }
+message UploadBegin { string path = 1; uint64 size_bytes = 2; optional string sha256 = 3; }
+message DownloadBegin { string path = 1; }
+message TransferReference { string transfer_id = 1; }
+message Error {
+  string code = 1; string message = 2; bool retryable = 3; bool resync_required = 4;
+  string operation_id = 5; string transfer_id = 6;
+}
+message Entry {
+  string name = 1; string path = 2; string type = 3; optional uint64 size_bytes = 4;
+  string modified_at = 5; string version = 6; repeated string actions = 7;
+}
+message Quota {
+  uint64 capacity_bytes = 1; uint64 used_bytes = 2; uint64 available_bytes = 3; string source = 4;
+}
+message Directory {
+  string path = 1; repeated Entry items = 2; optional string next_cursor = 3;
+  string revision = 4; string generation = 5; Quota quota = 6;
+}
+message Transfer {
+  string transfer_id = 1; string direction = 2; string path = 3; uint64 size_bytes = 4;
+  uint64 offset = 5; string state = 6; string generation = 7; optional string sha256 = 8;
+  optional string version = 9; uint32 chunk_bytes = 10; uint32 credit_bytes = 11;
+}
+message Operation { string operation_id = 1; string revision = 2; bool resync_required = 3; }
+message CommandResponse {
+  string request_id = 1;
+  oneof result { Directory directory = 2; Transfer transfer = 3; Operation operation = 4; Error error = 5; }
+}
+message SubscriptionRequest {
+  Workspace workspace = 1; repeated string paths = 2; optional uint64 after = 3;
+}
+message Event {
+  Workspace workspace = 1; uint64 seq = 2; string type = 3; string path = 4; string revision = 5;
+  Entry entry = 6; string old_path = 7; string new_path = 8; Quota quota = 9;
+  Transfer transfer = 10; Error error = 11; string operation_id = 12;
+}
+message UploadChunk {
+  Workspace workspace = 1; string transfer_id = 2; uint64 offset = 3; bytes payload = 4;
+}
+message UploadAck { string transfer_id = 1; uint64 offset = 2; uint32 credit_bytes = 3; Error error = 4; }
+message DownloadRequest {
+  Workspace workspace = 1; string transfer_id = 2; uint64 offset = 3; uint64 length = 4;
+}
+message DownloadChunk { uint64 offset = 1; bytes payload = 2; Error error = 3; }

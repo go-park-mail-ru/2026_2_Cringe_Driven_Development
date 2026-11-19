@@ -15,6 +15,7 @@ from .lifecycle import complete_before_cancel
 from .models import AgentError, Assign, Execute, Inspect, StopExecutions
 from .observability import AccessLog
 from .runtime import Agent
+from .workspace_api import install_workspace
 
 
 class HTTPGuard:
@@ -309,4 +310,5 @@ def create_app(settings=None, containers_factory=Containers):
             with anyio.CancelScope(shield=True):
                 await asyncio.gather(*tasks, return_exceptions=True)
 
+    install_workspace(app)
     return app
