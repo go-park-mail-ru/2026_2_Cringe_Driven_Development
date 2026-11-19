@@ -1,0 +1,112 @@
+[
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "ready"
+  },
+  {
+    "protocol_version": 1,
+    "type": "response",
+    "request_id": "list-1",
+    "result": {
+      "path": "",
+      "items": [
+        {
+          "name": "archive.bin",
+          "path": "archive.bin",
+          "type": "file",
+          "size_bytes": 3221225472,
+          "modified_at": "2026-11-18T00:00:00+00:00",
+          "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "actions": [
+            "download",
+            "rename",
+            "delete"
+          ]
+        }
+      ],
+      "next_cursor": null,
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+      "seq": 7,
+      "quota": {
+        "capacity_bytes": 5368709120,
+        "used_bytes": 3288334336,
+        "available_bytes": 2080374784,
+        "source": "filesystem"
+      }
+    }
+  },
+  {
+    "protocol_version": 1,
+    "type": "upload_ack",
+    "transfer_id": "4fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "direction": "upload",
+    "path": "archive.bin",
+    "size_bytes": 3221225472,
+    "offset": 2148532224,
+    "sha256": null,
+    "version": null,
+    "state": "active",
+    "updated": 1795000000,
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "chunk_bytes": 1048576,
+    "credit_bytes": 4194304
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "created",
+    "seq": 8,
+    "path": "archive.bin",
+    "directory": "",
+    "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "entry": {
+      "name": "archive.bin",
+      "path": "archive.bin",
+      "type": "file",
+      "size_bytes": 3221225472,
+      "modified_at": "2026-11-18T00:00:00+00:00",
+      "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "actions": [
+        "download",
+        "rename",
+        "delete"
+      ]
+    }
+  },
+  {
+    "protocol_version": 1,
+    "type": "response",
+    "request_id": "rename-1",
+    "error": {
+      "code": "conflict",
+      "message": "conflict",
+      "retryable": false,
+      "resync_required": true,
+      "operation_id": "b075bbb2-75e4-46b1-a207-c1202ccb3f82"
+    }
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "resync_required",
+    "seq": 4096,
+    "reason": "agent_restarted"
+  },
+  {
+    "protocol_version": 1,
+    "type": "session_cookie_required",
+    "session_sync_url": "/api/runtime-sessions/3fe04fa8-51eb-4b60-8051-a172aa1d53e7/files/session/4fe04fa8-51eb-4b60-8051-a172aa1d53e7"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "workspace_closed",
+    "seq": 9007199254740991
+  }
+]

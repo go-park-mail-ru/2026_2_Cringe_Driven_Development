@@ -13,6 +13,8 @@ import (
 )
 
 var (
+	// ErrWorkspaceClosed запрещает доступ к файлам завершающегося или закрытого runtime.
+	ErrWorkspaceClosed = errors.New("workspace closed")
 	// ErrNotFound обозначает отсутствие ресурса или отсутствие прав владельца на него.
 	ErrNotFound = errors.New("runtime not found")
 	// ErrConflict обозначает несовместимый повтор команды, изменение исходника или недопустимое состояние

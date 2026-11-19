@@ -65,6 +65,11 @@ class Journal:
                 session_id TEXT NOT NULL REFERENCES sessions(id), id TEXT NOT NULL,
                 PRIMARY KEY (session_id, id)
             );
+            CREATE TABLE IF NOT EXISTS workspace_operations (
+                session_id TEXT NOT NULL REFERENCES sessions(id),
+                id TEXT NOT NULL, fingerprint TEXT NOT NULL, result TEXT,
+                PRIMARY KEY (session_id, id)
+            );
             CREATE TABLE IF NOT EXISTS events (
                 seq INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL REFERENCES sessions(id), body TEXT NOT NULL
@@ -78,6 +83,39 @@ class Journal:
         self.instance_id = self.db.execute(
             "SELECT value FROM metadata WHERE key='instance_id'"
         ).fetchone()[0]
+
+    def reserve_workspace_operation(self, session_id, operation_id, command):
+        """Запишите операцию до применения или верните её сохранённый результат."""
+        fingerprint = hashlib.sha256(encode(command).encode()).hexdigest()
+        with self.db:
+            row = self.db.execute(
+                "SELECT fingerprint, result FROM workspace_operations WHERE session_id=? AND id=?",
+                (session_id, operation_id),
+            ).fetchone()
+            if row is not None:
+                if row["fingerprint"] != fingerprint:
+                    raise AgentError(409, "conflict")
+                if row["result"] is None:
+                    raise AgentError(409, "operation_outcome_unknown")
+                return json.loads(row["result"])
+            count = self.db.execute(
+                "SELECT count(*) FROM workspace_operations WHERE session_id=?", (session_id,)
+            ).fetchone()[0]
+            if count >= 4096:
+                raise AgentError(429, "rate_limited")
+            self.db.execute(
+                "INSERT INTO workspace_operations VALUES (?, ?, ?, NULL)",
+                (session_id, operation_id, fingerprint),
+            )
+        return None
+
+    def finish_workspace_operation(self, session_id, operation_id, result):
+        """Сохраните известный результат файловой операции до ответа клиенту."""
+        with self.db:
+            self.db.execute(
+                "UPDATE workspace_operations SET result=? WHERE session_id=? AND id=?",
+                (encode(result), session_id, operation_id),
+            )
 
     def close(self):
         """Закройте SQLite и освободите межпроцессную блокировку."""
@@ -375,13 +413,18 @@ class Journal:
         for row in rows:
             self.transition(session_id, row[0], state, {"reason": reason})
 
-    def recover(self):
-        """Завершите прерванные сессии и пометьте команды UNKNOWN."""
+    def recover(self, resume=False, preserve_draining=False):
+        """Пометьте команды UNKNOWN и подготовьте восстановление живого workspace.
+
+        resume сохраняет runtime активным. preserve_draining оставляет незавершённую
+        очистку ожидающей повтора. Без этих флагов назначение завершается.
+        """
         for row in self.db.execute(
-            "SELECT id FROM sessions WHERE state NOT IN ('STOPPED','FAILED')"
+            "SELECT id,state FROM sessions WHERE state NOT IN ('STOPPED','FAILED')"
         ).fetchall():
             self.unfinished(row[0], "UNKNOWN", "agent_restarted")
-            self.session_state(row[0], "STOPPED", "agent_restarted")
+            if not (preserve_draining and row["state"] == "DRAINING"):
+                self.session_state(row[0], "STARTING" if resume else "STOPPED", "agent_restarted")
 
     def events(self, session_id, after):
         """Верните до 100 событий с целевым размером страницы 16 МиБ.

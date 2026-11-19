@@ -167,3 +167,10 @@ docker run --rm --network host --user "$(id -u):$(id -g)" \
       RUN_DOCKER_TESTS=1 /tmp/testenv/bin/python -m pytest -q -m docker
   '
 ```
+
+### Дисковый workspace
+
+Агент монтирует пользовательский каталог data из WORKSPACE_PATH в kernel и хранит
+незавершённые загрузки в приватном staging на той же квотируемой ФС. Конфигурация,
+WSS/HTTP-контракт, ограничения и проверки описаны в
+[файловом интерфейсе workspace](../docs/workspace-files.md).

@@ -1,0 +1,686 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cellestial.workspace.messages.v1",
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "directory",
+            "file",
+            "symlink",
+            "unsupported"
+          ]
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "modified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "list",
+              "download",
+              "rename",
+              "delete"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "type",
+        "modified_at",
+        "version",
+        "actions"
+      ]
+    },
+    "quota": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capacity_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "used_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "const": "filesystem"
+        }
+      },
+      "required": [
+        "capacity_bytes",
+        "used_bytes",
+        "available_bytes",
+        "source"
+      ]
+    },
+    "transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "transfer_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "direction": {
+          "enum": [
+            "upload",
+            "download"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": [
+            "active",
+            "completed",
+            "cancelled",
+            "failed",
+            "expired",
+            "unknown"
+          ]
+        },
+        "updated": {
+          "type": "number"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "chunk_bytes": {
+          "const": 1048576
+        },
+        "credit_bytes": {
+          "const": 4194304
+        }
+      },
+      "required": [
+        "transfer_id",
+        "direction",
+        "path",
+        "size_bytes",
+        "offset",
+        "state",
+        "workspace_generation",
+        "chunk_bytes",
+        "credit_bytes"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "resync_required": {
+          "type": "boolean"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "transfer_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "directory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": "string"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quota": {
+          "$ref": "#/$defs/quota"
+        }
+      },
+      "required": [
+        "path",
+        "items",
+        "next_cursor",
+        "revision",
+        "workspace_generation",
+        "seq",
+        "quota"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "resulting_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resync_required": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation_id"
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "enum": [
+            "created",
+            "updated",
+            "removed",
+            "renamed",
+            "directory_invalidated",
+            "quota_changed",
+            "resync_required",
+            "workspace_closed",
+            "transfer_updated",
+            "transfer_error"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "entry": {
+          "$ref": "#/$defs/entry"
+        },
+        "old_path": {
+          "type": "string"
+        },
+        "new_path": {
+          "type": "string"
+        },
+        "quota": {
+          "$ref": "#/$defs/quota"
+        },
+        "transfer": {
+          "$ref": "#/$defs/transfer"
+        },
+        "transfer_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "code": {
+          "type": "string"
+        },
+        "resync_required": {
+          "type": "boolean"
+        },
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "synchronization": {
+          "enum": [
+            "live",
+            "degraded"
+          ]
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type",
+        "session_id",
+        "workspace_generation",
+        "seq"
+      ]
+    },
+    "subscription": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshots": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "workspace_generation": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "path",
+              "revision",
+              "workspace_generation"
+            ]
+          }
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "synchronization": {
+          "enum": [
+            "live",
+            "degraded"
+          ]
+        }
+      },
+      "required": [
+        "snapshots",
+        "seq",
+        "events",
+        "synchronization"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "const": "response"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/directory"
+            },
+            {
+              "$ref": "#/$defs/transfer"
+            },
+            {
+              "$ref": "#/$defs/operation"
+            },
+            {
+              "$ref": "#/$defs/subscription"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            }
+          ]
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type",
+        "request_id"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "result"
+          ]
+        },
+        {
+          "required": [
+            "error"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "enum": [
+            "created",
+            "updated",
+            "removed",
+            "renamed",
+            "directory_invalidated",
+            "quota_changed",
+            "resync_required",
+            "workspace_closed",
+            "transfer_updated",
+            "transfer_error"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "entry": {
+          "$ref": "#/$defs/entry"
+        },
+        "old_path": {
+          "type": "string"
+        },
+        "new_path": {
+          "type": "string"
+        },
+        "quota": {
+          "$ref": "#/$defs/quota"
+        },
+        "transfer": {
+          "$ref": "#/$defs/transfer"
+        },
+        "transfer_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "code": {
+          "type": "string"
+        },
+        "resync_required": {
+          "type": "boolean"
+        },
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "synchronization": {
+          "enum": [
+            "live",
+            "degraded"
+          ]
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type",
+        "session_id",
+        "workspace_generation",
+        "seq"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "const": "upload_ack"
+        },
+        "transfer_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "direction": {
+          "enum": [
+            "upload",
+            "download"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": [
+            "active",
+            "completed",
+            "cancelled",
+            "failed",
+            "expired",
+            "unknown"
+          ]
+        },
+        "updated": {
+          "type": "number"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "chunk_bytes": {
+          "const": 1048576
+        },
+        "credit_bytes": {
+          "const": 4194304
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "transfer_id",
+            "offset"
+          ]
+        },
+        {
+          "required": [
+            "error"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "const": "ready"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type",
+        "session_id",
+        "workspace_generation"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session_cookie_required"
+        },
+        "session_sync_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "type",
+        "session_sync_url"
+      ]
+    }
+  ]
+}

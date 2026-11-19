@@ -1,0 +1,115 @@
+[
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "list",
+    "request_id": "list-1",
+    "path": "",
+    "limit": 100
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "subscribe",
+    "request_id": "subscribe-1",
+    "paths": [
+      "",
+      "data"
+    ],
+    "after": 0
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "unsubscribe",
+    "request_id": "unsubscribe-1",
+    "paths": [
+      "data"
+    ]
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "mkdir",
+    "request_id": "mkdir-1",
+    "path": "data",
+    "operation_id": "eebd6b46-5004-4633-aa1e-92885c93ddbf"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "rename",
+    "request_id": "rename-1",
+    "path": "hello.bin",
+    "name": "renamed.bin",
+    "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "operation_id": "b075bbb2-75e4-46b1-a207-c1202ccb3f82"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "delete",
+    "request_id": "delete-1",
+    "path": "data",
+    "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recursive": true,
+    "operation_id": "32f8f3c8-6d1c-475e-b8a6-f679fe4e5133"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "upload_begin",
+    "request_id": "upload_begin-1",
+    "path": "archive.bin",
+    "size_bytes": 3221225472,
+    "operation_id": "ac3cd616-e8ab-4ffd-8527-58703eef8866"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "upload_status",
+    "request_id": "upload_status-1",
+    "transfer_id": "4fe04fa8-51eb-4b60-8051-a172aa1d53e7"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "upload_commit",
+    "request_id": "upload_commit-1",
+    "transfer_id": "4fe04fa8-51eb-4b60-8051-a172aa1d53e7"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "download_begin",
+    "request_id": "download_begin-1",
+    "path": "archive.bin",
+    "operation_id": "daef48a2-07c0-4835-8d8f-2519b99daab7"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "transfer_status",
+    "request_id": "transfer_status-1",
+    "transfer_id": "4fe04fa8-51eb-4b60-8051-a172aa1d53e7"
+  },
+  {
+    "protocol_version": 1,
+    "session_id": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "workspace_generation": "3fe04fa8-51eb-4b60-8051-a172aa1d53e7",
+    "type": "transfer_cancel",
+    "request_id": "transfer_cancel-1",
+    "transfer_id": "4fe04fa8-51eb-4b60-8051-a172aa1d53e7"
+  }
+]

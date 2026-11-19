@@ -18,6 +18,8 @@ def main():
         host=os.environ.get("HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "8000")),
         workers=1,
+        ws_max_size=1024 * 1024 + 28,
+        ws_max_queue=4,
         timeout_graceful_shutdown=45,
         proxy_headers=False,
         access_log=False,
