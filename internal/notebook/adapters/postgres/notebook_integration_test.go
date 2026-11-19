@@ -68,6 +68,9 @@ func TestNotebookTransactionsAndResults(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	if n.SharingMode != domain.SharingModePrivate {
+		t.Fatalf("created notebook mode: got %q, want private", n.SharingMode)
+	}
 	id := n.Cells[0].ID
 	s, e := uc.Content(ctx, n.ID, 1)
 	if e != nil {
@@ -110,6 +113,9 @@ func TestNotebookTransactionsAndResults(t *testing.T) {
 	got, _ = repo.Get(ctx, n.ID, 1)
 	if noop.Hash != moved || !got.UpdatedAt.Equal(before) {
 		t.Fatal("no-op changed revision/date")
+	}
+	if got.SharingMode != domain.SharingModePrivate {
+		t.Fatalf("loaded notebook mode: got %q, want private", got.SharingMode)
 	}
 	// У двух записей в одну ревизию ноутбука ровно один победитель.
 	var wg sync.WaitGroup
@@ -300,7 +306,7 @@ type snapshotTx struct {
 
 func (tx snapshotTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row { //nolint:ireturn // Реализует pgx.Tx, вставляя коммит после сканирования строки.
 	row := tx.Tx.QueryRow(ctx, sql, args...)
-	if sql == selectNotebook {
+	if sql == selectNotebook || sql == selectReadableNotebook {
 		return snapshotRow{Row: row, after: tx.after}
 	}
 	return row

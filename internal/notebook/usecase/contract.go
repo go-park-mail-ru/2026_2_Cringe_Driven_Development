@@ -25,13 +25,19 @@ var (
 	ErrNotebookNotFound = errors.New("notebook not found")
 	ErrNotebookInUse    = errors.New("notebook is in use")
 	ErrCellNotFound     = errors.New("cell not found")
+	ErrInvalidSharing   = errors.New("invalid sharing settings")
+	ErrInvalidName      = errors.New("notebook name must contain at most 128 Unicode characters")
 	ErrEmptyName        = errors.New("notebook name is empty")
 	ErrIndexOutOfRange  = errors.New("cell index is out of range")
 	ErrTooManyCells     = errors.New("notebook already has the maximum number of cells")
 )
 
-// Usecase работает только с блокнотами владельца.
+// Usecase разделяет чтение посетителями и операции владельца.
 type Usecase interface {
+	GetSharing(ctx context.Context, id, ownerID int64) (domain.SharingSettings, error)
+	PutSharing(ctx context.Context, id, ownerID int64, mode domain.SharingMode, readerLogins []string) (domain.SharingSettings, error)
+	Clone(ctx context.Context, id, userID int64, name string) (domain.Notebook, error)
+	CheckRead(ctx context.Context, id, userID int64) error
 	Editing
 	List(ctx context.Context, ownerID int64, input ListInput) (ListPage, error)
 	// Create кладёт в новый блокнот один пустой блок кода.

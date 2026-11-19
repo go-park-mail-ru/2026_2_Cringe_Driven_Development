@@ -194,6 +194,21 @@ func (mr *MockUserUsecaseMockRecorder) RevokeAll(ctx, userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeAll", reflect.TypeOf((*MockUserUsecase)(nil).RevokeAll), ctx, userID)
 }
 
+// SuggestUsers mocks base method.
+func (m *MockUserUsecase) SuggestUsers(ctx context.Context, userID int64, q string, limit int) ([]domain.UserSuggestion, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SuggestUsers", ctx, userID, q, limit)
+	ret0, _ := ret[0].([]domain.UserSuggestion)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SuggestUsers indicates an expected call of SuggestUsers.
+func (mr *MockUserUsecaseMockRecorder) SuggestUsers(ctx, userID, q, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestUsers", reflect.TypeOf((*MockUserUsecase)(nil).SuggestUsers), ctx, userID, q, limit)
+}
+
 // UpdateCurrentUser mocks base method.
 func (m *MockUserUsecase) UpdateCurrentUser(ctx context.Context, id int64, login string) (domain.User, error) {
 	m.ctrl.T.Helper()

@@ -8,3 +8,9 @@ type User struct {
 	Login     string
 	AvatarKey string
 }
+
+// UserSuggestion contains only public identity fields.
+type UserSuggestion struct {
+	ID    int64
+	Login string
+}

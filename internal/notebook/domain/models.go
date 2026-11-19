@@ -44,6 +44,8 @@ type Notebook struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Cells       []Cell
+	SharingMode SharingMode
+	Access      NotebookAccess
 }
 
 // NotebookSummary нужен списку: только база, без файла.

@@ -29,13 +29,13 @@ type NotebookRepository struct{ db DB }
 // NewNotebookRepository связывает операции блокнотов с пулом или тестовой реализацией db.
 func NewNotebookRepository(db DB) *NotebookRepository { return &NotebookRepository{db: db} }
 
-const selectNotebook = `SELECT id,owner_id,name,revision,cells_count,preview_code,size_bytes,created_at,updated_at FROM notebooks WHERE id=$1 AND owner_id=$2`
+const selectNotebook = `SELECT id,owner_id,name,revision,cells_count,preview_code,size_bytes,created_at,updated_at,sharing_mode FROM notebooks WHERE id=$1 AND owner_id=$2`
 
 // scanNotebook декодирует строку блокнота из PostgreSQL.
 func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 	var n domain.Notebook
 	var revision *string
-	err := row.Scan(&n.ID, &n.OwnerID, &n.Name, &revision, &n.CellsCount, &n.PreviewCode, &n.SizeBytes, &n.CreatedAt, &n.UpdatedAt)
+	err := row.Scan(&n.ID, &n.OwnerID, &n.Name, &revision, &n.CellsCount, &n.PreviewCode, &n.SizeBytes, &n.CreatedAt, &n.UpdatedAt, &n.SharingMode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return n, usecase.ErrNotebookNotFound
 	}
@@ -47,6 +47,7 @@ func scanNotebook(row pgx.Row) (domain.Notebook, error) {
 		return n, errors.New("notebook has no revision")
 	}
 	n.Revision = *revision
+	n.Access = domain.AccessFor(n.OwnerID, n.OwnerID)
 	return n, nil
 }
 
@@ -77,7 +78,21 @@ func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (dom
 		return domain.Notebook{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	err = tx.QueryRow(ctx, `INSERT INTO notebooks(owner_id,name,revision,cells_count,preview_code,size_bytes,header_bytes,nbformat,nbformat_minor,metadata,extra) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,created_at,updated_at`, n.OwnerID, n.Name, n.Revision, n.CellsCount, n.PreviewCode, n.SizeBytes, ipynb.HeaderSize(n.Document), n.Document.NBFormat, n.Document.NBFormatMinor, optionalJSON(n.Document.Metadata), rawMap(n.Document.Extra)).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt)
+	n, err = createNotebookTx(ctx, tx, n)
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.Notebook{}, err
+	}
+	return n, nil
+}
+
+// createNotebookTx записывает подготовленный документ в транзакцию вызывающего.
+func createNotebookTx(ctx context.Context, tx pgx.Tx, n domain.Notebook) (domain.Notebook, error) {
+	var err error
+	n.Access = domain.AccessFor(n.OwnerID, n.OwnerID)
+	err = tx.QueryRow(ctx, `INSERT INTO notebooks(owner_id,name,revision,cells_count,preview_code,size_bytes,header_bytes,nbformat,nbformat_minor,metadata,extra) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,created_at,updated_at,sharing_mode`, n.OwnerID, n.Name, n.Revision, n.CellsCount, n.PreviewCode, n.SizeBytes, ipynb.HeaderSize(n.Document), n.Document.NBFormat, n.Document.NBFormatMinor, optionalJSON(n.Document.Metadata), rawMap(n.Document.Extra)).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt, &n.SharingMode)
 	if err != nil {
 		return domain.Notebook{}, err
 	}
@@ -85,9 +100,6 @@ func (r *NotebookRepository) Create(ctx context.Context, n domain.Notebook) (dom
 		if err = insertCell(ctx, tx, n.ID, i, &n.Cells[i]); err != nil {
 			return domain.Notebook{}, err
 		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.Notebook{}, err
 	}
 	return n, nil
 }

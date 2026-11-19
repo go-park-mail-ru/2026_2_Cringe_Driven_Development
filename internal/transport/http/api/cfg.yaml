@@ -47,3 +47,7 @@ output-options:
     - interruptRuntimeKernel
     - restartRuntimeKernel
     - stopRuntimeExecutions
+    - getNotebookSharing
+    - putNotebookSharing
+    - cloneNotebook
+    - suggestUsers

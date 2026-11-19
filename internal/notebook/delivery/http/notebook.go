@@ -52,7 +52,7 @@ func (h *Handler) ListNotebooks(ctx context.Context, req api.ListNotebooksReques
 func (h *Handler) CreateNotebook(ctx context.Context, req api.CreateNotebookRequestObject) (api.CreateNotebookResponseObject, error) {
 	n, err := h.uc.Create(ctx, userID(ctx), req.Body.Name)
 	switch {
-	case errors.Is(err, usecase.ErrEmptyName):
+	case errors.Is(err, usecase.ErrEmptyName), errors.Is(err, usecase.ErrInvalidName):
 		return api.CreateNotebook400JSONResponse{Code: api.ErrorCodeValidationError, Message: err.Error()}, nil
 	case err != nil:
 		return nil, err
@@ -69,7 +69,7 @@ func (h *Handler) GetNotebook(ctx context.Context, req api.GetNotebookRequestObj
 	case err != nil:
 		return nil, err
 	}
-	return api.GetNotebook200JSONResponse(toAPINotebook(n)), nil
+	return api.GetNotebook200JSONResponse{Body: toAPINotebook(n), Headers: api.GetNotebook200ResponseHeaders{CacheControl: noStore()}}, nil
 }
 
 // CreateCell отвечает 201 с новым блоком; 409 означает предел блоков.
@@ -114,7 +114,7 @@ func (h *Handler) DeleteCell(ctx context.Context, req api.DeleteCellRequestObjec
 	return api.DeleteCell204Response{}, nil
 }
 
-// userID берёт пользователя из контекста: без него Validator уже ответил 401.
+// userID возвращает 0 для гостя; защищённые операции проверяет Validator.
 func userID(ctx context.Context) int64 {
 	id, _ := principal.UserIDFromContext(ctx)
 	return id
@@ -127,6 +127,7 @@ func toAPINotebook(n domain.Notebook) api.Notebook {
 		cells = append(cells, toAPICell(c))
 	}
 	return api.Notebook{
+		Access:    api.NotebookAccess{IsOwner: n.Access.IsOwner, CanEdit: n.Access.CanEdit, CanManageSharing: n.Access.CanManageSharing, CanClone: n.Access.CanClone},
 		Id:        n.ID,
 		Name:      n.Name,
 		Cells:     cells,

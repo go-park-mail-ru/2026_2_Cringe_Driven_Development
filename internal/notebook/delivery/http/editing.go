@@ -47,7 +47,7 @@ func (h *Handler) GetNotebookContent(ctx context.Context, req api.GetNotebookCon
 		}
 		cells = append(cells, item)
 	}
-	return api.GetNotebookContent200JSONResponse{Body: api.NotebookContent{Hash: result.Hash, Cells: cells}, Headers: api.GetNotebookContent200ResponseHeaders{ETag: quotedETag(result.Hash)}}, nil
+	return api.GetNotebookContent200JSONResponse{Body: api.NotebookContent{Hash: result.Hash, Cells: cells}, Headers: api.GetNotebookContent200ResponseHeaders{ETag: quotedETag(result.Hash), CacheControl: noStore()}}, nil
 }
 
 // parseIfMatch принимает только один непустой сильный ETag; списки и wildcard

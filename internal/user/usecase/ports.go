@@ -8,6 +8,7 @@ import (
 
 // UserStore задаёт операции хранения учётных данных и профиля пользователя.
 type UserStore interface {
+	SuggestUsers(ctx context.Context, userID int64, q string, limit int) ([]domain.UserSuggestion, error)
 	WithAuthLock(ctx context.Context, id int64, fn func(*AuthState) error) error
 	CredentialsByID(ctx context.Context, id int64) (domain.User, string, error)
 	UpdateLogin(ctx context.Context, id int64, login string) (domain.User, error)

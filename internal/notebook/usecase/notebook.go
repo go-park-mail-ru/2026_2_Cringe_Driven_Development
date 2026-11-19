@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development/internal/notebook/domain"
 	"github.com/google/uuid"
@@ -25,11 +24,12 @@ func NewNotebookUsecase(repo Repository, sessions ActiveSessions, cursor ListCur
 // Create создаёт блокнот с именем name и начальной ячейкой кода для владельца ownerID.
 // Контекст ctx определяет срок записи. Пустое после обрезки имя отклоняется.
 func (uc *NotebookUsecase) Create(ctx context.Context, ownerID int64, name string) (domain.Notebook, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return domain.Notebook{}, ErrEmptyName
+	var err error
+	name, err = NormalizeName(name)
+	if err != nil {
+		return domain.Notebook{}, err
 	}
-	return uc.repo.Create(ctx, domain.Notebook{
+	n, err := uc.repo.Create(ctx, domain.Notebook{
 		OwnerID: ownerID,
 		Name:    name,
 		Document: domain.Document{
@@ -45,16 +45,26 @@ func (uc *NotebookUsecase) Create(ctx context.Context, ownerID int64, name strin
 			HasExecutionCount: true,
 		}},
 	})
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	n.Access = domain.AccessFor(n.OwnerID, ownerID)
+	return n, nil
 }
 
-// Get читает блокнот id, доступный владельцу ownerID в контексте ctx.
+// Get читает доступный блокнот; ownerID обозначает посетителя, 0 — анонима.
 func (uc *NotebookUsecase) Get(ctx context.Context, id, ownerID int64) (domain.Notebook, error) {
-	return uc.repo.Get(ctx, id, ownerID)
+	n, err := uc.repo.GetReadable(ctx, id, ownerID)
+	if err != nil {
+		return domain.Notebook{}, err
+	}
+	n.Access = domain.AccessFor(n.OwnerID, ownerID)
+	return n, nil
 }
 
-// Content возвращает ячейки и текущую редакцию блокнота владельца.
+// Content возвращает согласованный снимок доступного посетителю блокнота.
 func (uc *NotebookUsecase) Content(ctx context.Context, id, ownerID int64) (domain.Content, error) {
-	n, err := uc.repo.Get(ctx, id, ownerID)
+	n, err := uc.repo.GetReadable(ctx, id, ownerID)
 	if err != nil {
 		return domain.Content{}, err
 	}
