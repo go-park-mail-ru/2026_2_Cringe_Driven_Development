@@ -25,7 +25,7 @@ func testRenameText(t *testing.T, input, name string) {
 	ctrl := gomock.NewController(t)
 	repo, sessions := NewMockRepository(ctrl), NewMockActiveSessions(ctrl)
 	ctx := context.WithValue(t.Context(), renameContextKey{}, "request")
-	want := domain.Notebook{ID: 42, OwnerID: 7, Name: name, Revision: "unchanged", Cells: []domain.Cell{}}
+	want := domain.Notebook{ID: 42, OwnerID: 7, Name: name, Revision: "unchanged", Access: domain.AccessFor(7, 7), Cells: []domain.Cell{}}
 	repo.EXPECT().Rename(ctx, int64(42), int64(7), name).Return(want, nil)
 	got, err := NewNotebookUsecase(repo, sessions, nil).Rename(ctx, 42, 7, input)
 	if err != nil || !reflect.DeepEqual(got, want) {

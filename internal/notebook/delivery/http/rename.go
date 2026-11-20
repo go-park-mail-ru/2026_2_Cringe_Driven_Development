@@ -12,7 +12,7 @@ import (
 func (h *Handler) RenameNotebook(ctx context.Context, req api.RenameNotebookRequestObject) (api.RenameNotebookResponseObject, error) {
 	n, err := h.uc.Rename(ctx, req.Id, userID(ctx), req.Body.Name)
 	switch {
-	case errors.Is(err, usecase.ErrEmptyName):
+	case errors.Is(err, usecase.ErrEmptyName), errors.Is(err, usecase.ErrInvalidName):
 		return api.RenameNotebook400JSONResponse{Code: api.ErrorCodeValidationError, Message: err.Error()}, nil
 	case errors.Is(err, usecase.ErrNotebookNotFound):
 		return api.RenameNotebook404JSONResponse{Code: api.ErrorCodeNotFound, Message: err.Error()}, nil

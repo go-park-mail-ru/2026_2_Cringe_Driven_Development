@@ -57,6 +57,35 @@ func (mr *MockUsecaseMockRecorder) AddCell(ctx, id, ownerID, hash, kind, source,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCell", reflect.TypeOf((*MockUsecase)(nil).AddCell), ctx, id, ownerID, hash, kind, source, index)
 }
 
+// CheckRead mocks base method.
+func (m *MockUsecase) CheckRead(ctx context.Context, id, userID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckRead", ctx, id, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckRead indicates an expected call of CheckRead.
+func (mr *MockUsecaseMockRecorder) CheckRead(ctx, id, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckRead", reflect.TypeOf((*MockUsecase)(nil).CheckRead), ctx, id, userID)
+}
+
+// Clone mocks base method.
+func (m *MockUsecase) Clone(ctx context.Context, id, userID int64, name string) (domain.Notebook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone", ctx, id, userID, name)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockUsecaseMockRecorder) Clone(ctx, id, userID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockUsecase)(nil).Clone), ctx, id, userID, name)
+}
+
 // Content mocks base method.
 func (m *MockUsecase) Content(ctx context.Context, id, ownerID int64) (domain.Content, error) {
 	m.ctrl.T.Helper()
@@ -160,6 +189,21 @@ func (mr *MockUsecaseMockRecorder) Get(ctx, id, ownerID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockUsecase)(nil).Get), ctx, id, ownerID)
 }
 
+// GetSharing mocks base method.
+func (m *MockUsecase) GetSharing(ctx context.Context, id, ownerID int64) (domain.SharingSettings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSharing", ctx, id, ownerID)
+	ret0, _ := ret[0].(domain.SharingSettings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSharing indicates an expected call of GetSharing.
+func (mr *MockUsecaseMockRecorder) GetSharing(ctx, id, ownerID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSharing", reflect.TypeOf((*MockUsecase)(nil).GetSharing), ctx, id, ownerID)
+}
+
 // List mocks base method.
 func (m *MockUsecase) List(ctx context.Context, ownerID int64, input usecase.ListInput) (usecase.ListPage, error) {
 	m.ctrl.T.Helper()
@@ -188,6 +232,21 @@ func (m *MockUsecase) MoveCell(ctx context.Context, id, ownerID int64, hash, cel
 func (mr *MockUsecaseMockRecorder) MoveCell(ctx, id, ownerID, hash, cellID, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveCell", reflect.TypeOf((*MockUsecase)(nil).MoveCell), ctx, id, ownerID, hash, cellID, index)
+}
+
+// PutSharing mocks base method.
+func (m *MockUsecase) PutSharing(ctx context.Context, id, ownerID int64, mode domain.SharingMode, readerLogins []string) (domain.SharingSettings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutSharing", ctx, id, ownerID, mode, readerLogins)
+	ret0, _ := ret[0].(domain.SharingSettings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutSharing indicates an expected call of PutSharing.
+func (mr *MockUsecaseMockRecorder) PutSharing(ctx, id, ownerID, mode, readerLogins any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutSharing", reflect.TypeOf((*MockUsecase)(nil).PutSharing), ctx, id, ownerID, mode, readerLogins)
 }
 
 // RemoveCell mocks base method.

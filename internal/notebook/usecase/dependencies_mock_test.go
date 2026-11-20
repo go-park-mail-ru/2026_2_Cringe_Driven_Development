@@ -56,6 +56,35 @@ func (mr *MockRepositoryMockRecorder) Apply(arg0, arg1, arg2, arg3, arg4 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockRepository)(nil).Apply), arg0, arg1, arg2, arg3, arg4)
 }
 
+// CheckRead mocks base method.
+func (m *MockRepository) CheckRead(ctx context.Context, id, userID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckRead", ctx, id, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckRead indicates an expected call of CheckRead.
+func (mr *MockRepositoryMockRecorder) CheckRead(ctx, id, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckRead", reflect.TypeOf((*MockRepository)(nil).CheckRead), ctx, id, userID)
+}
+
+// Clone mocks base method.
+func (m *MockRepository) Clone(ctx context.Context, id, userID int64, name string) (domain.Notebook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone", ctx, id, userID, name)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockRepositoryMockRecorder) Clone(ctx, id, userID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockRepository)(nil).Clone), ctx, id, userID, name)
+}
+
 // Create mocks base method.
 func (m *MockRepository) Create(arg0 context.Context, arg1 domain.Notebook) (domain.Notebook, error) {
 	m.ctrl.T.Helper()
@@ -100,6 +129,36 @@ func (mr *MockRepositoryMockRecorder) Get(arg0, arg1, arg2 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRepository)(nil).Get), arg0, arg1, arg2)
 }
 
+// GetReadable mocks base method.
+func (m *MockRepository) GetReadable(ctx context.Context, id, userID int64) (domain.Notebook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReadable", ctx, id, userID)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReadable indicates an expected call of GetReadable.
+func (mr *MockRepositoryMockRecorder) GetReadable(ctx, id, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReadable", reflect.TypeOf((*MockRepository)(nil).GetReadable), ctx, id, userID)
+}
+
+// GetSharing mocks base method.
+func (m *MockRepository) GetSharing(ctx context.Context, id, ownerID int64) (domain.SharingSettings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSharing", ctx, id, ownerID)
+	ret0, _ := ret[0].(domain.SharingSettings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSharing indicates an expected call of GetSharing.
+func (mr *MockRepositoryMockRecorder) GetSharing(ctx, id, ownerID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSharing", reflect.TypeOf((*MockRepository)(nil).GetSharing), ctx, id, ownerID)
+}
+
 // ListPage mocks base method.
 func (m *MockRepository) ListPage(arg0 context.Context, arg1 int64, arg2 ListQuery) (ListRows, error) {
 	m.ctrl.T.Helper()
@@ -113,6 +172,21 @@ func (m *MockRepository) ListPage(arg0 context.Context, arg1 int64, arg2 ListQue
 func (mr *MockRepositoryMockRecorder) ListPage(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPage", reflect.TypeOf((*MockRepository)(nil).ListPage), arg0, arg1, arg2)
+}
+
+// PutSharing mocks base method.
+func (m *MockRepository) PutSharing(ctx context.Context, id, ownerID int64, mode domain.SharingMode, readerLogins []string) (domain.SharingSettings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutSharing", ctx, id, ownerID, mode, readerLogins)
+	ret0, _ := ret[0].(domain.SharingSettings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutSharing indicates an expected call of PutSharing.
+func (mr *MockRepositoryMockRecorder) PutSharing(ctx, id, ownerID, mode, readerLogins any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutSharing", reflect.TypeOf((*MockRepository)(nil).PutSharing), ctx, id, ownerID, mode, readerLogins)
 }
 
 // Rename mocks base method.

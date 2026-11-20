@@ -139,9 +139,9 @@ func TestEditingHTTPMapsFailures(t *testing.T) {
 	if rec.Code != 409 || !strings.Contains(rec.Body.String(), `"too_many_cells"`) {
 		t.Fatalf("limit: %d %s", rec.Code, rec.Body)
 	}
-	f = &editingFake{}
+	f = &editingFake{err: usecase.ErrNotebookNotFound}
 	rec = editingRequest(t, f, "GET", "", "", nil, false)
-	if rec.Code != http.StatusUnauthorized || f.calls != 0 {
+	if rec.Code != http.StatusNotFound || f.calls != 1 || f.owner != 0 {
 		t.Fatalf("unauthenticated: %d calls=%d", rec.Code, f.calls)
 	}
 }

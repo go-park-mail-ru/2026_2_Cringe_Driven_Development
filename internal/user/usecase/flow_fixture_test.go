@@ -226,3 +226,7 @@ func (r *fakeRepo) WithAuthLock(ctx context.Context, id int64, fn func(*AuthStat
 	r.mu.Unlock()
 	return nil
 }
+
+func (r *fakeRepo) SuggestUsers(context.Context, int64, string, int) ([]domain.UserSuggestion, error) {
+	return []domain.UserSuggestion{}, nil
+}

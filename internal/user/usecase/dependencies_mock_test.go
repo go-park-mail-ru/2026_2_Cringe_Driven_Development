@@ -87,6 +87,21 @@ func (mr *MockUserStoreMockRecorder) CredentialsByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialsByID", reflect.TypeOf((*MockUserStore)(nil).CredentialsByID), ctx, id)
 }
 
+// SuggestUsers mocks base method.
+func (m *MockUserStore) SuggestUsers(ctx context.Context, userID int64, q string, limit int) ([]domain.UserSuggestion, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SuggestUsers", ctx, userID, q, limit)
+	ret0, _ := ret[0].([]domain.UserSuggestion)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SuggestUsers indicates an expected call of SuggestUsers.
+func (mr *MockUserStoreMockRecorder) SuggestUsers(ctx, userID, q, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestUsers", reflect.TypeOf((*MockUserStore)(nil).SuggestUsers), ctx, userID, q, limit)
+}
+
 // SwapAvatar mocks base method.
 func (m *MockUserStore) SwapAvatar(ctx context.Context, id int64, newKey string) (domain.User, string, error) {
 	m.ctrl.T.Helper()

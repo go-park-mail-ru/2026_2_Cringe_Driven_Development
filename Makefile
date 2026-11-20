@@ -70,9 +70,13 @@ contract-lint: $(REDOCLY)
 generate: contract-lint
 	cd internal/transport/http/api && go tool oapi-codegen -config cfg.yaml ../../../../spec/openapi.json
 
-# Generated-код должен совпадать с контрактом в том же коммите.
-contract-check: generate
-	git diff --exit-code -- internal/transport/http/api
+# Сверяем с повторной генерацией, включая ещё не добавленные в index изменения.
+contract-check: contract-lint
+	@generated="$$(mktemp)"; config="$$(mktemp)"; \
+	trap 'rm -f "$$generated" "$$config"' EXIT; \
+	sed "s|^output:.*|output: $$generated|" internal/transport/http/api/cfg.yaml > "$$config"; \
+	(cd internal/transport/http/api && go tool oapi-codegen -config "$$config" ../../../../spec/openapi.json) && \
+	diff -u internal/transport/http/api/api.gen.go "$$generated"
 
 -include .env
 

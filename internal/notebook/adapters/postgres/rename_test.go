@@ -33,7 +33,7 @@ func TestRenameNotebookTransactionFailures(t *testing.T) {
 				if phase == "lock" {
 					lock.WillReturnError(failure)
 				} else {
-					lock.WillReturnRows(pgxmock.NewRows([]string{"id", "owner_id", "name", "revision", "cells_count", "preview_code", "size_bytes", "created_at", "updated_at"}).AddRow(int64(1), int64(1), "old", &revision, 0, "", int64(40), time.Now(), time.Now()))
+					lock.WillReturnRows(pgxmock.NewRows([]string{"id", "owner_id", "name", "revision", "cells_count", "preview_code", "size_bytes", "created_at", "updated_at", "sharing_mode"}).AddRow(int64(1), int64(1), "old", &revision, 0, "", int64(40), time.Now(), time.Now(), "private"))
 					update := mock.ExpectQuery("UPDATE notebooks SET name=").WithArgs(int64(1), int64(1), "new")
 					if phase == "update" {
 						update.WillReturnError(failure)

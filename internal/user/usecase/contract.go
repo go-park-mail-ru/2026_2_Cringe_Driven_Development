@@ -21,6 +21,7 @@ var (
 
 // Usecase задаёт операции пользователей, которые вызывает HTTP delivery.
 type Usecase interface {
+	SuggestUsers(ctx context.Context, userID int64, q string, limit int) ([]domain.UserSuggestion, error)
 	EnableTwoFactor(ctx context.Context, id int64) (TwoFactorSetup, error)
 	ConfirmTwoFactor(ctx context.Context, id int64, code string) error
 	DisableTwoFactor(ctx context.Context, id int64, password string) error

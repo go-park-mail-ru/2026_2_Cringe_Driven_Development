@@ -61,7 +61,7 @@ func TestRenameNotebookHTTP(t *testing.T) {
 	if err := json.Unmarshal(r.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	want := api.Notebook{Id: 42, Name: "Новое название", CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt, Cells: []api.Cell{{Id: "cell", Kind: api.CellKindCode, Source: "print(42)"}}}
+	want := api.Notebook{Access: api.NotebookAccess{IsOwner: true, CanEdit: true, CanManageSharing: true, CanClone: true}, Id: 42, Name: "Новое название", CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt, Cells: []api.Cell{{Id: "cell", Kind: api.CellKindCode, Source: "print(42)"}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("full notebook: %+v", got)
 	}
@@ -108,7 +108,7 @@ func TestRenameNotebookHTTPNameLimitsMatchCreate(t *testing.T) {
 		for _, tc := range []struct {
 			name string
 			code int
-		}{{strings.Repeat("я", 128), 200}, {strings.Repeat("я", 129), 400}, {" " + strings.Repeat("я", 127) + " ", 400}} {
+		}{{strings.Repeat("я", 128), 200}, {strings.Repeat("я", 129), 400}, {" " + strings.Repeat("я", 128) + " ", 200}} {
 			t.Run(method+"/"+tc.name, func(t *testing.T) {
 				f := newRenameHTTPFixture(t)
 				body, _ := json.Marshal(map[string]string{"name": tc.name})
@@ -122,7 +122,7 @@ func TestRenameNotebookHTTPNameLimitsMatchCreate(t *testing.T) {
 						f.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(domain.Notebook{ID: 42, Name: tc.name}, nil)
 					}
 				} else if tc.code == 200 {
-					f.repo.EXPECT().Rename(gomock.Any(), int64(42), int64(1), tc.name).Return(domain.Notebook{ID: 42, Name: tc.name}, nil)
+					f.repo.EXPECT().Rename(gomock.Any(), int64(42), int64(1), strings.TrimSpace(tc.name)).Return(domain.Notebook{ID: 42, Name: strings.TrimSpace(tc.name)}, nil)
 				}
 				rec := serveRouter(f.handler, r)
 				if rec.Code != want {

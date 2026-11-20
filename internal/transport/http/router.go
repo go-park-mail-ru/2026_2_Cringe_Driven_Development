@@ -60,7 +60,7 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 
 	bounded := middleware.BodyLimit(middleware.AvatarUpload(BaseURL)(r), notebookusecase.MaxSourceBytes, BaseURL+"/notebooks")
 	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(bounded))
-	return middleware.RequestID(middleware.Logging(middleware.Recover(handler))), nil
+	return middleware.RequestID(middleware.Logging(middleware.Recover(middleware.NotebookCachePolicy(BaseURL)(handler)))), nil
 }
 
 // decodePathVariables согласует encoded routing с generated ValueIsUnescaped.

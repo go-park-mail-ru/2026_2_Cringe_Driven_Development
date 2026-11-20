@@ -70,7 +70,23 @@ func AuthenticateBearer(tokens TokenParser, sessions AccessSessions) func(http.H
 					}
 				}
 			}
+			// Гостевой запрос отличается от запроса с недействительным Bearer.
+			if notebookRead(r) && len(values) > 0 {
+				if _, ok := principal.UserIDFromContext(r.Context()); !ok {
+					httperr.Write(w, http.StatusUnauthorized, api.ErrorCodeUnauthorized, "authentication required")
+					return
+				}
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// notebookRead выделяет только два маршрута с optional Bearer.
+func notebookRead(r *http.Request) bool {
+	if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/api/v1/notebooks/") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/notebooks/"), "/")
+	return parts[0] != "" && (len(parts) == 1 || (len(parts) == 2 && parts[1] == "content"))
 }

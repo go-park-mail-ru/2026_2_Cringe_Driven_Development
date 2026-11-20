@@ -1690,7 +1690,7 @@
       "get": {
         "summary": "Блокнот",
         "deprecated": false,
-        "description": "",
+        "description": "\n\nДоступ: владелец; любой посетитель, включая анонима, для public; только адресные пользователи для restricted. private доступен только владельцу. Bearer можно не передавать; переданный невалидный, истёкший или отозванный Bearer даёт 401. X-BFF-Key обязателен всегда. Чужой закрытый, отсутствующий и удалённый блокнот дают одинаковый 404. Права проверяются до содержимого и любого 304. Чтение не даёт прав изменения документа, управления runtime или доступа к файлам окружения. Ответы Cache-Control: no-store.",
         "operationId": "getNotebook",
         "tags": [
           "notebooks"
@@ -1729,7 +1729,18 @@
                 }
               }
             },
-            "headers": {}
+            "headers": {
+              "Cache-Control": {
+                "description": "Запрещает повторное использование данных и прав общим HTTP-кэшем.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "example": "no-store"
+              }
+            }
           },
           "400": {
             "description": "Невалидный запрос",
@@ -1743,7 +1754,7 @@
             "headers": {}
           },
           "401": {
-            "description": "Нет авторизации",
+            "description": "Переданный Bearer недействителен, истёк или отозван. Отсутствие Bearer допускается.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1769,7 +1780,7 @@
             "headers": {}
           },
           "404": {
-            "description": "Не найдено",
+            "description": "Блокнот отсутствует, удалён или недоступен посетителю; ответы одинаковы.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1794,13 +1805,14 @@
         "security": [
           {
             "bearerAuth": []
-          }
+          },
+          {}
         ]
       },
       "patch": {
         "summary": "Переименовать блокнот",
         "deprecated": false,
-        "description": "Переименовывает блокнот текущего владельца. Пробелы по краям имени обрезаются; пустое после обрезки имя отклоняется. Ограничение 1–128 Unicode-символов проверяется до обрезки, как при создании. Одинаковые имена разрешены. Повтор того же нормализованного имени успешен без изменения updated_at. If-Match не требуется и не проверяется; редакция, содержимое и runtime не меняются. Активное окружение и выполнение ячейки разрешены. Чужой и отсутствующий блокнот дают одинаковый 404.",
+        "description": "Переименовывает блокнот текущего владельца. Пробелы по краям имени обрезаются; пустое после обрезки имя отклоняется. Ограничение 1–128 Unicode-символов проверяется после обрезки пробелов, как при создании и клонировании. Одинаковые имена разрешены. Повтор того же нормализованного имени успешен без изменения updated_at. If-Match не требуется и не проверяется; редакция, содержимое и runtime не меняются. Активное окружение и выполнение ячейки разрешены. Чужой и отсутствующий блокнот дают одинаковый 404.",
         "operationId": "renameNotebook",
         "tags": [
           "notebooks"
@@ -1842,7 +1854,13 @@
                   "name": "Новое название",
                   "cells": [],
                   "created_at": "2026-11-12T10:00:00Z",
-                  "updated_at": "2026-11-12T16:30:00Z"
+                  "updated_at": "2026-11-12T16:30:00Z",
+                  "access": {
+                    "is_owner": true,
+                    "can_edit": true,
+                    "can_manage_sharing": true,
+                    "can_clone": true
+                  }
                 }
               }
             },
@@ -2089,7 +2107,7 @@
       "get": {
         "summary": "Содержимое блокнота с хешем",
         "deprecated": false,
-        "description": "Возвращает согласованный снимок hash и всех ячеек блокнота текущего пользователя, включая сохранённые nbformat outputs и execution_count кодовых ячеек. У code без результатов outputs: [], execution_count: null. Markdown содержит id/kind/source. Данные доступны без активной runtime-сессии и после удаления VPS. source — обычный текст, MIME/HTML/SVG результатов недоверенные и требуют безопасного отображения. hash — непрозрачная редакция снимка; ETag содержит её в двойных кавычках. Изменение только outputs, execution_count и output_truncated не меняет hash: он отражает исходники и порядок ячеек. Старый результат не применяется к изменённому source. Чтение не создаёт и не продлевает runtime. Доступ только владельцу.\n\nКаждая code-ячейка содержит обязательный output_truncated:boolean — сохранённый вместе с outputs и execution_count признак усечения вывода. Он доступен после завершения сессии и удаления VPS. До первого результата false; новый применённый результат заменяет и outputs, и флаг. Значение не накапливается по всем запускам. Результат с конфликтом source не меняет сохранённые outputs и флаг актуальной ячейки.",
+        "description": "Возвращает согласованный снимок hash и всех ячеек блокнота текущего пользователя, включая сохранённые nbformat outputs и execution_count кодовых ячеек. У code без результатов outputs: [], execution_count: null. Markdown содержит id/kind/source. Данные доступны без активной runtime-сессии и после удаления VPS. source — обычный текст, MIME/HTML/SVG результатов недоверенные и требуют безопасного отображения. hash — непрозрачная редакция снимка; ETag содержит её в двойных кавычках. Изменение только outputs, execution_count и output_truncated не меняет hash: он отражает исходники и порядок ячеек. Старый результат не применяется к изменённому source. Чтение не создаёт и не продлевает runtime. \n\nКаждая code-ячейка содержит обязательный output_truncated:boolean — сохранённый вместе с outputs и execution_count признак усечения вывода. Он доступен после завершения сессии и удаления VPS. До первого результата false; новый применённый результат заменяет и outputs, и флаг. Значение не накапливается по всем запускам. Результат с конфликтом source не меняет сохранённые outputs и флаг актуальной ячейки.\n\nДоступ: владелец; любой посетитель, включая анонима, для public; только адресные пользователи для restricted. private доступен только владельцу. Bearer можно не передавать; переданный невалидный, истёкший или отозванный Bearer даёт 401. X-BFF-Key обязателен всегда. Чужой закрытый, отсутствующий и удалённый блокнот дают одинаковый 404. Права проверяются до содержимого и любого 304. Чтение не даёт прав изменения документа, управления runtime или доступа к файлам окружения. Ответы Cache-Control: no-store.",
         "operationId": "getNotebookContent",
         "tags": [
           "notebooks"
@@ -2196,6 +2214,16 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "description": "Запрещает повторное использование данных и прав общим HTTP-кэшем.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "example": "no-store"
               }
             }
           },
@@ -2211,7 +2239,7 @@
             "headers": {}
           },
           "401": {
-            "description": "Нет авторизации.",
+            "description": "Переданный Bearer недействителен, истёк или отозван. Отсутствие Bearer допускается.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2233,7 +2261,7 @@
             "headers": {}
           },
           "404": {
-            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "description": "Блокнот отсутствует, удалён или недоступен посетителю; ответы одинаковы.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2258,7 +2286,8 @@
         "security": [
           {
             "bearerAuth": []
-          }
+          },
+          {}
         ]
       }
     },
@@ -3238,7 +3267,7 @@
       "post": {
         "summary": "Создание блокнота",
         "deprecated": false,
-        "description": "",
+        "description": "\n\nИмя нормализуется обрезкой Unicode-пробелов по краям; длина после нормализации — 1–128 Unicode-символов.",
         "operationId": "createNotebook",
         "tags": [
           "notebooks"
@@ -4752,6 +4781,628 @@
         ]
       }
     },
+    "/notebooks/{id}/sharing": {
+      "get": {
+        "operationId": "getNotebookSharing",
+        "summary": "Настройки доступа к блокноту",
+        "description": "Только владелец. Возвращает полный список адресатов с актуальными логинами; разрешения хранятся по user_id. Чужой, отсутствующий и удалённый блокнот дают одинаковый 404. Ответы Cache-Control: no-store.",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Настройки доступа.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookSharing"
+                },
+                "example": {
+                  "mode": "restricted",
+                  "readers": [
+                    {
+                      "id": 2,
+                      "login": "reader"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Запрещает повторное использование данных и прав общим HTTP-кэшем.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "example": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "validation_error: невалидное тело или параметры.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "невалидное тело или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "unauthorized: отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "s2s_forbidden: обязательный X-BFF-Key отсутствует, неверен или повторяется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "обязательный X-BFF-Key отсутствует, неверен или повторяется."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "not_found: блокнот отсутствует, удалён или недоступен; ответы одинаковы.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "блокнот отсутствует, удалён или недоступен; ответы одинаковы."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "internal: внутренняя ошибка.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "внутренняя ошибка."
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "putNotebookSharing",
+        "summary": "Заменить настройки доступа",
+        "description": "Только владелец. Атомарно полностью заменяет режим и читателей. restricted допускает пустой список. private/public требуют пустой reader_logins и удаляют прежние разрешения; обратный переход требует явно передать читателей. Логины разрешаются без учёта регистра; дубликаты по ID сворачиваются, владелец исключается. Неизвестный логин или невалидный ввод — 400, прежние настройки сохраняются целиком. Повтор тех же настроек успешен. После отзыва новые запросы проверяют актуальные права; ранее полученные данные и копии сохраняются. Ответы Cache-Control: no-store.",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Актуальные настройки доступа.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookSharing"
+                },
+                "example": {
+                  "mode": "restricted",
+                  "readers": [
+                    {
+                      "id": 2,
+                      "login": "reader"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Запрещает повторное использование данных и прав общим HTTP-кэшем.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "example": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "validation_error: невалидное тело или параметры.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "невалидное тело или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "unauthorized: отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "s2s_forbidden: обязательный X-BFF-Key отсутствует, неверен или повторяется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "обязательный X-BFF-Key отсутствует, неверен или повторяется."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "not_found: блокнот отсутствует, удалён или недоступен; ответы одинаковы.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "блокнот отсутствует, удалён или недоступен; ответы одинаковы."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "internal: внутренняя ошибка.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "внутренняя ошибка."
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotebookSharingInput"
+              },
+              "example": {
+                "mode": "restricted",
+                "reader_logins": [
+                  "reader"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notebooks/{id}/clone": {
+      "post": {
+        "operationId": "cloneNotebook",
+        "summary": "Создать независимую копию блокнота",
+        "description": "Действующая сессия и право чтения обязательны; владелец также может клонировать. Каждый успешный POST создаёт отдельную копию с новым ID, владельцем из сессии, новыми датами, ревизией и source_version; режим private, читателей нет. Согласованный снимок включает порядок/типы ячеек, source, metadata, дополнительные ipynb-поля, attachments, outputs, execution_count и output_truncated, в том числе raw и пустые документы. Runtime, задания, /workspace, секреты, комментарии и настройки доступа не копируются. Проверка доступа, чтение и запись атомарны и сериализуются с изменением доступа, удалением и правками оригинала. Ошибка откатывает всю копию. Изменение, отзыв доступа и удаление оригинала не затрагивают копию. Одинаковые названия разрешены.",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Созданная приватная копия.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notebook"
+                },
+                "example": {
+                  "id": 43,
+                  "name": "Моя копия",
+                  "cells": [],
+                  "created_at": "2026-11-19T10:00:00Z",
+                  "updated_at": "2026-11-19T10:00:00Z",
+                  "access": {
+                    "is_owner": true,
+                    "can_edit": true,
+                    "can_manage_sharing": true,
+                    "can_clone": true
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "validation_error: невалидное тело или параметры.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "невалидное тело или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "unauthorized: отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "s2s_forbidden: обязательный X-BFF-Key отсутствует, неверен или повторяется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "обязательный X-BFF-Key отсутствует, неверен или повторяется."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "not_found: блокнот отсутствует, удалён или недоступен; ответы одинаковы.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "блокнот отсутствует, удалён или недоступен; ответы одинаковы."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "internal: внутренняя ошибка.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "внутренняя ошибка."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "413": {
+            "description": "validation_error: превышены действующие лимиты документа. Нет частично созданной копии.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "Превышен лимит документа."
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotebookCloneInput"
+              },
+              "example": {
+                "name": "Моя копия"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/suggest": {
+      "get": {
+        "operationId": "suggestUsers",
+        "summary": "Подсказки логинов",
+        "description": "Требуется действующая сессия. После обрезки пробелов q содержит 1–32 ASCII-символа: буквы, цифры и _. Поиск по префиксу без учёта регистра; _ трактуется буквально. Текущий пользователь исключён. Сортировка по lower(login), id; только id и login, без секретов и настроек профиля. Нет совпадений — items: []. limit по умолчанию 10, диапазон 1–20. Общий Redis-лимит: 60 запросов в минуту на пользователя; превышение — 429 rate_limited. Недоступность лимитера не разрешает запрос.",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Префикс логина после обрезки пробелов: 1–32 ASCII буквы, цифры или _.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "read"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10
+            },
+            "example": 10
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Совпадения логинов.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSuggestions"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 2,
+                      "login": "reader"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "validation_error: невалидное тело или параметры.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "невалидное тело или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "unauthorized: отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "отсутствует действующая сессия либо переданный Bearer недействителен, истёк или отозван."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "s2s_forbidden: обязательный X-BFF-Key отсутствует, неверен или повторяется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "обязательный X-BFF-Key отсутствует, неверен или повторяется."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "internal: внутренняя ошибка.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "внутренняя ошибка."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "429": {
+            "description": "rate_limited: превышен лимит 60 запросов в минуту на пользователя.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rate_limited",
+                  "message": "too many requests"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/runtime-sessions/{id}/files/ws": {
       "get": {
         "operationId": "openWorkspaceControl",
@@ -5207,6 +5858,9 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "access": {
+            "$ref": "#/components/schemas/NotebookAccess"
           }
         },
         "required": [
@@ -5214,8 +5868,10 @@
           "name",
           "cells",
           "created_at",
-          "updated_at"
-        ]
+          "updated_at",
+          "access"
+        ],
+        "additionalProperties": false
       },
       "NotebookSummary": {
         "type": "object",
@@ -5300,7 +5956,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "description": "После обрезки Unicode-пробелов по краям имя должно содержать от 1 до 128 Unicode-символов. Проверка нормализованной длины выполняется backend; пустое имя запрещено."
           }
         },
         "required": [
@@ -6421,6 +7077,136 @@
         "examples": [
           "user-password"
         ]
+      },
+      "NotebookAccess": {
+        "type": "object",
+        "properties": {
+          "is_owner": {
+            "type": "boolean",
+            "description": "Посетитель является владельцем."
+          },
+          "can_edit": {
+            "type": "boolean",
+            "description": "Разрешено редактировать документ и управлять runtime."
+          },
+          "can_manage_sharing": {
+            "type": "boolean",
+            "description": "Разрешено читать и изменять настройки доступа."
+          },
+          "can_clone": {
+            "type": "boolean",
+            "description": "Разрешено создать независимую копию."
+          }
+        },
+        "required": [
+          "is_owner",
+          "can_edit",
+          "can_manage_sharing",
+          "can_clone"
+        ],
+        "additionalProperties": false,
+        "description": "Права текущего посетителя: владелец — все true; авторизованный читатель — только can_clone; аноним — все false."
+      },
+      "SharingMode": {
+        "type": "string",
+        "enum": [
+          "private",
+          "restricted",
+          "public"
+        ],
+        "description": "Новые и существующие блокноты изначально private."
+      },
+      "UserSuggestion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9_]+$"
+          }
+        },
+        "required": [
+          "id",
+          "login"
+        ],
+        "additionalProperties": false
+      },
+      "NotebookSharing": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/SharingMode"
+          },
+          "readers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserSuggestion"
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "readers"
+        ],
+        "additionalProperties": false
+      },
+      "NotebookSharingInput": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/SharingMode"
+          },
+          "reader_logins": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 32,
+              "pattern": "^[a-zA-Z0-9_]+$"
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "reader_logins"
+        ],
+        "additionalProperties": false
+      },
+      "NotebookCloneInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "После обрезки Unicode-пробелов по краям имя должно содержать от 1 до 128 Unicode-символов. Проверка нормализованной длины выполняется backend; пустое имя запрещено."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "UserSuggestions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/UserSuggestion"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
       },
       "WorkspaceFileError": {
         "type": "object",
