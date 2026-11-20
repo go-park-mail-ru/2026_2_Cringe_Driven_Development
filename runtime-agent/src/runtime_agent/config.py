@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address
 from pathlib import Path
 
+# Максимум одного временного файла в байтах по контракту #118.
+MAX_WORKSPACE_FILE_BYTES = 3221225472
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -24,10 +27,13 @@ class Settings:
     interrupt_seconds: float = 5
     monitor_seconds: float = 2
     python_image: str = "cellestial-kernel-python:local"
+    workspace_path: Path | None = None
 
     def __post_init__(self):
         """Проверьте параметры сети, DNS и ресурсные лимиты."""
         IPv4Address(self.kernel_dns)
+        if self.workspace_path is not None and not self.workspace_path.is_absolute():
+            raise ValueError("WORKSPACE_PATH must be absolute")
         for name in (
             "max_output_bytes",
             "idle_seconds",
@@ -43,6 +49,7 @@ class Settings:
     @classmethod
     def from_env(cls):
         """Прочитайте настройки из окружения и примените значения по умолчанию."""
+        workspace_path = os.environ.get("WORKSPACE_PATH")
         return cls(
             state_dir=Path(os.environ.get("STATE_DIR", "/var/lib/cellestial-agent")).resolve(),
             kernel_network=os.environ.get("KERNEL_NETWORK", ""),
@@ -50,4 +57,5 @@ class Settings:
             max_output_bytes=int(os.environ.get("MAX_OUTPUT_BYTES", str(10 * 1024 * 1024))),
             idle_seconds=float(os.environ.get("IDLE_TIMEOUT_SECONDS", "900")),
             python_image=os.environ.get("PYTHON_IMAGE", "cellestial-kernel-python:local"),
+            workspace_path=Path(workspace_path) if workspace_path else None,
         )

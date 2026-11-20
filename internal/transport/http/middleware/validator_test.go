@@ -78,8 +78,12 @@ func TestContractRequiresBFFKeyAndHasNoBrowserAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(spec.Components.SecuritySchemes) != 1 || spec.Components.SecuritySchemes["bearerAuth"] == nil {
-		t.Fatal("expected only bearerAuth")
+	if len(spec.Components.SecuritySchemes) != 2 || spec.Components.SecuritySchemes["bearerAuth"] == nil {
+		t.Fatal("expected Go bearerAuth and documented BFF cookie scheme")
+	}
+	browser := spec.Components.SecuritySchemes["BFFSession"]
+	if browser == nil || browser.Value.In != "cookie" || browser.Value.Name != "__Host-Http-session" {
+		t.Fatal("BFF cookie scheme is missing")
 	}
 	for path, item := range spec.Paths.Map() {
 		for method, op := range item.Operations() {

@@ -1,0 +1,5 @@
+# Успешный WebSocket upgrade возвращает 101 согласно RFC 6455.
+openapi.json:
+  operation-2xx-response:
+    - '#/paths/~1runtime-sessions~1{id}~1files~1ws/get/responses'
+    - '#/paths/~1runtime-sessions~1{id}~1files~1uploads~1{transfer_id}~1ws/get/responses'

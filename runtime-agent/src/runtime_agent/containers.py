@@ -5,10 +5,11 @@ import ipaddress
 import logging
 import os
 import secrets
+import stat
 
 import docker
 from docker.errors import NotFound
-from docker.types import LogConfig
+from docker.types import LogConfig, Mount
 
 from .jupyter import Jupyter
 from .lifecycle import complete_before_cancel
@@ -59,6 +60,7 @@ class Containers:
 
     async def recover(self):
         """Проверьте сеть и удалите устаревшие контейнеры этого агента."""
+        self.workspace_mounts()
         await self.network()
         containers = await asyncio.to_thread(
             self.client.containers.list,
@@ -68,10 +70,41 @@ class Containers:
         for container in containers:
             await asyncio.to_thread(container.remove, force=True, v=True)
 
+    def workspace_mounts(self):
+        """Проверьте подготовленный mount и верните bind mount дерева kernel."""
+        root = self.settings.workspace_path
+        if root is None:
+            return []
+        if root.is_symlink() or not os.path.ismount(root):
+            raise RuntimeError("Expected a prepared workspace mount")
+        device = root.stat().st_dev
+        for path in (root / "data", root / "staging"):
+            try:
+                entry = path.lstat()
+            except FileNotFoundError as exc:
+                raise RuntimeError("Workspace mount requires data and staging directories") from exc
+            if not stat.S_ISDIR(entry.st_mode) or entry.st_dev != device or os.path.ismount(path):
+                raise RuntimeError("Workspace directories must belong to the workspace mount")
+            if path.name == "data" and entry.st_gid not in {os.getegid(), *os.getgroups()}:
+                raise RuntimeError("Agent must join the kernel workspace group")
+            if not os.access(path, os.R_OK | os.W_OK | os.X_OK):
+                raise RuntimeError("Workspace directories must be accessible to the agent")
+        if entry.st_uid != os.getuid() or entry.st_mode & 0o077:
+            raise RuntimeError("Workspace staging must be private to the agent")
+        return [Mount(target="/workspace", source=str(root / "data"), type="bind")]
+
     async def start(self):
         """Запустите ограниченный Python-контейнер и подключитесь к Jupyter."""
         network = await self.network()
         token = secrets.token_urlsafe(32)
+        mounts = self.workspace_mounts()
+        tmpfs = {
+            "/tmp": "rw,nosuid,nodev,size=256m,mode=1777",
+            # Расширения C, включая numpy, требуют mmap с правом выполнения.
+            "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
+        }
+        if not mounts:
+            tmpfs["/workspace"] = "rw,nosuid,nodev,size=256m,mode=1777"
         try:
             container = await complete_before_cancel(
                 asyncio.to_thread(
@@ -95,13 +128,8 @@ class Containers:
                         nano_cpus=1_000_000_000,
                         pids_limit=128,
                         labels={LABEL: self.instance_id},
-                        tmpfs={
-                            "/workspace": "rw,nosuid,nodev,size=256m,mode=1777",
-                            "/tmp": "rw,nosuid,nodev,size=256m,mode=1777",
-                            # Docker монтирует tmpfs с noexec по умолчанию.
-                            # Расширения C, включая numpy, требуют mmap с правом выполнения.
-                            "/packages": "rw,exec,nosuid,nodev,size=512m,mode=1777",
-                        },
+                        mounts=mounts,
+                        tmpfs=tmpfs,
                         environment={
                             "JUPYTER_TOKEN": token,
                             "HOME": "/tmp",

@@ -3,6 +3,9 @@
 import os
 import site
 
+# Общая группа workspace даёт агенту доступ к файлам, созданным Python.
+os.umask(0o002)
+
 # Файл запекается в образ; конфигурация с хоста не монтируется.
 c = get_config()  # noqa: F821
 # Python adds the user site to sys.path only if it exists when the kernel starts,

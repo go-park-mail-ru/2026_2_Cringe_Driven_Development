@@ -1,0 +1,691 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cellestial.workspace.commands.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "list"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "default": "",
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "maxLength": 36000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "subscribe"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Paths",
+          "type": "array"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "paths"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "unsubscribe"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "paths"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "mkdir"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "path",
+        "operation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "rename"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "maxLength": 64,
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "path",
+        "name",
+        "version",
+        "operation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "delete"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "path",
+        "version",
+        "operation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "upload_begin"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-fA-F0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "path",
+        "size_bytes",
+        "operation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "download_begin"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        },
+        "path": {
+          "maxLength": 4095,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "path",
+        "operation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "upload_commit"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "transfer_id": {
+          "title": "Transfer Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "transfer_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "upload_status"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "transfer_id": {
+          "title": "Transfer Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "transfer_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "transfer_status"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "transfer_id": {
+          "title": "Transfer Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "transfer_id"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "type": {
+          "const": "transfer_cancel"
+        },
+        "request_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 36,
+          "title": "Session Id",
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspace_generation": {
+          "maxLength": 36,
+          "title": "Workspace Generation",
+          "type": "string",
+          "format": "uuid"
+        },
+        "transfer_id": {
+          "title": "Transfer Id",
+          "maxLength": 36,
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "session_id",
+        "type",
+        "workspace_generation",
+        "transfer_id"
+      ]
+    }
+  ]
+}

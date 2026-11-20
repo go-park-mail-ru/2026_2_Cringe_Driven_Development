@@ -40,6 +40,10 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 		_, _ = w.Write([]byte(`{"status": "alive"}`))
 	}).Methods(http.MethodGet)
 
+	if srv.RuntimeHandler != nil {
+		r.HandleFunc(BaseURL+"/runtime-sessions/{id}/workspace/{file_path:.*}", srv.Workspace)
+	}
+
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  httperr.RequestError,
 		ResponseErrorHandlerFunc: httperr.ResponseError,

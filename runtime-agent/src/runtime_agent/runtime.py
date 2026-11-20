@@ -43,6 +43,20 @@ class Agent:
         self.ready = False
         self.monitor = None
         self.started = False
+        self.workspace = None
+        self.file_start = asyncio.Lock()
+
+    async def open_workspace(self):
+        """Восстановите файловый journal отдельно от очереди kernel."""
+        if self.settings.workspace_path is not None and self.workspace is None:
+            assert self.session is not None
+            from .workspace_service import WorkspaceService
+            from .workspace_transfers import Transfers
+
+            transfers = await asyncio.to_thread(
+                Transfers, self.settings.workspace_path, self.settings.state_dir, self.session.id
+            )
+            self.workspace = WorkspaceService(self, self.session, transfers)
 
     def notify(self):
         """Разбудите каждого подписчика событий независимо."""
@@ -52,9 +66,20 @@ class Agent:
     async def start(self):
         """Восстановите ресурсы из journal или подготовьте ожидающий kernel."""
         assignment = self.journal.assignment()
+        recover_workspace = (
+            assignment is not None
+            and self.settings.workspace_path is not None
+            and self.journal.session(assignment[0])["state"]
+            not in ("STOPPED", "FAILED", "DRAINING")
+        )
+        recover_cleanup = (
+            assignment is not None
+            and self.settings.workspace_path is not None
+            and self.journal.session(assignment[0])["state"] == "DRAINING"
+        )
         await self.containers.ping()
         await self.containers.recover()
-        self.journal.recover()
+        self.journal.recover(resume=recover_workspace, preserve_draining=recover_cleanup)
         self.started = True
         self.ready = True
         if assignment:
@@ -62,6 +87,14 @@ class Agent:
             self.session = Session(self, session_id, language)
             # Не перезапускаем завершённое или прерванное назначение при рестарте процесса.
             self.session.closed = True
+            if recover_cleanup:
+                self.session.closed = False
+                await self.open_workspace()
+                await self.session.finish("STOPPED", "recovered_cleanup")
+            elif recover_workspace:
+                self.session.closed = False
+                await self.open_workspace()
+                await self.session.start(await self.containers.start())
         else:
             self.warming = asyncio.create_task(self.warm_up(), name="kernel-warm-up")
         self.monitor = asyncio.create_task(self.watch(), name="runtime-monitor")
@@ -128,6 +161,7 @@ class Agent:
             self.journal.create(session_id, language, token)
             self.token = token
             self.session = Session(self, session_id, language)
+            await self.open_workspace()
             transport, self.warm = self.warm, None
             log.info("Assigned to session %s", session_id)
             await self.session.start(transport)
@@ -223,6 +257,7 @@ class Agent:
                 not runtime.active
                 and not runtime.pending
                 and runtime.queue.empty()
+                and not (self.workspace and self.workspace.busy())
                 and time.monotonic() - runtime.last_activity >= self.settings.idle_seconds
             ):
                 await runtime.finish("STOPPED", "idle_timeout")
@@ -249,7 +284,10 @@ class Agent:
                 await asyncio.gather(task, return_exceptions=True)
         if self.started:
             if self.session is not None:
-                await self.session.finish()
+                if self.settings.workspace_path is not None and not self.session.closed:
+                    await self.session.suspend()
+                else:
+                    await self.session.finish()
             else:
                 if self.warm is not None:
                     with suppress(Exception):
@@ -259,4 +297,6 @@ class Agent:
                     await self.containers.remove()
                 except Exception:
                     log.exception("Waiting kernel cleanup failed")
+        if self.workspace is not None:
+            await self.workspace.dispose()
         await self.containers.close()

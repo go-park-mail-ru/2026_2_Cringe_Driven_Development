@@ -5402,6 +5402,386 @@
           }
         ]
       }
+    },
+    "/runtime-sessions/{id}/files/ws": {
+      "get": {
+        "operationId": "openWorkspaceControl",
+        "summary": "Управляющий WSS файлового интерфейса",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "servers": [
+          {
+            "url": "/api",
+            "description": "Same-origin BFF, cookie-сессия браузера"
+          }
+        ],
+        "description": "Маршрут BFF. Требует текущую HttpOnly cookie-сессию и владение готовым runtime. Строго проверяет Origin и Sec-Fetch-Site. Схемы команд, framing и lifecycle описаны в docs/workspace-files.md и spec/workspace/v1. Credentials агента клиенту не передаются.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID работающей runtime-сессии владельца."
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Сессия отсутствует или отозвана."
+          },
+          "403": {
+            "description": "Неверный Origin или Sec-Fetch-Site."
+          },
+          "409": {
+            "description": "Runtime или передача недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "$ref": "#/components/schemas/WorkspaceFileError"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Достигнут лимит socket или transfers."
+          },
+          "101": {
+            "description": "WebSocket upgrade принят. Управляющий канал начинает сообщением ready."
+          },
+          "410": {
+            "description": "Workspace завершён или останавливается, generation больше не доступна."
+          }
+        },
+        "security": [
+          {
+            "BFFSession": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/files/uploads/{transfer_id}/ws": {
+      "get": {
+        "operationId": "openWorkspaceUpload",
+        "summary": "Бинарный WSS data-channel загрузки",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "servers": [
+          {
+            "url": "/api",
+            "description": "Same-origin BFF, cookie-сессия браузера"
+          }
+        ],
+        "description": "Маршрут BFF. Требует текущую HttpOnly cookie-сессию и владение готовым runtime. Строго проверяет Origin и Sec-Fetch-Site. Схемы команд, framing и lifecycle описаны в docs/workspace-files.md и spec/workspace/v1. Credentials агента клиенту не передаются.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID работающей runtime-сессии владельца."
+          },
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Непрозрачный UUID передачи, связанной с текущей cookie-сессией."
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Сессия отсутствует или отозвана."
+          },
+          "403": {
+            "description": "Неверный Origin или Sec-Fetch-Site."
+          },
+          "409": {
+            "description": "Runtime или передача недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "$ref": "#/components/schemas/WorkspaceFileError"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Достигнут лимит socket или transfers."
+          },
+          "101": {
+            "description": "WebSocket upgrade принят. Управляющий канал начинает сообщением ready."
+          },
+          "410": {
+            "description": "Workspace завершён или останавливается, generation больше не доступна."
+          }
+        },
+        "security": [
+          {
+            "BFFSession": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/files/downloads/{transfer_id}": {
+      "get": {
+        "operationId": "downloadWorkspaceFile",
+        "summary": "Потоковое скачивание временного файла",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "servers": [
+          {
+            "url": "/api",
+            "description": "Same-origin BFF, cookie-сессия браузера"
+          }
+        ],
+        "description": "Маршрут BFF. Требует текущую HttpOnly cookie-сессию и владение готовым runtime. Принимает один Range и If-Range. Отмена HTTP распространяется до агента. Content-Disposition attachment содержит ASCII и UTF-8 имя. Тело не буферизуется целиком.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID работающей runtime-сессии владельца."
+          },
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Непрозрачный UUID передачи, связанной с текущей cookie-сессией."
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "example": "bytes=2147483648-"
+            },
+            "description": "Один диапазон байтов."
+          },
+          {
+            "name": "If-Range",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "example": "\"opaque-version\""
+            },
+            "description": "ETag версии из предыдущего ответа."
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Сессия отсутствует или отозвана."
+          },
+          "403": {
+            "description": "Неверный Origin или Sec-Fetch-Site."
+          },
+          "409": {
+            "description": "Runtime или передача недоступны."
+          },
+          "429": {
+            "description": "Достигнут лимит socket или transfers."
+          },
+          "200": {
+            "description": "Бинарный файл либо один диапазон.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment с filename и filename*."
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Непрозрачная версия файла."
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Количество байтов ответа."
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "bytes."
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Диапазон для ответа 206."
+              }
+            }
+          },
+          "206": {
+            "description": "Бинарный файл либо один диапазон.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment с filename и filename*."
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Непрозрачная версия файла."
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Количество байтов ответа."
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "bytes."
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Диапазон для ответа 206."
+              }
+            }
+          },
+          "416": {
+            "description": "Диапазон недопустим. Content-Range содержит bytes */size."
+          },
+          "410": {
+            "description": "Workspace завершён или останавливается, generation больше не доступна."
+          }
+        },
+        "security": [
+          {
+            "BFFSession": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/files/session/{socket_id}": {
+      "post": {
+        "operationId": "syncWorkspaceSessionCookie",
+        "summary": "Синхронизировать cookie долгоживущего файлового соединения",
+        "description": "BFF отправляет session_cookie_required после refresh. Клиент выполняет POST с X-CSRF: 1 по session_sync_url. Origin должен совпадать с APP_ORIGIN, cookie должна принадлежать этому соединению. Ответ обновляет HttpOnly cookie без раскрытия токенов.",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "servers": [
+          {
+            "url": "/api",
+            "description": "Same-origin BFF"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "UUID runtime-сессии.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "socket_id",
+            "in": "path",
+            "required": true,
+            "description": "UUID текущего файлового socket.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF",
+            "in": "header",
+            "required": true,
+            "description": "CSRF-маркер штатного BFF.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cookie синхронизирована через Set-Cookie."
+          },
+          "401": {
+            "description": "Сессия или socket недоступны."
+          },
+          "403": {
+            "description": "Неверный Origin."
+          },
+          "410": {
+            "description": "Workspace завершён или останавливается, generation больше не доступна."
+          }
+        },
+        "security": [
+          {
+            "BFFSession": []
+          }
+        ]
+      }
     }
   },
   "webhooks": {},
@@ -6827,6 +7207,34 @@
           "items"
         ],
         "additionalProperties": false
+      },
+      "WorkspaceFileError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "retryable",
+          "resync_required"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "conflict"
+          },
+          "message": {
+            "type": "string",
+            "example": "conflict"
+          },
+          "retryable": {
+            "type": "boolean",
+            "example": false
+          },
+          "resync_required": {
+            "type": "boolean",
+            "example": true
+          }
+        }
       }
     },
     "responses": {
@@ -6946,6 +7354,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "Access-токен пользователя, передаваемый BFF. Для настройки, подтверждения и отключения 2FA требуется действующая авторизованная сессия текущего пользователя."
+      },
+      "BFFSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-Http-session",
+        "description": "Шифрованная HttpOnly cookie same-origin BFF."
       }
     }
   },
