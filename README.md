@@ -21,7 +21,6 @@ Backend проекта «Colab» (Cellestial) команды «Cringe Driven Dev
   - [Окружения и исполнение Python](docs/runtime-sessions.md)
   - [CI и выкатка](docs/release.md)
   - [Архитектура проекта](https://docs.cellestial.ru/documentation/architecture/)
-  - [Wiki кода](openwiki/quickstart.md)
 - 🛠 Разработка
   - [Go API](internal/)
   - [Агент Python](runtime-agent/README.md)
