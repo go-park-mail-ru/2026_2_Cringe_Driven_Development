@@ -37,11 +37,20 @@ func Validator(spec *openapi3.T, prefix string) func(http.Handler) http.Handler 
 		item.Put = &operation
 		streamSpec.Paths.Set("/users/me/avatar", &item)
 	}
+	if original := spec.Paths.Value(notebookImportPath); original != nil && original.Post != nil {
+		item := *original
+		operation := *original.Post
+		security := openapi3.SecurityRequirements{}
+		operation.Security = &security
+		item.Post = &operation
+		streamSpec.Paths.Set(notebookImportPath, &item)
+	}
 	full, stream := validator(spec, prefix, false), validator(&streamSpec, prefix, true)
 	return func(next http.Handler) http.Handler {
 		fullHandler, streamHandler := full(next), stream(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPut && r.URL.Path == prefix+"/users/me/avatar" {
+			if (r.Method == http.MethodPut && r.URL.Path == prefix+"/users/me/avatar") ||
+				(r.Method == http.MethodPost && r.URL.Path == prefix+notebookImportPath) {
 				if _, ok := principal.UserIDFromContext(r.Context()); !ok {
 					httperr.Write(w, http.StatusUnauthorized, api.ErrorCodeUnauthorized, "authentication required")
 					return

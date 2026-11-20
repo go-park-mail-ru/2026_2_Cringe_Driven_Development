@@ -1537,6 +1537,140 @@
         ]
       }
     },
+    "/notebooks/import": {
+      "post": {
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Блокнот создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportNotebookResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "invalid IPYNB JSON or Unicode",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "invalid IPYNB JSON or Unicode"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "413": {
+            "description": "notebook import exceeds size limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "notebook import exceeds size limit"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "multipart/form-data required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "multipart/form-data required"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Импорт IPYNB",
+        "operationId": "importNotebook",
+        "description": "Создаёт частный блокнот из IPYNB nbformat 4. Raw-ячейки пропускаются. Лимиты файла и multipart-тела составляют 128 и 129 МиБ соответственно.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportNotebookRequest"
+              },
+              "example": {
+                "name": "Мой блокнот",
+                "file": "{\"nbformat\":4,\"nbformat_minor\":5,\"metadata\":{},\"cells\":[]}"
+              }
+            }
+          }
+        }
+      }
+    },
     "/notebooks/{id}": {
       "delete": {
         "summary": "Удалить блокнот",
@@ -5949,6 +6083,42 @@
           "kind"
         ],
         "additionalProperties": false
+      },
+      "ImportNotebookRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "file"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      },
+      "ImportNotebookResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "notebook",
+          "skipped_raw_cells"
+        ],
+        "properties": {
+          "notebook": {
+            "$ref": "#/components/schemas/Notebook"
+          },
+          "skipped_raw_cells": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       },
       "CreateNotebookRequest": {
         "type": "object",

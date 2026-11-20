@@ -21,7 +21,7 @@ func BodyLimit(next http.Handler, maxSourceBytes int, prefix string) http.Handle
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.Body == nil {
+		if r.Body == nil || (r.Method == http.MethodPost && r.URL.Path == prefix+"/import") {
 			next.ServeHTTP(w, r)
 			return
 		}
