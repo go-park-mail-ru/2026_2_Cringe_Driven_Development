@@ -40,6 +40,11 @@ func (s *source) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &value); err != nil {
 		return err
 	}
+	return s.decode(value)
+}
+
+// decode преобразует разобранное JSON-значение source в текст.
+func (s *source) decode(value any) error {
 	switch v := value.(type) {
 	case string:
 		*s = source(v)

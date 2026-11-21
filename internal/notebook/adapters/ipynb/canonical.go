@@ -25,6 +25,15 @@ func CanonicalJSONLimit(raw []byte, limit int) (json.RawMessage, error) {
 	if limit < 0 {
 		return nil, domain.ErrTooLarge
 	}
+	value, err := decodeJSONValue(raw)
+	if err != nil {
+		return nil, err
+	}
+	return canonicalValue(value, limit)
+}
+
+// decodeJSONValue читает одно JSON-значение без потери точности чисел и Unicode.
+func decodeJSONValue(raw []byte) (any, error) {
 	if !utf8.Valid(raw) {
 		return nil, errors.New("invalid UTF-8")
 	}
@@ -75,6 +84,11 @@ func CanonicalJSONLimit(raw []byte, limit int) (json.RawMessage, error) {
 	if err := d.Decode(&extra); err != io.EOF {
 		return nil, errors.New("trailing JSON")
 	}
+	return value, nil
+}
+
+// canonicalValue проверяет размер перед сериализацией разобранного JSON.
+func canonicalValue(value any, limit int) (json.RawMessage, error) {
 	remaining := limit
 	if err := canonicalBudget(value, &remaining); err != nil {
 		return nil, err

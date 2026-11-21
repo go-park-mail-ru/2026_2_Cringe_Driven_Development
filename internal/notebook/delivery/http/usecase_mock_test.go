@@ -204,6 +204,22 @@ func (mr *MockUsecaseMockRecorder) GetSharing(ctx, id, ownerID any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSharing", reflect.TypeOf((*MockUsecase)(nil).GetSharing), ctx, id, ownerID)
 }
 
+// Import mocks base method.
+func (m *MockUsecase) Import(ctx context.Context, ownerID int64, name string, raw []byte) (domain.Notebook, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Import", ctx, ownerID, name, raw)
+	ret0, _ := ret[0].(domain.Notebook)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Import indicates an expected call of Import.
+func (mr *MockUsecaseMockRecorder) Import(ctx, ownerID, name, raw any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Import", reflect.TypeOf((*MockUsecase)(nil).Import), ctx, ownerID, name, raw)
+}
+
 // List mocks base method.
 func (m *MockUsecase) List(ctx context.Context, ownerID int64, input usecase.ListInput) (usecase.ListPage, error) {
 	m.ctrl.T.Helper()

@@ -23,13 +23,19 @@ func object(raw json.RawMessage) (map[string]json.RawMessage, error) {
 // take извлекает поле k из m, оставляя неизвестные поля для round-trip.
 func take(m map[string]json.RawMessage, k string) json.RawMessage { v := m[k]; delete(m, k); return v }
 
-// DecodeDocument используется только на границе импорта.
+// DecodeDocument декодирует полный документ для восстановления сохранённых данных.
 func DecodeDocument(raw []byte) (domain.Document, []domain.Cell, error) {
 	var doc domain.Document
 	normalized, err := CanonicalJSON(raw)
 	if err != nil {
 		return doc, nil, err
 	}
+	return decodeDocument(normalized, nil, 128*1024*1024)
+}
+
+// decodeDocument разбирает нормализованные поля. indices задаёт исходные индексы при импорте.
+func decodeDocument(normalized []byte, indices []int, maxBytes int) (domain.Document, []domain.Cell, error) {
+	var doc domain.Document
 	m, err := object(normalized)
 	if err != nil {
 		return doc, nil, err
@@ -62,68 +68,92 @@ func DecodeDocument(raw []byte) (domain.Document, []domain.Cell, error) {
 	}
 	cells := make([]domain.Cell, 0, len(originals))
 	seen := map[string]bool{}
-	for _, rawCell := range originals {
-		cm, e := object(rawCell)
-		if e != nil {
-			return doc, nil, e
-		}
-		var c domain.Cell
-		if e = json.Unmarshal(take(cm, "id"), &c.ID); e != nil || c.ID == "" || seen[c.ID] {
-			return doc, nil, errors.New("invalid or duplicate cell id")
-		}
-		seen[c.ID] = true
-		if e = json.Unmarshal(take(cm, "cell_type"), &c.Kind); e != nil {
-			return doc, nil, e
-		}
-		if c.Kind != domain.CellKindCode && c.Kind != domain.CellKindMarkdown && c.Kind != "raw" {
-			return doc, nil, ErrUnknownCellType
-		}
-		var src source
-		sourceRaw := take(cm, "source")
-		if string(sourceRaw) == "null" {
-			return doc, nil, errors.New("source must be string or array")
-		}
-		if e = json.Unmarshal(sourceRaw, &src); e != nil {
-			return doc, nil, e
-		}
-		c.Source = string(src)
-		if len(c.Source) > 64*1024 {
-			return doc, nil, domain.ErrTooLarge
-		}
-		c.Metadata = take(cm, "metadata")
-		if len(c.Metadata) > 0 {
-			if _, e = object(c.Metadata); e != nil {
-				return doc, nil, e
+	for i, rawCell := range originals {
+		c, err := decodeCell(rawCell, seen, indices != nil)
+		if err != nil {
+			if indices != nil {
+				err = fmt.Errorf("cells[%d]: %w", indices[i], err)
 			}
+			return doc, nil, err
 		}
-		if e = splitRuntimeMetadata(&c); e != nil {
-			return doc, nil, e
-		}
-		c.Outputs = take(cm, "outputs")
-		if len(c.Outputs) > 0 {
-			if e = ValidateOutputs(c.Outputs); e != nil {
-				return doc, nil, e
-			}
-		}
-		ec := take(cm, "execution_count")
-		c.HasExecutionCount = len(ec) > 0
-		if len(ec) > 0 {
-			if e = json.Unmarshal(ec, &c.ExecutionCount); e != nil {
-				return doc, nil, e
-			}
-		}
-		c.Attachments = take(cm, "attachments")
-		c.Extra = cm
 		cells = append(cells, c)
+	}
+	if indices != nil {
+		if err := assignImportIDs(cells, seen); err != nil {
+			return doc, nil, err
+		}
 	}
 	sizes := make([]int64, len(cells))
 	for i, c := range cells {
 		sizes[i] = CellSize(c)
 	}
-	if DocumentSize(HeaderSize(doc), sizes) > 128*1024*1024 {
+	if DocumentSize(HeaderSize(doc), sizes) > int64(maxBytes) {
 		return doc, nil, domain.ErrTooLarge
 	}
 	return doc, cells, nil
+}
+
+// decodeCell проверяет известные поля ячейки и сохраняет остальные поля для экспорта.
+func decodeCell(raw json.RawMessage, seen map[string]bool, importing bool) (domain.Cell, error) {
+	var c domain.Cell
+	cm, err := object(raw)
+	if err != nil {
+		return c, errors.New("expected cell object")
+	}
+	id := take(cm, "id")
+	if !importing || len(id) > 0 {
+		if err := json.Unmarshal(id, &c.ID); err != nil || c.ID == "" || seen[c.ID] || (importing && !importCellID.MatchString(c.ID)) {
+			return c, errors.New("invalid or duplicate cell id")
+		}
+		seen[c.ID] = true
+	}
+	if err := json.Unmarshal(take(cm, "cell_type"), &c.Kind); err != nil {
+		return c, ErrUnknownCellType
+	}
+	if c.Kind != domain.CellKindCode && c.Kind != domain.CellKindMarkdown && c.Kind != "raw" {
+		return c, ErrUnknownCellType
+	}
+	var src source
+	if err := json.Unmarshal(take(cm, "source"), &src); err != nil {
+		return c, errors.New("source must be a string or an array of strings")
+	}
+	c.Source = string(src)
+	if len(c.Source) > 64*1024 {
+		return c, fmt.Errorf("source: %w", domain.ErrTooLarge)
+	}
+	c.Metadata = take(cm, "metadata")
+	if err := splitRuntimeMetadata(&c); err != nil {
+		return c, errors.New("metadata must be an object")
+	}
+	c.Outputs = take(cm, "outputs")
+	if len(c.Outputs) > 0 {
+		if err := ValidateOutputs(c.Outputs); err != nil {
+			return c, errors.New("outputs must be an array of objects")
+		}
+	}
+	executionCount := take(cm, "execution_count")
+	c.HasExecutionCount = len(executionCount) > 0
+	if c.HasExecutionCount {
+		if err := json.Unmarshal(executionCount, &c.ExecutionCount); err != nil {
+			return c, errors.New("execution_count must be an int64 or null")
+		}
+	}
+	c.Attachments = take(cm, "attachments")
+	if importing {
+		if len(c.Attachments) > 0 {
+			if _, err := object(c.Attachments); err != nil {
+				return c, errors.New("attachments must be an object")
+			}
+		}
+		if c.Kind == domain.CellKindCode {
+			if len(c.Outputs) == 0 {
+				c.Outputs = json.RawMessage("[]")
+			}
+			c.HasExecutionCount = true
+		}
+	}
+	c.Extra = cm
+	return c, nil
 }
 
 // copyFields отделяет изменение состава полей от исходной карты.

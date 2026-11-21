@@ -59,7 +59,7 @@ func NewRouter(srv Server, tokens security.TokenParser, sessions security.Access
 	})
 
 	bounded := middleware.BodyLimit(middleware.AvatarUpload(BaseURL)(r), notebookusecase.MaxSourceBytes, BaseURL+"/notebooks")
-	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(bounded))
+	handler := security.S2S(bffKey, BaseURL)(security.AuthenticateBearer(tokens, sessions)(middleware.NotebookImport(BaseURL)(bounded)))
 	return middleware.RequestID(middleware.Logging(middleware.Recover(middleware.NotebookCachePolicy(BaseURL)(handler)))), nil
 }
 

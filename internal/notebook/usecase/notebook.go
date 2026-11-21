@@ -9,16 +9,24 @@ import (
 
 // NotebookUsecase выполняет пользовательские операции с блокнотами через порты.
 type NotebookUsecase struct {
-	repo     Repository
-	sessions ActiveSessions
-	newID    func() string
-	cursor   ListCursor
+	repo         Repository
+	sessions     ActiveSessions
+	newID        func() string
+	cursor       ListCursor
+	decodeImport ImportDecoder
 }
+
+// Option настраивает зависимости операций блокнота.
+type Option func(*NotebookUsecase)
 
 // NewNotebookUsecase связывает репозиторий repo, источник активных сессий sessions
 // и кодек списка cursor. Идентификаторы ячеек создаются локально.
-func NewNotebookUsecase(repo Repository, sessions ActiveSessions, cursor ListCursor) *NotebookUsecase {
-	return &NotebookUsecase{repo: repo, sessions: sessions, cursor: cursor, newID: uuid.NewString}
+func NewNotebookUsecase(repo Repository, sessions ActiveSessions, cursor ListCursor, options ...Option) *NotebookUsecase {
+	uc := &NotebookUsecase{repo: repo, sessions: sessions, cursor: cursor, newID: uuid.NewString}
+	for _, option := range options {
+		option(uc)
+	}
+	return uc
 }
 
 // Create создаёт блокнот с именем name и начальной ячейкой кода для владельца ownerID.

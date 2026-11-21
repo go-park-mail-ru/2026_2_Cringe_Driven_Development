@@ -34,6 +34,7 @@ var (
 
 // Usecase разделяет чтение посетителями и операции владельца.
 type Usecase interface {
+	Import(ctx context.Context, ownerID int64, name string, raw []byte) (domain.Notebook, int, error)
 	GetSharing(ctx context.Context, id, ownerID int64) (domain.SharingSettings, error)
 	PutSharing(ctx context.Context, id, ownerID int64, mode domain.SharingMode, readerLogins []string) (domain.SharingSettings, error)
 	Clone(ctx context.Context, id, userID int64, name string) (domain.Notebook, error)
